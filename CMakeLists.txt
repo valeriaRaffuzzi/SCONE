@@ -12,6 +12,7 @@ option(LTO         "Enables link-time optimisation"     ON)
 option(COVERAGE    "Collect Coverage Info"              OFF)
 option(DEBUG       "Enable extra run-time checks"       OFF)
 option(OPENMP      "Enable parallelism with OpenMP"     ON)
+option(DAGMC       "Enable support for DAGMC geometry"  OFF)
 
 # Include local cmake modules. TODO: Test on WINDOWS!!!
 set(CMAKE_MODULE_PATH ${CMAKE_MODULE_PATH} "${CMAKE_SOURCE_DIR}/cmake")
@@ -89,6 +90,12 @@ if (BUILD_TESTS)
 
 endif()
 
+# Link with DAGMC 
+if(DAGMC)
+  list(APPEND CMAKE_PREFIX_PATH $ENV{DAGMC_INSTALL})
+  find_package(DAGMC REQUIRED PATH_SUFFIXES lib/cmake)
+endif()
+
 ####################################################################################################
 # IMPORT FUNCTIONS TO COLLECT SOURCE FILES
 include(add_sources)
@@ -131,6 +138,11 @@ target_link_libraries(scone  ${LAPACK_LIBRARIES} )
 
 if(LTO)
   set_property(TARGET scone PROPERTY INTERPROCEDURAL_OPTIMIZATION TRUE)
+endif()
+
+if(DAGMC)
+  target_compile_definitions(scone PRIVATE DAGMC)
+  target_link_libraries(scone dagmc-shared uwuw-shared)
 endif()
 
 ####################################################################################################
@@ -260,6 +272,7 @@ message(STATUS "  Link-time optimisation:     " ${LTO})
 message(STATUS "  Code coverage logging:      " ${COVERAGE})
 message(STATUS "  Extra runtime debug checks: " ${DEBUG})
 message(STATUS "  OpenMP parallelism:         " ${OPENMP})
+message(STATUS "  DAGMC:                      " ${DAGMC})
 message(STATUS "  Fortran compiler:     " ${CMAKE_Fortran_COMPILER})
 message(STATUS "  Compiler version:     " ${CMAKE_Fortran_COMPILER_VERSION})
 message(STATUS "  OpenMP version:       " ${OpenMP_CXX_VERSION})
