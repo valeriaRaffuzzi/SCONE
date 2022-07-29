@@ -41,6 +41,10 @@ if(DEBUG)
   list(APPEND scone_extra_flags "-fcheck=bounds,do,mem,pointer" "-Waliasing")
 endif()
 
+# if DAGMC enabled
+if(DAGMC)
+  find_package(DAGMC REQUIRED PATH_SUFFIXES lib/cmake)
+endif(DAGMC)
 
 # If LTO is requested check if it is supported by compiler
 # LTO flags will be set by CMAKE via `set_property` command later
@@ -125,9 +129,10 @@ add_subdirectory(DataStructures)
 get_property(SRCS GLOBAL PROPERTY SRCS_LIST)
 
 # Compile library
-add_library(scone STATIC ${SRCS})
+add_library(scone SHARED ${SRCS})
 target_compile_options(scone PRIVATE ${scone_extra_flags} )
-target_link_libraries(scone  ${LAPACK_LIBRARIES} )
+target_link_libraries(scone  ${LAPACK_LIBRARIES} dagmc-shared )
+include_directories(${DAGMC_INCLUDE_DIRS})
 
 if(LTO)
   set_property(TARGET scone PROPERTY INTERPROCEDURAL_OPTIMIZATION TRUE)
@@ -136,7 +141,7 @@ endif()
 ####################################################################################################
 # COMPILE SOLVERS
 add_executable(scone.out ./Apps/scone.f90 )
-target_link_libraries(scone.out scone )
+target_link_libraries(scone.out scone dagmc-shared)
 
 ####################################################################################################
 # COMPILE UNIT TESTS
