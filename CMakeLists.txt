@@ -12,7 +12,7 @@ option(LTO         "Enables link-time optimisation"     ON)
 option(COVERAGE    "Collect Coverage Info"              OFF)
 option(DEBUG       "Enable extra run-time checks"       OFF)
 option(OPENMP      "Enable parallelism with OpenMP"     ON)
-option(DAGMC       "Enable support for DAGMC geometry"  OFF)
+option(DAGMC       "Enable use of DAGMC geometry"       OFF)
 
 # Include local cmake modules. TODO: Test on WINDOWS!!!
 set(CMAKE_MODULE_PATH ${CMAKE_MODULE_PATH} "${CMAKE_SOURCE_DIR}/cmake")
@@ -42,6 +42,10 @@ if(DEBUG)
   list(APPEND scone_extra_flags "-fcheck=bounds,do,mem,pointer" "-Waliasing")
 endif()
 
+# if DAGMC enabled
+if(DAGMC)
+  find_package(DAGMC REQUIRED PATH_SUFFIXES lib/cmake)
+endif(DAGMC)
 
 # If LTO is requested check if it is supported by compiler
 # LTO flags will be set by CMAKE via `set_property` command later
@@ -90,12 +94,6 @@ if (BUILD_TESTS)
 
 endif()
 
-# Link with DAGMC 
-if(DAGMC)
-  list(APPEND CMAKE_PREFIX_PATH $ENV{DAGMC_INSTALL})
-  find_package(DAGMC REQUIRED PATH_SUFFIXES lib/cmake)
-endif()
-
 ####################################################################################################
 # IMPORT FUNCTIONS TO COLLECT SOURCE FILES
 include(add_sources)
@@ -132,23 +130,24 @@ add_subdirectory(DataStructures)
 get_property(SRCS GLOBAL PROPERTY SRCS_LIST)
 
 # Compile library
-add_library(scone STATIC ${SRCS})
+add_library(scone SHARED ${SRCS})
 target_compile_options(scone PRIVATE ${scone_extra_flags} )
 target_link_libraries(scone  ${LAPACK_LIBRARIES} )
+
+if(DAGMC)
+  include_directories(${DAGMC_INCLUDE_DIRS})
+  target_link_libraries(scone dagmc-shared)
+endif(DAGMC)
 
 if(LTO)
   set_property(TARGET scone PROPERTY INTERPROCEDURAL_OPTIMIZATION TRUE)
 endif()
 
-if(DAGMC)
-  target_compile_definitions(scone PRIVATE DAGMC)
-  target_link_libraries(scone dagmc-shared uwuw-shared)
-endif()
-
 ####################################################################################################
 # COMPILE SOLVERS
+
 add_executable(scone.out ./Apps/scone.f90 )
-target_link_libraries(scone.out scone )
+target_link_libraries(scone.out scone)
 
 ####################################################################################################
 # COMPILE UNIT TESTS
@@ -272,7 +271,7 @@ message(STATUS "  Link-time optimisation:     " ${LTO})
 message(STATUS "  Code coverage logging:      " ${COVERAGE})
 message(STATUS "  Extra runtime debug checks: " ${DEBUG})
 message(STATUS "  OpenMP parallelism:         " ${OPENMP})
-message(STATUS "  DAGMC:                      " ${DAGMC})
+message(STATUS "  DAGMC geometry:             " ${DAGMC})
 message(STATUS "  Fortran compiler:     " ${CMAKE_Fortran_COMPILER})
 message(STATUS "  Compiler version:     " ${CMAKE_Fortran_COMPILER_VERSION})
 message(STATUS "  OpenMP version:       " ${OpenMP_CXX_VERSION})
