@@ -15,7 +15,7 @@ module universeFactory_func
   use cellUniverse_class,  only : cellUniverse
   use pinUniverse_class,   only : pinUniverse
   use latUniverse_class,   only : latUniverse
-!  use dagmcUniverse_class, only : dagmcUniverse
+  use dagmcUniverse_class, only : dagmcUniverse
 
   implicit none
   private
@@ -26,8 +26,8 @@ module universeFactory_func
   character(nameLen), dimension(*), parameter :: AVAILABLE_UNI = ['rootUniverse ',&
                                                                   'cellUniverse ',&
                                                                   'pinUniverse  ',&
-                                                                  'latUniverse  ']!,&
-                                                                  !'dagmcUniverse']
+                                                                  'latUniverse  ',&
+                                                                  'dagmcUniverse']
 
   ! Public Interface
   public :: new_universe_ptr
@@ -77,8 +77,8 @@ contains
       case ('latUniverse')
         allocate(latUniverse :: ptr)
 
-!      case ('dagmcUniverse')
-!        allocate(dagmcUniverse :: ptr)
+      case ('dagmcUniverse')
+        allocate(dagmcUniverse :: ptr)
 
       case default
         print '(A)', 'AVAILABLE UNIVERSES: '
