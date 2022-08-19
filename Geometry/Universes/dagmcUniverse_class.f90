@@ -2,7 +2,7 @@ module dagmcUniverse_class
 
   use iso_c_binding
   use numPrecision
-  use dagmc_cdef
+  use dagmc_mod 
   use universalVariables, only : UNDEF_MAT, NUDGE
   use genericProcedures,  only : fatalError, numToChar, openToRead
   use dictionary_class,   only : dictionary
@@ -15,11 +15,6 @@ module dagmcUniverse_class
 
   implicit none
   private
-
-  type, private :: dagmcPtr
-    type(c_ptr) :: ptr
-    integer(c_int) :: rval
-  end type dagmcPtr
 
   !!
   !! Local helper class to group cell data
@@ -61,7 +56,6 @@ module dagmcUniverse_class
   !!
   type, public, extends(universe) :: dagmcUniverse
     type(localCell), dimension(:), allocatable :: cells
-    type(dagmcPtr) :: dagmc
   contains
     ! Superclass procedures
     procedure :: init
@@ -73,15 +67,6 @@ module dagmcUniverse_class
   end type dagmcUniverse
 
 contains
-
-  function initDagmc(cfile) result(dagmcInit)
-    character(c_char), intent(in) :: cfile
-    type(dagmcPtr) :: dagmcInit
-
-    dagmcInit % ptr = dagmc_c()
-    dagmcInit % rval = load_file_c(cfile)
-
-  end function initDagmc
 
   !!
   !! Initialise Universe
@@ -95,7 +80,7 @@ contains
     type(cellShelf), intent(inout)                            :: cells
     type(surfaceShelf), intent(inout)                         :: surfs
     type(charMap), intent(in)                                 :: mats
-    integer(shortInt)                                         :: id, stat
+    integer(shortInt)                                         :: id, stat, ec
     integer(shortInt)                                         :: unit = 5
     character(pathLen)                                        :: path
     real(defReal), dimension(:), allocatable                  :: temp
@@ -120,7 +105,7 @@ contains
     ! Close file
     close(unit)
 
-    self % dagmc = initDagmc(file)
+    ec = load_file('dagmc.h5m')
 
     ! Load basic data
     call dict % get(id, 'id')

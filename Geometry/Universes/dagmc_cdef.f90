@@ -1,25 +1,53 @@
-module dagmc_cdef
+! dagmc fortran interface
+module dagmc_mod
+  use iso_c_binding
 
-
-  interface dagmc_ptr
-
-    function dagmc_c() result(dagmc) bind(C, name = "DagMC")
-      use, intrinsic :: iso_c_binding, only : c_ptr
+  interface dagmc1
+    function dagmc_ptr() result(rval) bind(C, name = "create_dagmc_ptr")
+      use, intrinsic :: iso_c_binding, only : c_int
       implicit none
-      type(c_ptr)  :: dagmc
-    end function dagmc_c
+      integer(c_int) :: rval
+    end function dagmc_ptr
+  end interface dagmc1
 
-  end interface dagmc_ptr
-
-  interface dagmc_load
-
-    function load_file_c(cfile) result(rval) bind(C, name = "load_file")
+  interface dagmc2
+      function load_file_c(cfile) result(rval) bind(C, name = "load_file")
       use, intrinsic :: iso_c_binding, only : c_char, c_int
       implicit none
       character(c_char), intent(in) :: cfile
       integer(c_int)                :: rval
     end function load_file_c
+  end interface dagmc2
+  
+  interface dagmc3
+    function init_obb_c() result(rval) bind(C, name = "init_obb")
+      use, intrinsic :: iso_c_binding, only : c_char, c_int
+      implicit none
+      integer(c_int)                :: rval
+    end function init_obb_c
+  end interface dagmc3
+contains 
 
-  end interface dagmc_load
+  !! todo maybe dont even need to expose the ptr 
+   function create_dagmc_ptr() result(rval)
+    use, intrinsic :: iso_c_binding, only : c_int
+    rval = dagmc_ptr()
+   end function create_dagmc_ptr
 
-end module dagmc_cdef
+  !! load file
+   function load_file(cfile) result(rval)
+     use, intrinsic :: iso_c_binding, only : c_char, c_int
+     implicit none
+     character(c_char), intent(in) :: cfile
+     integer(c_int)                :: rval
+     rval = load_file_c(cfile)
+   end function load_file
+
+  !! load file
+   function init_obb() result(rval)
+    implicit none
+    integer(c_int)                :: rval
+    rval = init_obb_c()
+  end function init_obb
+
+end module dagmc_mod
