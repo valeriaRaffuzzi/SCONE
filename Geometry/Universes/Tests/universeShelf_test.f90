@@ -59,7 +59,7 @@ contains
 
     ! Build cells
     call charToDict(dict, CELLS_DEF)
-    call cells % init(dict, surfs, mats)
+    call cells % init(dict, surfs)
     call dict % kill()
 
     ! Build universes
@@ -105,7 +105,7 @@ contains
     @assertEqual(10, ptr % id())
     @assertEqual(10, unis % getID(idx))
 
-    ! Universe ID 21 -> With the fast access 
+    ! Universe ID 21 -> With the fast access
     idx = unis % getIdx(21)
     ptr => unis % getPtr_fast(idx)
     @assertEqual(21, ptr % id())

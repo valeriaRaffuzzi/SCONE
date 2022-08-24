@@ -130,7 +130,7 @@ contains
   !!   localID [in] -> ID of the local cell in the univers
   !!
   !! Errors:
-  !!   If localID is too large or too smal, content from diffrent universe will be read
+  !!   If localID is too large or too small, content from diffrent universe will be read
   !!   For invalid uniRootID any content may be returned
   !!
   elemental subroutine getFill(self, idx, id, uniRootID, localID)
@@ -202,7 +202,6 @@ contains
     do while (loc <= size(self % array))
       ! Read content
       fill = self % array(loc) % idx
-
       ! Set uniRoot ID and layout if is universe
       if (fill < 0) then
         rootID = layed % getOrDefault(abs(fill), NOT_FOUND)
@@ -214,10 +213,12 @@ contains
         end if
         ! Store uniRootID
         self % array(loc) % id = rootID
+
       end if
 
       ! Increment location
       loc = loc + 1
+
     end do
 
     ! Check that top was reached

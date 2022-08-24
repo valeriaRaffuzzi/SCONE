@@ -30,12 +30,13 @@ module cellShelf_class
   !!
   !! Also stores information about the content of the cells in terms of uniID or matIdx.
   !! uniIDs are stored as negative numbers and matIdx as positive.
+  !! NOTE: the filling information is in the definition of cellUniverse
   !!
   !! Sample dictionary input:
   !!   cells {
-  !!     cell1 {<cell definition>; filltype uni; universe 17;}
-  !!     cell2 {<cell definition>; filltype mat; material void;}
-  !!     cell3 {<cell definition>; filltype outside; }
+  !!     cell1 {<cell definition>; }
+  !!     cell2 {<cell definition>; }
+  !!     cell3 {<cell definition>; }
   !!     ...
   !!      }
   !!
@@ -50,6 +51,7 @@ module cellShelf_class
   !!   getIdx  -> Return index of a cell fivent its ID
   !!   getID   -> Return cell ID given its index
   !!   getFill -> Return content of the cell. If -ve it is universe ID. If +ve it is matIdx.
+  !!   addFill -> Adds an entry to the map of cell fillings
   !!   getSize -> Return the number of cells (max cellIdx)
   !!   kill    -> Return to uninitialised state
   !!
@@ -67,6 +69,7 @@ module cellShelf_class
     procedure :: getIdx
     procedure :: getID
     procedure :: getFill
+    procedure :: addFill
     procedure :: getSize
     procedure :: kill
   end type cellShelf
@@ -79,20 +82,16 @@ contains
   !! Args:
   !!   dict [in] -> Dictionary with subdictionaries that contain cell definitions
   !!   surfs [inout] -> Surface shelf with user-defined surfaces
-  !!   mats [in] -> Map of material names to matIdx
   !!
   !! Errors:
   !!   fatalError if there are clashes in cell ID
   !!
-  subroutine init(self, dict, surfs, mats)
+  subroutine init(self, dict, surfs)
     class(cellShelf), intent(inout)               :: self
     class(dictionary), intent(in)                 :: dict
     type(surfaceShelf), intent(inout)             :: surfs
-    type(charMap), intent(in)                     :: mats
     character(nameLen), dimension(:), allocatable :: names
-    class(dictionary), pointer                    :: tempDict
-    character(nameLen)                            :: filling, matName
-    integer(shortInt)                             :: i, id, idx, fill
+    integer(shortInt)                             :: i, id, idx
     integer(shortInt), parameter :: NOT_PRESENT = -7
     character(100), parameter :: Here = 'init (cellShelf_class.f90)'
 
@@ -114,41 +113,10 @@ contains
         call fatalError(Here,'Cells '//trim(names(i))// ' & '//&
                               trim(self % cells(idx) % name)//&
                              ' have the same ID: '//numToChar(id))
-
       else
         call self % idMap % add(id, i)
-
       end if
 
-      ! Load cell content
-      tempDict => dict % getDictPtr(names(i))
-      call tempDict % get(filling, 'filltype')
-
-      select case (filling)
-        case ('outside')
-          call self % fillMap % add(i, OUTSIDE_MAT)
-
-        case ('mat')
-          call tempDict % get(matName, 'material')
-          fill = mats % getOrDefault(matName, NOT_PRESENT)
-
-          if (fill == NOT_PRESENT) then
-            call fatalError(Here, 'Material with name '//trim(matName)//' was not found.')
-          end if
-          call self % fillMap % add(i, fill)
-
-        case ('uni')
-          call tempDict % get(fill, 'universe')
-
-          if (fill <= 0) then
-            call fatalError(Here, 'Universe ID must be +ve. Is :'//numToChar(fill))
-          end if
-          call self % fillMap % add(i, -fill)
-
-        case default
-          call fatalError(Here, 'Unknown type of cell filling: '//trim(filling))
-
-      end select
     end do
 
   end subroutine init
@@ -236,6 +204,24 @@ contains
     id = self % cells(idx) % ptr % id()
 
   end function getId
+
+  !!
+  !! Add new content to map
+  !!
+  !! Args:
+  !!   idx  [in] -> Index of the cell
+  !!   fill [in] -> Fill index
+  !!
+  subroutine addFill(self, idx, fill)
+    class(cellShelf), intent(inout) :: self
+    integer(shortInt), intent(in)   :: idx
+    integer(shortInt), intent(in)   :: fill
+    character(100), parameter :: Here = 'addFill (cellShelf_class.f90)'
+
+    ! Add fill
+    call self % fillMap % add(idx, fill)
+
+  end subroutine addFill
 
   !!
   !! Obtain contents of the cell given by index

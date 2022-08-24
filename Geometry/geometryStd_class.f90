@@ -197,8 +197,8 @@ contains
     type(coordList), intent(inout) :: coords
     real(defReal), intent(inout)   :: maxDist
     integer(shortInt), intent(out) :: event
-    integer(shortInt)              :: surfIdx, level
-    real(defReal)                  :: dist
+    integer(shortInt)              :: surfIdx, level, levelOut, localIdPre, localIdPost
+    real(defReal)                  :: dist, totDist
     class(surface), pointer        :: surf
     class(universe), pointer       :: uni
     character(100), parameter :: Here = 'move (geometryStd_class.f90)'
@@ -207,41 +207,66 @@ contains
       call fatalError(Here, 'Coordinate list is not placed in the geometry')
     end if
 
-    ! Find distance to the next surface
-    call self % closestDist(dist, surfIdx, level, coords)
+    ! Initialise total distance travelled
+    totDist = ZERO
+    ! Loop to account for transition to a cell with the same localID as the previous;
+    ! in that case the particle continues. This happens when there's combined cells in cellUniverse
+    move: do
+      ! Find distance to the next surface
+      call self % closestDist(dist, surfIdx, level, coords)
 
-    if (maxDist < dist) then ! Moves within cell
-      call coords % moveLocal(maxDist, coords % nesting)
-      event = COLL_EV
-      maxDist = maxDist ! Left for explicitness. Compiler will not stand it anyway
+      if (maxDist < dist) then ! Moves within cell
+        call coords % moveLocal(maxDist, coords % nesting)
+        event = COLL_EV
+        totDist = totDist + maxDist
+        maxDist = totDist
+        return
 
-    else if (surfIdx == self % geom % borderIdx .and. level == 1) then ! Hits domain boundary
-      ! Move global to the boundary
-      call coords % moveGlobal(dist)
-      event = BOUNDARY_EV
-      maxDist = dist
+      else if (surfIdx == self % geom % borderIdx .and. level == 1) then ! Hits domain boundary
+        ! Move global to the boundary
+        call coords % moveGlobal(dist)
+        event = BOUNDARY_EV
+        totDist = totDist + dist
+        maxDist = totDist
 
-      ! Get boundary surface and apply BCs
-      surf => self % geom % surfs % getPtr(self % geom % borderIdx)
-      call surf % explicitBC(coords % lvl(1) % r, coords % lvl(1) % dir)
+        ! Get boundary surface and apply BCs
+        surf => self % geom % surfs % getPtr(self % geom % borderIdx)
+        call surf % explicitBC(coords % lvl(1) % r, coords % lvl(1) % dir)
 
-      ! Place back in geometry
-      call self % placeCoord(coords)
+        ! Place back in geometry
+        call self % placeCoord(coords)
+        return
 
-    else ! Crosses to diffrent local cell
-      ! Move to boundary at hit level
-      call coords % moveLocal(dist, level)
-      event = CROSS_EV
-      maxDist = dist
+      else ! Crosses to diffrent local cell
 
-      ! Get universe and cross to the next cell
-      uni => self % geom % unis % getPtr_fast(coords % lvl(level) % uniIdx)
-      call uni % cross(coords % lvl(level), surfIdx)
+          ! Move to boundary at hit level
+          call coords % moveLocal(dist, level)
+          event = CROSS_EV
+          totDist = totDist + dist
+          ! Update the remaining distance to be travelled
+          maxDist = maxDist - dist
+          ! Save localID of the initial cell
+          localIdPre = coords % lvl(level) % localID
 
-      ! Get material
-      call self % diveToMat(coords, level)
+          ! Get universe and cross to the next cell
+          uni => self % geom % unis % getPtr_fast(coords % lvl(level) % uniIdx)
+          call uni % cross(coords % lvl(level), surfIdx)
+          ! Save localID of the cell the particle moved into
+          localIdPost = coords % lvl(level) % localID
 
-    end if
+          ! Get material
+          call self % diveToMat(coords, level, levelOut)
+
+          ! Leave the loop only if the particle moved to a nested universe or
+          ! to a cell with different localID
+          if ((level /= levelOut) .or. (localIdPre /= localIdPost)) then
+            maxDist = totDist
+            return
+          end if
+
+      end if
+
+    end do move
 
   end subroutine move_noCache
 
@@ -258,8 +283,8 @@ contains
     real(defReal), intent(inout)   :: maxDist
     integer(shortInt), intent(out) :: event
     type(distCache), intent(inout) :: cache
-    integer(shortInt)              :: surfIdx, level
-    real(defReal)                  :: dist
+    integer(shortInt)              :: surfIdx, level, levelOut, localIdPre, localIdPost
+    real(defReal)                  :: dist, totDist
     class(surface), pointer        :: surf
     class(universe), pointer       :: uni
     character(100), parameter :: Here = 'move_withCache (geometryStd_class.f90)'
@@ -268,45 +293,70 @@ contains
       call fatalError(Here, 'Coordinate list is not placed in the geometry')
     end if
 
-    ! Find distance to the next surface
-    call self % closestDist_cache(dist, surfIdx, level, coords, cache)
+    ! Initialise total distance travelled
+    totDist = ZERO
+    ! Loop to account for transition to a cell with the same localID as the previous;
+    ! in that case the particle continues. This happens when there's combined cells in cellUniverse
+    move: do
+      ! Find distance to the next surface
+      call self % closestDist_cache(dist, surfIdx, level, coords, cache)
 
-    if (maxDist < dist) then ! Moves within cell
-      call coords % moveLocal(maxDist, coords % nesting)
-      event = COLL_EV
-      maxDist = maxDist ! Left for explicitness. Compiler will not stand it anyway
-      cache % lvl = 0
+      if (maxDist < dist) then ! Moves within cell
+        call coords % moveLocal(maxDist, coords % nesting)
+        event = COLL_EV
+        totDist = totDist + maxDist
+        maxDist = totDist ! Left for explicitness. Compiler will not stand it anyway
+        cache % lvl = 0
+        return
 
-    else if (surfIdx == self % geom % borderIdx .and. level == 1) then ! Hits domain boundary
-      ! Move global to the boundary
-      call coords % moveGlobal(dist)
-      event = BOUNDARY_EV
-      maxDist = dist
-      cache % lvl = 0
+      else if (surfIdx == self % geom % borderIdx .and. level == 1) then ! Hits domain boundary
+        ! Move global to the boundary
+        call coords % moveGlobal(dist)
+        event = BOUNDARY_EV
+        totDist = totDist + dist
+        maxDist = totDist
+        cache % lvl = 0
 
-      ! Get boundary surface and apply BCs
-      surf => self % geom % surfs % getPtr(self % geom % borderIdx)
-      call surf % explicitBC(coords % lvl(1) % r, coords % lvl(1) % dir)
+        ! Get boundary surface and apply BCs
+        surf => self % geom % surfs % getPtr(self % geom % borderIdx)
+        call surf % explicitBC(coords % lvl(1) % r, coords % lvl(1) % dir)
 
-      ! Place back in geometry
-      call self % placeCoord(coords)
+        ! Place back in geometry
+        call self % placeCoord(coords)
+        return
 
-    else ! Crosses to diffrent local cell
-      ! Move to boundary at hit level
-      call coords % moveLocal(dist, level)
-      event = CROSS_EV
-      maxDist = dist
-      cache % dist(1:level-1) = cache % dist(1:level-1) - dist
-      cache % lvl = level - 1
+      else ! Crosses to diffrent local cell
+        ! Move to boundary at hit level
+        call coords % moveLocal(dist, level)
+        event = CROSS_EV
+        totDist = totDist + dist
+        ! Update the remaining distance to be travelled
+        maxDist = maxDist - dist
+        cache % dist(1:level-1) = cache % dist(1:level-1) - dist
+        cache % lvl = level - 1
 
-      ! Get universe and cross to the next cell
-      uni => self % geom % unis % getPtr_fast(coords % lvl(level) % uniIdx)
-      call uni % cross(coords % lvl(level), surfIdx)
+        ! Save localID of the initial cell
+        localIdPre = coords % lvl(level) % localID
 
-      ! Get material
-      call self % diveToMat(coords, level)
+        ! Get universe and cross to the next cell
+        uni => self % geom % unis % getPtr_fast(coords % lvl(level) % uniIdx)
+        call uni % cross(coords % lvl(level), surfIdx)
+        ! Save localID of the cell the particle moved into
+        localIdPost = coords % lvl(level) % localID
 
-    end if
+        ! Get material
+        call self % diveToMat(coords, level, levelOut)
+
+        ! Leave the loop only if the particle moved to a nested universe or
+        ! to a cell with different localID
+        if ((level /= levelOut) .or. (localIdPre /= localIdPost)) then
+          maxDist = totDist
+          return
+        end if
+
+      end if
+
+    end do move
 
   end subroutine move_withCache
 
@@ -422,18 +472,20 @@ contains
   !! Args:
   !!   coords [inout] -> CoordList of a particle. Assume thet coords are already valid for all
   !!     levels above and including start
-  !!   start [in] -> Starting level for meterial search
+  !!   start [in]    -> Starting level for meterial search
+  !!   level [out]   -> Optional - level of the universe the particle is in
   !!
   !! Errors:
   !!   fatalError if material cell is not found untill maximum nesting is reached
   !!
-  subroutine diveToMat(self, coords, start)
-    class(geometryStd), intent(in) :: self
-    type(coordList), intent(inout) :: coords
-    integer(shortInt), intent(in)  :: start
-    integer(shortInt)              :: rootID, localID, fill, id, i
-    class(universe), pointer       :: uni
-    real(defReal), dimension(3)    :: offset
+  subroutine diveToMat(self, coords, start, lvl)
+    class(geometryStd), intent(in)           :: self
+    type(coordList), intent(inout)           :: coords
+    integer(shortInt), intent(in)            :: start
+    integer(shortInt), intent(out), optional :: lvl
+    integer(shortInt)                        :: rootID, localID, fill, id, i
+    class(universe), pointer                 :: uni
+    real(defReal), dimension(3)              :: offset
     character(100), parameter :: Here = 'diveToMat (geometryStd_class.f90)'
 
     do i = start, HARDCODED_MAX_NEST
@@ -445,6 +497,7 @@ contains
       if (fill >= 0) then ! Found material cell
         coords % matIdx   = fill
         coords % uniqueID = id
+        if (present(lvl)) lvl = i
         return
 
       else ! Universe fill descend a level
@@ -470,7 +523,7 @@ contains
     end do
 
     call fatalError(Here, 'Failed to find material cell. Should not happen after &
-                          &geometry checks during build...')
+                          & geometry checks during build...')
 
   end subroutine diveToMat
 

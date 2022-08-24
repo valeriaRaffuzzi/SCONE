@@ -16,12 +16,15 @@ module cellUniverse_test
 
   ! Parameters
   character(*), parameter :: SURF_DEF = &
-  " surf1 { id 1; type sphere; origin (0.0 0.0 0.0); radius 2;}&
-  & surf2 { id 2; type sphere; origin (4.0 0.0 0.0); radius 1;}"
+  " surf1 { id 1; type sphere; origin (0.0 0.0 0.0); radius 2;} &
+  & surf2 { id 2; type sphere; origin (4.0 0.0 0.0); radius 1;} &
+  & surf3 { id 3; type sphere; origin (6.0 0.0 0.0); radius 1;} "
 
   character(*), parameter :: CELL_DEF = &
-  " cell1 {id 1; type simpleCell; surfaces (-1); filltype uni; universe 3;} &
-  & cell2 {id 2; type simpleCell; surfaces (1 2); filltype uni; universe 4;}"
+  " cell1 {id 1; type simpleCell; surfaces (-1);    } &
+  & cell2 {id 2; type simpleCell; surfaces (-2);    } &
+  & cell3 {id 3; type simpleCell; surfaces (1 2 3); } &
+  & cell4 {id 4; type simpleCell; surfaces (-3);} "
 
 
   !
@@ -31,7 +34,8 @@ module cellUniverse_test
   !   z -> x
   !
   character(*), parameter :: UNI_DEF = &
-  "id 1; type cellUniverse; origin (2.0 0.0 0.0); rotation (90.0 90.0 90.0); cells (1 2);"
+  "id 1; type cellUniverse; origin (2.0 0.0 0.0); rotation (90.0 90.0 90.0); &
+  & cells (3 4); fills (u<3> fuel); combined { 4 (1 2); }"
 
   ! Variables
   type(surfaceShelf) :: surfs
@@ -47,16 +51,19 @@ contains
 @Before
   subroutine setUp()
     integer(shortInt), dimension(:), allocatable :: fill
-    type(dictionary) :: dict
+    character(nameLen) :: name
+    type(dictionary)   :: dict
 
     ! Build surfaces and MATS
+    name = 'fuel'
+    call mats % add(name, 1)
 
     call charToDict(dict, SURF_DEF)
     call surfs % init(dict)
     call dict % kill()
 
     call charToDict(dict, CELL_DEF)
-    call cells % init(dict, surfs, mats)
+    call cells % init(dict, surfs)
     call dict % kill()
 
     ! Build universe
@@ -68,7 +75,7 @@ contains
     call uni % setIdx(8)
 
     ! Verify fill
-    @assertEqual([-3, -4, UNDEF_MAT], fill)
+    @assertEqual([-3, 1, 1, UNDEF_MAT], fill)
 
   end subroutine setUp
 
@@ -122,25 +129,10 @@ contains
     @assertEqual(r_ref, new % r, TOL )
     @assertEqual(u_ref, new % dir, TOL)
     @assertEqual(8, new % uniIdx)
-    @assertEqual(1, new % localID)
+    @assertEqual(2, new % localID)
     @assertEqual(cells % getIdx(1), new % cellIdx)
 
     ! ** Enter into local cell 2
-    r = [2.0_defReal, 0.0_defReal, 1.0_defReal]
-    dir = [ZERO, ONE, ZERO]
-
-    call uni % enter(new, r, dir)
-
-    ! Verify location
-    r_ref = [-1.0_defReal, 0.0_defReal, 2.0_defReal]
-    u_ref = [ZERO, -ONE, ZERO]
-    @assertEqual(r_ref, new % r, TOL )
-    @assertEqual(u_ref, new % dir, TOL)
-    @assertEqual(8, new % uniIdx)
-    @assertEqual(2, new % localID)
-    @assertEqual(cells % getIdx(2), new % cellIdx)
-
-    ! ** Enter into the UNDEFINED cell
     r = [0.0_defReal, 0.0_defReal, 6.5_defReal]
     dir = [ONE, ZERO, ZERO]
 
@@ -152,7 +144,37 @@ contains
     @assertEqual(r_ref, new % r, TOL )
     @assertEqual(u_ref, new % dir, TOL)
     @assertEqual(8, new % uniIdx)
-    @assertEqual(3, new % localID)
+    @assertEqual(2, new % localID)
+    @assertEqual(cells % getIdx(2), new % cellIdx)
+
+    ! ** Enter into local cell 3
+    r = [2.0_defReal, 0.0_defReal, 1.0_defReal]
+    dir = [ZERO, ONE, ZERO]
+
+    call uni % enter(new, r, dir)
+
+    ! Verify location
+    r_ref = [-1.0_defReal, 0.0_defReal, 2.0_defReal]
+    u_ref = [ZERO, -ONE, ZERO]
+    @assertEqual(r_ref, new % r, TOL )
+    @assertEqual(u_ref, new % dir, TOL)
+    @assertEqual(8, new % uniIdx)
+    @assertEqual(1, new % localID)
+    @assertEqual(cells % getIdx(3), new % cellIdx)
+
+    ! ** Enter into the UNDEFINED cell
+    r = [0.0_defReal, 0.0_defReal, 8.0_defReal]
+    dir = [ONE, ZERO, ZERO]
+
+    call uni % enter(new, r, dir)
+
+    ! Verify location
+    r_ref = [6.0_defReal, 0.0_defReal, 0.0_defReal]
+    u_ref = [ZERO, ZERO, ONE]
+    @assertEqual(r_ref, new % r, TOL )
+    @assertEqual(u_ref, new % dir, TOL)
+    @assertEqual(8, new % uniIdx)
+    @assertEqual(4, new % localID)
     @assertEqual(0, new % cellIdx)
 
     ! Verify rotation settings in coord
@@ -175,12 +197,12 @@ contains
     type(coord)       :: pos
     real(defReal), parameter :: TOL = 1.0E-7_defReal
 
-    ! ** In local cell 1 distance to boundary
+    ! ** In cell 1 distance to boundary
     pos % r = [-1.0_defReal, 0.0_defReal, 0.0_defReal]
     pos % dir = [ONE, ZERO, ZERO]
     pos % uniIdx  = 8
     pos % cellIdx = cells % getIdx(1)
-    pos % localId = 1
+    pos % localId = 2
 
     call uni % distance(d, surfIdx, pos)
 
@@ -189,11 +211,11 @@ contains
     @assertEqual(surfs % getIdx(1), surfIdx )
 
 
-    ! ** In local cell 2 distance to surface 2
+    ! ** In cell 3 distance to surface 2
     pos % r = [7.0_defReal, 0.0_defReal, 0.0_defReal]
     pos % dir = [-ONE, ZERO, ZERO]
-    pos % cellIdx = cells % getIdx(2)
-    pos % localId = 2
+    pos % cellIdx = cells % getIdx(3)
+    pos % localId = 1
 
     call uni % distance(d, surfIdx, pos)
 
@@ -201,7 +223,7 @@ contains
     @assertEqual(ref, d, TOL * ref)
     @assertEqual(surfs % getIdx(2), surfIdx )
 
-    ! ** In local cell 2 distance to infintity
+    ! ** In cell 3 distance to infintity
     ! surfIdx must be set to 0
     pos % dir = [ONE, ZERO, ZERO]
     call uni % distance(d, surfIdx, pos)
@@ -219,18 +241,18 @@ contains
     type(coord)       :: pos
     integer(shortInt) :: idx
 
-    ! Cross from cell 1 to cell 2
+    ! Cross from cell 1 to cell 3
     pos % r   = [0.0_defReal, 2.0_defReal, 0.0_defReal]
     pos % dir = [ZERO, ONE, ZERO]
     pos % uniIdx = 8
     pos % cellIdx = cells % getIdx(1)
-    pos % localId = 1
+    pos % localId = 2
 
     idx = surfs % getIdx(1)
     call uni % cross(pos, idx)
 
-    @assertEqual(2, pos % localId)
-    @assertEqual(cells % getIdx(2), pos % cellIdx)
+    @assertEqual(1, pos % localId)
+    @assertEqual(cells % getIdx(3), pos % cellIdx)
 
   end subroutine test_cross
 

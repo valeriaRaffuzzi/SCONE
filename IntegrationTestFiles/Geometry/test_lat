@@ -8,8 +8,8 @@ surfaces {
  }
   
 cells { 
-  sqPinIn {id 1; type simpleCell; surfaces (-2); filltype mat; material uox; }
-  sqPinOut {id 2; type simpleCell; surfaces (2); filltype mat; material water;}  
+  sqPinIn {id 1; type simpleCell; surfaces (-2); }
+  sqPinOut {id 2; type simpleCell; surfaces (2); }  
  }
   
 universes { 
@@ -17,7 +17,7 @@ universes {
     
   // Pin universes 
   pin31 { id 31; type pinUniverse; radii (0.5400 0.0 ); fills (mox43 water);}
-  sqPin { id 32; type cellUniverse; cells (1 2);} 
+  sqPin { id 32; type cellUniverse; cells (1 2); fills (uox water);} 
 
   lat10 {id 10; type latUniverse; shape (2 2 0); pitch (1.26 1.26 0.0); padMat water; map (31 32 32 31);}
 

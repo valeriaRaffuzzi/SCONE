@@ -106,7 +106,7 @@ contains
 
     ! Build Cells
     if (loud) print *, "Building Cells"
-    call self % cells % init(dict % getDictPtr('cells'), self % surfs, mats)
+    call self % cells % init(dict % getDictPtr('cells'), self % surfs)
     if (loud) print *, "DONE!"
 
     ! Build Universes

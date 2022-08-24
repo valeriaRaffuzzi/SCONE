@@ -25,7 +25,7 @@ module rootUniverse_class
   !! Is composed of two regions. Inside and outside seperated by a single surface.
   !! Inside is the -ve halfspace of the boundary surface
   !! +ve halfspace is OUTSIDE
-  !! Filling can be universe given by ID (`u<67` syntax) or a material given by name (e.g. 'fuel')
+  !! Filling can be universe given by ID (`u<6>` syntax) or a material given by name (e.g. 'fuel')
   !!
   !! Local ID 1 is inside. 2 is outside.
   !!

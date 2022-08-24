@@ -18,12 +18,13 @@ module cellShelf_test
   & surf3 {id 9; type zPlane; z0 0.0;} &
   & surf4 {id 10; type zPlane; z0 1.0;}"
 
+  ! Cells filled with: outside, universe 8, void, fuel, pecorino
   character(*), parameter :: CELLS_DEF = &
-  " cell1 {id 4; type simpleCell; surfaces (7); filltype outside;} &
-  & cell2 {id 2; type simpleCell; surfaces (-7 10); filltype uni; universe 8;} &
-  & cell3 {id 1; type simpleCell; surfaces (-7 -10 9); filltype mat; material void;} &
-  & cell4 {id 5; type simpleCell; surfaces (-7 -9 8); filltype mat; material fuel;} &
-  & cell5 {id 8; type simpleCell; surfaces (-7 -8); filltype mat; material pecorino;}"
+  " cell1 {id 4; type simpleCell; surfaces (7); } &
+  & cell2 {id 2; type simpleCell; surfaces (-7 10); } &
+  & cell3 {id 1; type simpleCell; surfaces (-7 -10 9); } &
+  & cell4 {id 5; type simpleCell; surfaces (-7 -9 8); } &
+  & cell5 {id 8; type simpleCell; surfaces (-7 -8); } "
 
 
   ! Variables
@@ -38,25 +39,35 @@ contains
   !!
 @Before
   subroutine setUp()
-    type(dictionary) :: dict
+    type(dictionary)   :: dict
     character(nameLen) :: name
+    integer(shortInt)  :: idx
 
     ! Surface shelf
     call charToDict(dict, SURFS_DEF)
     call surfs % init(dict)
     call dict % kill()
 
-    ! Material map
-    name = 'void'
-    call mats % add(name, VOID_MAT)
-    name = 'fuel'
-    call mats % add(name, 1)
-    name = 'pecorino'
-    call mats % add(name, 2)
-
     ! Build cells
     call charToDict(dict, CELLS_DEF)
-    call cells % init(dict, surfs, mats)
+    call cells % init(dict, surfs)
+
+    ! Populate fillMap
+    ! Outside
+    idx = cells % getIdx(4)
+    call cells % addFill(idx, OUTSIDE_MAT)
+    ! Universe 8
+    idx = cells % getIdx(2)
+    call cells % addFill(idx, -8)
+    ! Void
+    idx = cells % getIdx(1)
+    call cells % addFill(idx, VOID_MAT)
+    ! Fuel
+    idx = cells % getIdx(5)
+    call cells % addFill(idx, 1)
+    ! Pecorino
+    idx = cells % getIdx(8)
+    call cells % addFill(idx, 2)
 
   end subroutine setUp
 
