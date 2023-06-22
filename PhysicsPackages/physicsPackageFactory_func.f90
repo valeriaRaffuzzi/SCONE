@@ -15,6 +15,7 @@ module physicsPackageFactory_func
   use fixedSourcePhysicsPackage_class, only : fixedSourcePhysicsPackage
   use vizPhysicsPackage_class,         only : vizPhysicsPackage
   use rayVolPhysicsPackage_class,      only : rayVolPhysicsPackage
+  use rampEigenPhysicsPackage_class,   only : rampEigenPhysicsPackage
 !  use dynamPhysicsPackage_class, only : dynamPhysicsPackage
 
   implicit none
@@ -28,7 +29,8 @@ module physicsPackageFactory_func
   character(nameLen),dimension(*),parameter :: AVAILABLE_physicsPackages = [ 'eigenPhysicsPackage      ',&
                                                                              'fixedSourcePhysicsPackage',&
                                                                              'vizPhysicsPackage        ',&
-                                                                             'rayVolPhysicsPackage     ']
+                                                                             'rayVolPhysicsPackage     ',&
+                                                                             'rampEigenPhysicsPackage  ']
 
   !!
   !! Public interface
@@ -70,6 +72,15 @@ contains
           type is (fixedSourcePhysicsPackage)
             call new % init(dict)
         end select
+
+      case('rampEigenPhysicsPackage')
+        ! Allocate and initialise
+        allocate( rampEigenPhysicsPackage :: new)
+        select type(new)
+          type is (rampEigenPhysicsPackage)
+            call new % init(dict)
+        end select
+
 !
 !      case('dynamPhysicsPackage')
 !        ! Allocate and initialise

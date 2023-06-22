@@ -6,5 +6,6 @@ add_sources( ./physicsPackage_inter.f90
 	           ./fixedSourcePhysicsPackage_class.f90
              ./vizPhysicsPackage_class.f90
              ./rayVolPhysicsPackage_class.f90
+             ./rampEigenPhysicsPackage_class.f90
              )
              #./dynamPhysicsPackage_class.f90)
