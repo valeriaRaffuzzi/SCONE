@@ -195,7 +195,7 @@ contains
 
       ! Sample number of fission sites generated
       ! Support -ve weight particles
-      n = int(abs( (wgt * sig_nufiss) / (w0 * sig_tot * k_eff)) + rand1, shortInt)
+      n = int(p % ramping * abs( (wgt * sig_nufiss) / (w0 * sig_tot * k_eff)) + rand1, shortInt)
 
       ! Shortcut particle generation if no particles were sampled
       if (n < 1) return

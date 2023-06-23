@@ -151,14 +151,14 @@ contains
     logical(defBool), intent(in)              :: ramping
     type(particleDungeon), save               :: buffer
     integer(shortInt)                         :: i, n, Nstart, Nend, nParticles, normPop, &
-                                                 & nCyclesTot, nRampCycles, countRampCycles
+                                                 & nCyclesTot, nRampCycles
     class(tallyResult),allocatable            :: res
     type(collisionOperator), save             :: collOp
     class(transportOperator),allocatable,save :: transOp
     type(RNG), target, save                   :: pRNG
     type(particle), save                      :: neutron
     real(defReal)                             :: k_old, k_new, elapsed_T, end_T, &
-                                                 & T_toEnd, cycleRatio
+                                                 & T_toEnd, cycleRatio, rampFactor
     character(100),parameter :: Here ='cycles (eigenPhysicsPackage_class.f90)'
     !$omp threadprivate(neutron, buffer, collOp, transOp, pRNG)
 
@@ -185,10 +185,11 @@ contains
       cycleRatio = self % pop / self % initialPop
       nRampCycles = ceiling(log(cycleRatio) / log(TWO))
       nCyclesTot = N_cycles + nRampCycles
-      countRampCycles = 0
     else
       nCyclesTot = N_cycles
     end if
+
+    rampFactor = ONE
 
     do i = 1,nCyclesTot
 
@@ -209,6 +210,7 @@ contains
 
         ! Obtain particle current cycle dungeon
         call self % thisCycle % copy(neutron, n)
+        neutron % ramping = rampFactor
 
         bufferLoop: do
           call self % geom % placeCoord(neutron % coords)
@@ -254,14 +256,24 @@ contains
       end if
 
       ! Normalise population
-      if (ramping .and. i >= N_cycles .and. i < (nCyclesTot - 1) ) then
-        countRampCycles = countRampCycles + 1
-        normPop = self % initialPop * 2**countRampCycles
-
-      elseif (ramping .and. i < N_cycles) then
+      if (ramping .and. i < N_cycles) then
+        rampFactor = ONE
         normPop = self % initialPop
 
+      elseif (ramping .and. i == N_cycles ) then
+        rampFactor = TWO
+        normPop = self % initialPop
+
+      elseif (ramping .and. i > N_cycles .and. i < (nCyclesTot - 1)) then
+        rampFactor = TWO
+        normPop = Nstart * 2
+
+      elseif (ramping .and. i == (nCyclesTot - 1) ) then
+        rampFactor = self % pop/Nstart/TWO
+        normPop = Nstart * 2
+
       else
+        rampFactor = ONE
         normPop = self % pop
 
       end if

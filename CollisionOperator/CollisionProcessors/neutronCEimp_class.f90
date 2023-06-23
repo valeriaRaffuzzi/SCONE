@@ -276,10 +276,10 @@ contains
       ! Support -ve weight particles
       if (self % uniFissSites) then
         val = self % ufsField % at(p)
-        n = int(abs( (wgt * sig_nufiss) / (sig_tot * k_eff))*val(1)/val(2) + rand1, shortInt)
+        n = int(p % ramping * abs( (wgt * sig_nufiss) / (sig_tot * k_eff))*val(1)/val(2) + rand1, shortInt)
         wgt =  val(2)/val(1)
       else
-        n = int(abs( (wgt * sig_nufiss) / (sig_tot * k_eff)) + rand1, shortInt)
+        n = int(p % ramping * abs( (wgt * sig_nufiss) / (sig_tot * k_eff)) + rand1, shortInt)
         wgt =  sign(ONE, wgt)
       end if
 
@@ -380,10 +380,10 @@ contains
       ! Note change of denominator (sig_fiss) wrt implicit generation
       if (self % uniFissSites) then
         val = self % ufsField % at(p)
-        n = int(abs( (wgt * sig_nufiss) / (sig_fiss * k_eff))*val(1)/val(2) + rand1, shortInt)
+        n = int(p % ramping * abs( (wgt * sig_nufiss) / (sig_fiss * k_eff))*val(1)/val(2) + rand1, shortInt)
         wgt =  val(2)/val(1)
       else
-        n = int(abs( (wgt * sig_nufiss) / (sig_fiss * k_eff)) + rand1, shortInt)
+        n = int(p % ramping * abs( (wgt * sig_nufiss) / (sig_fiss * k_eff)) + rand1, shortInt)
         wgt =  sign(ONE, wgt)
       end if
 
