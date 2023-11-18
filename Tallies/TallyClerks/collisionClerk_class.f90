@@ -255,9 +255,12 @@ contains
     class(outputFile), intent(inout)           :: outFile
     type(scoreMemory), intent(in)              :: mem
     real(defReal)                              :: val, std
-    integer(shortInt)                          :: i
+    integer(shortInt)                          :: i, Nsamples
     integer(shortInt),dimension(:),allocatable :: resArrayShape
     character(nameLen)                         :: name
+
+    integer(shortInt)                      :: deleteMeN
+    real(defReal)                          :: deleteMeinv_N, deleteMeinv_Nm1, deleteMe
 
     ! Begin block
     call outFile % startBlock(self % getName())
@@ -280,11 +283,19 @@ contains
     call outFile % startArray(name, resArrayShape)
 
     ! Print results to the file
-    do i=1,product(resArrayShape)
-      call mem % getResult(val, std, self % getMemAddress() - 1 + i)
-      call outFile % addResult(val,std)
+    if(allocated(mem % batchPops)) then
+      do i=1,product(resArrayShape)
+        Nsamples = mem % batchPops(i)
+        call mem % getResult(val, std, self % getMemAddress() - 1 + i, Nsamples)
+        call outFile % addResult(val,std)
+      end do
 
-    end do
+    else
+      do i=1,product(resArrayShape)
+        call mem % getResult(val, std, self % getMemAddress() - 1 + i)
+        call outFile % addResult(val,std)
+      end do
+    end if
 
     call outFile % endArray()
     call outFile % endBlock()

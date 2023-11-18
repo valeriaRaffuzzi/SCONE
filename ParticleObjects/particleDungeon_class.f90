@@ -27,8 +27,8 @@ module particleDungeon_class
   !! Dungeon can work like stacks or arrays. Stack-like behaviour is not really thread safe
   !! so it can be utilised when collecting and processing secondary particles in history
   !! that should be processed during the course of one cycle. Alternatively, one can use the
-  !! critical variations of the stack-like procedures. 
-  !! Array-like behaviour allows to easily distribute particles among threads. As long as indices 
+  !! critical variations of the stack-like procedures.
+  !! Array-like behaviour allows to easily distribute particles among threads. As long as indices
   !! assigned to different threads do not overlap, reading is thread-safe (I hope-MAK).
   !!
   !!
@@ -86,11 +86,17 @@ module particleDungeon_class
     procedure  :: isEmpty
     procedure  :: normWeight
     procedure  :: normSize
+    procedure  :: normCombing
     procedure  :: cleanPop
     procedure  :: popSize
     procedure  :: popWeight
     procedure  :: setSize
     procedure  :: printToFile
+
+    !! Precursor procedures
+    procedure  :: precursorRoulette
+    procedure  :: precursorCombing
+    procedure  :: totalTimedWeight
 
     ! Private procedures
     procedure, private :: detain_particle
@@ -170,18 +176,18 @@ contains
     ! Increase population and weight
     self % pop = self % pop + 1
     pop = self % pop
-    
+
     ! Check for population overflow
     if (pop > size(self % prisoners)) then
       call fatalError(Here,'Run out of space for particles.&
                            & Max size:'//numToChar(size(self % prisoners)) //&
                             ' Current population: ' // numToChar(self % pop))
     end if
-    
+
     ! Load new particle
     self % prisoners(pop) = p
     !$omp end critical (dungeon)
-    
+
   end subroutine detainCritical_particle
 
   !!
@@ -224,16 +230,16 @@ contains
     !$omp critical (dungeon)
     self % pop = self % pop + 1
     pop = self % pop
-    
+
     ! Check for population overflow
     if (pop > size(self % prisoners)) then
       call fatalError(Here,'Run out of space for particles.&
                            & Max size:'//numToChar(size(self % prisoners)) //&
                             ' Current population: ' // numToChar(self % pop))
     end if
-   
+
     ! Load new particle
-    self % prisoners(pop) = p_state 
+    self % prisoners(pop) = p_state
     !$omp end critical (dungeon)
 
   end subroutine detainCritical_particleState
@@ -272,11 +278,11 @@ contains
     ! Decrease population
     pop = self % pop
     self % pop = self % pop - 1
-    
+
     ! Load data into the particle
     p = self % prisoners(pop)
     !$omp end critical (dungeon)
-    
+
     p % isDead = .false.
 
   end subroutine releaseCritical
@@ -437,6 +443,182 @@ contains
   end subroutine normSize
 
   !!
+  !! Normalise the population using combing
+  !! Presevers total weight
+  !!
+  subroutine normCombing(self, N, rand)
+    class(particleDungeon), intent(inout)    :: self
+    integer(shortInt), intent(in)            :: N
+    integer(shortInt)                        :: i, j
+    class(RNG), intent(inout)                :: rand
+    real(defReal)                            :: w_av, nextTooth, curWeight
+    real(defReal), dimension(self % pop)     :: w_array
+    type(particleState), dimension(N)        :: newPrisoners
+    character(100), parameter :: Here =' normCombing (particleDungeon_class.f90)'
+
+    ! Protect against invalid N
+    ! From normSize
+    if( N > size(self % prisoners)) then
+      call fatalError(Here,'Requested size: '//numToChar(N) //&
+                           'is greather then max size: '//numToChar(size(self % prisoners)))
+    else if ( N <= 0 ) then
+      call fatalError(Here,'Requested size: '//numToChar(N) //' is not +ve')
+    end if
+
+    ! Get tooth length/new particle weight
+    w_av = self % popWeight() / N
+
+    ! Fill array with each prisoner weight (probably neater way to do this)
+    do i=1, self % pop
+      w_array(i) = self % prisoners(i) % wgt
+    end do
+
+    ! Get the location of the first tooth
+    nextTooth = rand % get() * w_av
+
+    ! Set variable to store current sum of prisoners weight
+    curWeight = ZERO
+
+    j=1
+   !print *, 'pop: ', numToChar(self % pop)
+   !print *, 'w_av: ', numToChar(w_av)
+   !print *, 'target pop: ', numToChar(N)
+
+    do i=1, N
+      !print *, ' '
+      !print *, 'j: ', numToChar(j)
+     !print *, 'i: ', numToChar(i)
+     !print *, 'curWeight: ', numToChar(curWeight)
+     !print *, 'wgt: ', numToChar(self % prisoners(j) % wgt)
+     !print *, 'nextTooth: ', numToChar(nextTooth)
+      ! Iterate over current particles
+      ! until a tooth falls within bounds of particle weight
+      do while (curWeight + self % prisoners(j) % wgt < nextTooth)
+       !print *, '  j: ', numToChar(j)
+       !print *, '  curWeight: ', numToChar(curWeight)
+       !print *, '  nextTooth: ', numToChar(nextTooth)
+        curWeight = curWeight + self % prisoners(j) % wgt
+        j = j + 1
+      end do
+
+      ! When a particle has been found...
+      newPrisoners(i) = self % prisoners(j)     ! Add to new array
+      newPrisoners(i) % wgt = w_av              ! Update weight
+      nextTooth = nextTooth + w_av              ! Update position of tooth
+    end do
+
+    ! Re-size the dungeon to new size
+    call self % setSize(N)
+
+    ! Replace the particle at each index with the new particles
+    do i=1, N
+      call self % replace_particleState(newPrisoners(i), i)
+    end do
+  end subroutine normCombing
+
+  !!
+  !! Normalises precusor population
+  !! Done according to expected neutron weight in
+  !! DOES NOT WORK YET DO NOT USE
+  !!
+  subroutine precursorRoulette(self, N, rand, t1, step_T)
+    class(particleDungeon), intent(inout)    :: self
+    integer(shortInt), intent(in)            :: N
+    class(RNG), intent(inout)                :: rand
+    real(defReal), intent(in)                :: t1, step_T
+    integer(shortInt)                        :: i
+    type(particle)                           :: p
+    real(defReal), dimension(N)              :: weights
+
+    character(100), parameter :: Here =' precursorRoulette (particleDungeon_class.f90)'
+
+    call self % normSize(N, rand)
+
+    do i=1, N
+      call self % copy(p, i)
+      weights(i) = p % w
+      p % w = p % getExpPrecWeight(t1, step_T)
+      call self % replace(p, i)
+    end do
+
+    do i=1, N
+      call self % copy(p, i)
+      p % w = weights(i)
+      call self % replace(p, i)
+    end do
+  end subroutine precursorRoulette
+
+  !!
+  !! Normalises precusor population by combing
+  !! Done according to expected neutron weight for forced decay in ntext time interval
+  !!
+  subroutine precursorCombing(self, N, rand, t)
+    class(particleDungeon), intent(inout)    :: self
+    integer(shortInt), intent(in)            :: N
+    class(RNG), intent(inout)                :: rand
+    real(defReal), intent(in)                :: t
+    integer(shortInt)                        :: i, j
+    type(particle)                           :: p
+    type(particleState), dimension(N)        :: newPrecursors
+    real(defReal), dimension(self % pop)     :: wTimedArray, T_kArray
+    real(defReal)                            :: wTimedTotal, w_av, nextTooth, curTimedWeight
+
+    character(100), parameter :: Here =' precursorCombing (particleDungeon_class.f90)'
+
+
+    ! Protect against invalid N
+    ! From normSize
+    if( N > size(self % prisoners)) then
+      call fatalError(Here,'Requested size: '//numToChar(N) //&
+                           'is greather then max size: '//numToChar(size(self % prisoners)))
+    else if ( N <= 0 ) then
+      call fatalError(Here,'Requested size: '//numToChar(N) //' is not +ve')
+    end if
+
+    wTimedTotal = ZERO
+
+    ! Get timed weight of each precursor
+    do i=1, self % pop
+      call self % copy(p, i)
+      wTimedArray(i) = p % getTimedWeight(t)
+      T_kArray(i) = wTimedArray(i) / p % w
+      wTimedTotal = wTimedTotal + wTimedArray(i)
+    end do
+
+    ! Tooth distance
+    w_av = wTimedTotal / N
+
+    ! First tooth location
+    nextTooth = rand % get() * w_av
+
+    j=1
+    curTimedWeight = ZERO ! Running total of timed weight
+
+    do i=1, N
+      ! Iterate over current precursors
+      ! until a tooth falls within bounds of timed weight
+      do while (curTimedWeight + wTimedArray(j) < nextTooth)
+        curTimedWeight = curTimedWeight + wTimedArray(j)
+        j = j + 1
+      end do
+
+      ! When a particle has been found...
+      newPrecursors(i) = self % prisoners(j)      ! Add to new array
+      newPrecursors(i) % wgt = w_av / T_kArray(j) ! Update weight from timed weight
+      nextTooth = nextTooth + w_av                ! Update position of tooth
+    end do
+
+    ! Re-size the dungeon to new size
+    call self % setSize(N)
+
+    ! Replace the particle at each index with the new particles
+    do i=1, N
+      call self % replace_particleState(newPrecursors(i), i)
+    end do
+
+  end subroutine precursorCombing
+
+  !!
   !! Kill or particles in the dungeon
   !!
   pure subroutine cleanPop(self)
@@ -467,6 +649,24 @@ contains
     wgt = sum( self % prisoners(1:self % pop) % wgt )
 
   end function popWeight
+
+  !!
+  !! Returns total population weight
+  !!
+  function totalTimedWeight(self, t) result(timedWeight)
+    class(particleDungeon), intent(in) :: self
+    real(defReal)                      :: timedWeight
+    real(defReal), intent(in)          :: t
+    integer(shortInt)                  :: i
+    type(particle)                     :: p
+
+    timedWeight = ZERO
+    do i = 1, self % pop
+        p = self % prisoners(i)
+        timedWeight = timedWeight + p % getTimedWeight(t)
+    end do
+
+  end function totalTimedWeight
 
   !!
   !! Set size of the dungeon to n

@@ -1,0 +1,171 @@
+type timeDependentPhysicsPackage;
+
+pop      1000000;
+timeSteps   70;
+XSdata   ce;
+dataType ce;
+timeIncrement 1.E-05;
+//buffer 500000;
+combing 1; //toggle on or off
+//precursors 0; //toggle on or off
+//batches 100; // not implemented!!
+cycles 10;
+
+outputFormat asciiJSON;
+collisionOperator { neutronCE {type neutronCEtime; precursors 0;} }
+
+transportOperator { type transportOperatorDT;
+                  }
+
+source {
+  type pointSource;
+  r (-31.00 0.0 0.0);
+  dir (0.0 0.0 1.0);
+  particle neutron;
+  E 14.1;
+}
+
+tally  {
+  flux_time { type collisionClerk;
+    //map { type multiMap; maps (map1 map2); // this supported properly in current implementation?
+    //map1 { type cellMap; cells (8); }
+    //map2 { type timeMap; grid lin; min 0.0; max 7E-04; N 70;}
+    //} //make this work on averaged accross all cells, then fix multimap on time dependent
+    map { type timeMap; grid lin; min 0.0; max 7E-04; N 70;}
+    response (flux); flux {type fluxResponse;}
+  }
+}
+
+geometry {
+    type geometryStd;
+    boundary (0 0 0 0 0 0);
+    graph {type shrunk;}
+
+    surfaces { 
+      outerBox { id 1; type box; origin (0 0 0); halfwidth (33.02 33.02 33.02); } 
+      innerBox { id 2; type box; origin (0 0 0); halfwidth (30.48 30.48 30.48); } 
+      cadmiumSheet { id 3; type box; origin (0 0 0); halfwidth (30.226 30.226 30.226); } 
+      holeBox { id 4; type zTruncCylinder; origin (0.0 0.0 -31.623); halfwidth 1.397; radius 5.08; } 
+      containerOuter { id 5; type zTruncCylinder; origin (0.0 0.0 -13.276); halfwidth 16.95; radius 11.0; } 
+      voidContainer { id 6; type zTruncCylinder; origin (0.0 0.0 -13.226); halfwidth 16.9; radius 10.9;} 
+      waterVolume { id 7; type zPlane; z0 -10.354 ; } 
+      detectorOuter { id 8; type zTruncCylinder; origin (0.0 0.0 -22.5298); halfwidth 7.6962; radius 20.0; } 
+      detectorInner { id 9; type zTruncCylinder; origin (0.0 0.0 -22.5298); halfwidth 7.6962; radius 18.3998; }
+      activeDetectorOuter { id 10; type zTruncCylinder; origin (0.0 0.0 -17.2976); halfwidth 1.1938; radius 19.9746; } 
+      activeDetectorInner { id 11; type zTruncCylinder; origin (0.0 0.0 -17.2976); halfwidth 1.1938; radius 18.4252; } 
+      }
+
+    cells { 
+      polyBox { id 1; type simpleCell; surfaces (-1  2  4); filltype mat; material m2;} 
+      cadmium { id 2; type simpleCell; surfaces (-2  3  4); filltype mat; material m4;}
+      voidHole { id 3; type simpleCell; surfaces (-4); filltype mat; material void;} 
+      AlContainer { id 4; type simpleCell; surfaces (-5  6); filltype mat; material m3;} 
+      WaterContainer { id 5; type simpleCell; surfaces (-6 -7); filltype mat; material m1;} 
+      Void { id 6; type simpleCell; surfaces (-6  7); filltype mat; material void;}
+      detectorSheathOne { id 7; type simpleCell; surfaces (-8  9 10); filltype mat; material m5 ; }
+      detectorSheathTwo { id 8; type simpleCell; surfaces (-8  9 -11); filltype mat; material m5 ;}
+      HeDetector { id 9; type simpleCell; surfaces (-10 11); filltype mat; material m6;} 
+      cellTwenty { id 20; type simpleCell; surfaces (-3  8 5); filltype mat; material void;}
+      cellTwentyOne { id 21; type simpleCell; surfaces (-3 -9 5); filltype mat; material void;} 
+      //cellThirty { id 30; type simpleCell; surfaces (1); filltype outside;} 
+      }
+
+
+    universes
+    {
+      root{id 1; type rootUniverse; border 1; fill u<2>;}
+      geom { id 2; type cellUniverse; cells ( 1 2 3 4 5 6 7 8 9 20 21);}
+    }
+}
+
+nuclearData {
+  handles {
+    ce { type aceNeutronDatabase; aceLibrary $SCONE_ACE;} }
+  materials {
+
+    //water
+    m1 {
+      temp 12345;
+      composition {
+        1001.03    0.06639;
+        8016.03   0.03347;}
+      moder { 1001.00 h-h2o-293; }
+    }
+
+    //poly box
+    m2 {
+      temp 12345;
+      composition {
+        1001.03  0.00708;
+        5010.03  0.00074; 
+        5011.03  0.00229;
+        6012.03  0.05039;
+      }
+    }
+
+    //Al can
+    m3 {
+      temp 12345;
+      composition {
+        13027.03  0.05803;
+      }
+    }
+
+    //cadmium
+    m4 {
+      temp 12345;
+      composition {
+        48106.03	7.19818E-05;
+        48108.03	5.11781E-05;
+        48110.03	0.00072;
+        48111.03	0.00073;
+        48112.03	0.00138;
+        48113.03	0.00070;
+        48114.03	0.00165;
+        48116.03	0.00043;        
+      }
+    }
+
+    //stainless steel
+    m5 {
+      temp 12345;
+      composition {
+        6012.03  	0.00016;	 // C
+        14028.03 	0.00078; // Si-28
+        14029.03 	3.97617E-05; // Si-29
+        14030.03 	2.62106E-05; // Si-30
+        15031.03 	3.54169E-05;		// P-31
+        16032.03 	2.12059E-05; // S-32
+        16033.03 	1.67380E-07; // S-33
+        16034.03 	9.39557E-07; // S-34
+        16036.03 	3.71969E-11; // S-36
+        24050.03 	0.00076; // Cr-50
+        24052.03 	 0.01460; // Cr-52
+        24053.03 	0.00166; // Cr-53
+        24054.03 	0.00041; // Cr-54
+        25055.03 	0.00087;	// Mn-55
+        26054.03 	0.00350;// Fe-54
+        26056.03 	0.05499; // Fe-56
+        26057.03 	0.00127;// Fe-57
+        26058.03 	0.00017; // Fe-58
+        28058.03 	0.00512;// Ni-58
+        28060.03 	0.00197; // Ni-60
+        28061.03 	8.56907E-05; // Ni-61
+        28062.03 	0.00027; // Ni-62
+        28064.03 	6.96049E-05;// Ni-64       
+      }
+    }
+
+    //helium
+    m6 {
+      temp 12345;
+      composition {
+        2003.03  0.00039;
+      }
+    }
+}
+
+}
+
+
+

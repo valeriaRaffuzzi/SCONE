@@ -1,0 +1,74 @@
+type timeDependentPhysicsPackage;
+
+pop      1000000; //1000000
+timeSteps   70; //70
+XSdata   ce;
+dataType ce;
+timeIncrement 1.E-05;
+cycles 30; //10 worked well, try 25
+buffer 1000000;
+combing 1; //toggle on or off
+//precursors 0; //toggle on or off
+// need to implement number of batches!! and compute statistics thereof, look at fixed source
+
+outputFormat asciiJSON;
+collisionOperator { neutronCE {type neutronCEtime; precursors 0;} }
+
+transportOperator { type transportOperatorDT; //currently will only support this
+                  }
+
+source {
+  type pointSource;
+  r (0.0 0.0 0.0);
+  //dir (0.0 0.0 0.0); no dir, isentropic
+  particle neutron;
+  E 14.1;
+}
+
+tally  {
+  flux_time { type collisionClerk; //collisionClerk_class, energyMap_class, scoreMemory_class
+    //map { type timeMap; grid lin; min 0.0; max 7E-04; N 70;}
+    map { type timeMap; grid lin; min 0.0; max 7E-04; N 70;}
+    response (flux); flux {type fluxResponse;}
+  }
+  }
+
+geometry {
+    type geometryStd;
+    boundary (0 0 0 0 0 0);
+    graph {type shrunk;}
+
+    surfaces
+    {
+      sphereBound { type sphere; id 1; origin ( 0.0 0.0 0.0); radius 50.0; } //failing at radius 5, why? Increase to 50 doesnt fail
+    } //what radius did valeria use? 5,10,20,50? 5 failed here, so maybe she did 50? or 20? Probably 50!
+
+    cells
+    {
+    }
+
+    universes
+    {
+
+      root
+      {
+	  id 1;
+	  type rootUniverse;
+	  border 1;
+	  fill m1;
+      }
+    }
+}
+
+nuclearData {
+  handles {
+    ce { type aceNeutronDatabase; aceLibrary $SCONE_ACE;} }
+  materials {
+
+    m1 {
+      temp 12345;
+      composition {
+        13027.03   0.05803;}
+    }
+}
+}

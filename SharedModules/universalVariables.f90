@@ -68,6 +68,9 @@ module universalVariables
                                   tooManyIter       = -2,&
                                   targetNotFound    = -3, &
                                   NOT_FOUND         = -3
+                                  
+  ! Number of neutron precusor groups
+  integer(shortInt), parameter :: precursorGroups = 8
 
   ! Physical constants
   real(defReal), parameter :: neutronMass = 939.5654133_defReal, &   ! Neutron mass in MeV/c^2
@@ -75,7 +78,8 @@ module universalVariables
                               energyPerFission = 200.0_defReal       ! MeV
 
   ! Unit conversion
-  real(defReal), parameter :: joulesPerMeV = 1.60218e-13     ! Convert MeV to J
+  real(defReal), parameter :: joulesPerMeV = 1.60218e-13, &     ! Convert MeV to J
+                              shake = 1.e-08_defReal
 
   ! Global name variables used to define specific geometry or field types
   character(nameLen), parameter :: nameUFS = 'uniFissSites'

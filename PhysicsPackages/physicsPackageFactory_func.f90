@@ -11,23 +11,26 @@ module physicsPackageFactory_func
   use physicsPackage_inter,            only : physicsPackage
 
   ! Implementations
-  use eigenPhysicsPackage_class,       only : eigenPhysicsPackage
-  use fixedSourcePhysicsPackage_class, only : fixedSourcePhysicsPackage
-  use vizPhysicsPackage_class,         only : vizPhysicsPackage
-  use rayVolPhysicsPackage_class,      only : rayVolPhysicsPackage
+  use eigenPhysicsPackage_class,         only : eigenPhysicsPackage
+  use fixedSourcePhysicsPackage_class,   only : fixedSourcePhysicsPackage
+  use vizPhysicsPackage_class,           only : vizPhysicsPackage
+  use rayVolPhysicsPackage_class,        only : rayVolPhysicsPackage
+  use timeDependentPhysicsPackage_class, only : timeDependentPhysicsPackage
 !  use dynamPhysicsPackage_class, only : dynamPhysicsPackage
 
   implicit none
   private
 
+  ! *** ADD NAME OF A NEW PHYSICS PACKAGE HERE ***!
   ! List that contains all accaptable types of Physics Packages
   ! It is printed if type was unrecognised
   ! NOTE:
   ! For now  it is necessary to adjust trailing blanks so all enteries have the same length
-  character(nameLen),dimension(*),parameter :: AVAILABLE_physicsPackages = [ 'eigenPhysicsPackage      ',&
-                                                                             'fixedSourcePhysicsPackage',&
-                                                                             'vizPhysicsPackage        ',&
-                                                                             'rayVolPhysicsPackage     ']
+  character(nameLen),dimension(*),parameter :: AVAILABLE_physicsPackages = [ 'eigenPhysicsPackage        ',&
+                                                                             'fixedSourcePhysicsPackage  ',&
+                                                                             'vizPhysicsPackage          ',&
+                                                                             'rayVolPhysicsPackage       ',&
+                                                                             'timeDependentPhysicsPackage']
 
   !!
   !! Public interface
@@ -50,27 +53,62 @@ contains
     call dict % get(type,'type')
 
     ! Allocate approperiate subclass of physicsPackage
+    ! *** ADD CASE STATEMENT FOR A PHYSICS PACKAGE BELOW ***!
+    ! **** AT THE MOMENT ALLOCATE + SELECT TYPE + INIT is very unelegant implementation
+    ! **** Will have to be improved
     select case(type)
       case('eigenPhysicsPackage')
+        ! Allocate and initialise
         allocate( eigenPhysicsPackage :: new)
+        select type(new)
+          type is (eigenPhysicsPackage)
+            call new % init(dict)
+        end select
 
       case('fixedSourcePhysicsPackage')
+        ! Allocate and initialise
         allocate( fixedSourcePhysicsPackage :: new)
+        select type(new)
+          type is (fixedSourcePhysicsPackage)
+            call new % init(dict)
+        end select
+!
+!      case('dynamPhysicsPackage')
+!        ! Allocate and initialise
+!        allocate( dynamPhysicsPackage :: new)
+!        select type(new)
+!          type is (dynamPhysicsPackage)
+!            call new % init(dict)
+!        end select
+
 
       case('vizPhysicsPackage')
+        ! Allocate and initialise
         allocate( vizPhysicsPackage :: new)
+        select type(new)
+          type is (vizPhysicsPackage)
+            call new % init(dict)
+        end select
 
       case('rayVolPhysicsPackage')
+        ! Allocate and initialise
         allocate( rayVolPhysicsPackage :: new)
+        call new % init(dict)
+
+      case('timeDependentPhysicsPackage')
+        ! Allocate and initiaise
+        allocate( timeDependentPhysicsPackage :: new)
+        select type(new)
+          type is (timeDependentPhysicsPackage)
+            call new % init(dict)
+        end select
+
 
       case default
         print *, AVAILABLE_physicsPackages
         call fatalError(Here, 'Unrecognised type of Physics Package : ' // trim(type))
 
     end select
-
-    ! Initialise new physics package
-    call new % init(dict)
 
   end function new_physicsPackage
 

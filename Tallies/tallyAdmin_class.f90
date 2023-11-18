@@ -147,6 +147,8 @@ module tallyAdmin_class
     ! File writing procedures
     procedure :: print
 
+    procedure :: setBatchPops
+
     procedure,private :: addToReports
 
   end type tallyAdmin
@@ -414,7 +416,7 @@ contains
   !!   None
   !!
   subroutine print(self,output)
-    class(tallyAdmin), intent(in)        :: self
+    class(tallyAdmin), intent(inout)     :: self
     class(outputFile), intent(inout)     :: output
     integer(shortInt)                    :: i
     character(nameLen)                   :: name
@@ -672,18 +674,19 @@ contains
   !! Errors:
   !!   None
   !!
-  recursive subroutine reportCycleEnd(self,end)
-    class(tallyAdmin), intent(inout)   :: self
-    class(particleDungeon), intent(in) :: end
-    integer(shortInt)                  :: i
-    integer(shortInt), save            :: idx
-    real(defReal)                      :: normFactor, normScore
-    character(100), parameter :: Here ='reportCycleEnd (tallyAdmin)class.f90)'
+  recursive subroutine reportCycleEnd(self,end,t)
+    class(tallyAdmin), intent(inout)       :: self
+    class(particleDungeon), intent(in)     :: end
+    integer(shortInt), intent(in),optional :: t
+    integer(shortInt)                      :: i
+    integer(shortInt), save                :: idx
+    real(defReal)                          :: normFactor, normScore
+    character(100), parameter              :: Here ='reportCycleEnd (tallyAdmin)class.f90)'
     !$omp threadprivate(idx)
 
     ! Call attachment
     if(associated(self % atch)) then
-      call reportCycleEnd(self % atch, end)
+      call reportCycleEnd(self % atch, end,t)
     end if
 
     ! Go through all clerks that request the report
@@ -707,10 +710,22 @@ contains
       normFactor = ONE
     end if
 
-    ! Close cycle multipling all scores by multiplication factor
-    call self % mem % closeCycle(normFactor)
+    ! Close cycle multipling all scores by multiplication factor¨
+    if(present(t)) then
+      call self % mem % closeCycle(normFactor, t)
+    else
+      call self % mem % closeCycle(normFactor)
+    end if
 
   end subroutine reportCycleEnd
+
+  subroutine setBatchPops(self, batchPops)
+    class(tallyAdmin), intent(inout)            :: self
+    integer(shortInt), dimension(:), intent(in) :: batchPops
+    integer(shortInt) :: i
+
+    call self % mem % setBatchPops(batchPops)
+  end subroutine setBatchPops
 
   !!
   !! Get result from the clerk defined by name
