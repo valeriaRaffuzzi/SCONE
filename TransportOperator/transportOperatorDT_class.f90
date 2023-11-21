@@ -49,20 +49,25 @@ contains
     ! Get majornat XS inverse: 1/Sigma_majorant
     majorant_inv = ONE / self % xsData % getMajorantXS(p)
 
-   ! Should never happen! Prevents Inf distances
+    ! Should never happen! Prevents Inf distances
     if (abs(majorant_inv) > huge(majorant_inv)) call fatalError(Here, "Majorant is 0")
 
     DTLoop:do
       distance = -log( p% pRNG % get() ) * majorant_inv
 
       if (p % timeMax > ZERO .and. p % time + distance / p % getSpeed() > p % timeMax) then
-        !distance = distance * (p % timeMax - p % time)/(distance / p % getSpeed())
         p % fate = AGED_FATE
-        !print *, '  -Particle time before aged fate:', numToChar(p%time)
-        !p % time = p % timeMax
         ! Move partice in the geometry
-        !call self % geom % teleport(p % coords, distance)
-        !exit DTLoop!return
+        call self % geom % teleport(p % coords, distance)
+        ! Update time
+        p % time = p % time + distance / p % getSpeed()
+
+        if (p % matIdx() == OUTSIDE_FILL) then
+          p % fate = LEAK_FATE
+          p % isDead = .true.
+          return
+        end if
+        exit DTLoop
       endif
 
       ! Move partice in the geometry
@@ -92,11 +97,6 @@ contains
 
       ! Obtain the local cross-section
       sigmaT = self % xsData % getTransMatXS(p, p % matIdx())
-
-      ! Protect Against Sillines
-      !if( sigmaT*majorant_inv < ZERO .or. ONE < sigmaT*majorant_inv) then
-      !  call fatalError(Here, "TotalXS/MajorantXS is silly: "//numToChar(sigmaT*majorant_inv))
-      !end if
 
       ! Roll RNG to determine if the collision is real or virtual
       ! Exit the loop if the collision is real, report collision if virtual

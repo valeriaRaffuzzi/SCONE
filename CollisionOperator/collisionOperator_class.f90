@@ -5,7 +5,7 @@ module collisionOperator_class
   use dictionary_class,      only : dictionary
   use particle_class,        only : particle, P_NEUTRON, P_PHOTON, printType
   use particleDungeon_class, only : particleDungeon
-
+  use universalVariables
   ! Tally interfaces
   use tallyAdmin_class,      only : tallyAdmin
 
@@ -115,6 +115,11 @@ contains
     class(particleDungeon),intent(inout)     :: nextCycle
     integer(shortInt)                        :: idx, procType
     character(100), parameter :: Here = 'collide (collisionOperator_class.f90)'
+
+    if(p % matIdx() == VOID_MAT) then
+      call tally % reportInColl(p, .true.)
+      return
+    end if
 
     ! Select processing index with ternary expression
     if(p % isMG) then

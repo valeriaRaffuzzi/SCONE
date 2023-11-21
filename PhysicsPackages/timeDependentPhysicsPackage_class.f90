@@ -156,25 +156,29 @@ contains
     collOp = self % collOp
     transOp = self % transOp
 
+    ! Number of particles each batch
     nParticles = self % pop
+
+    ! Track number of batches for each time step
+    allocate(self % batchPops(N_timeBins))
+    self % batchPops(1) = N_cycles
+
+    ! Dungeon for each batch
+    allocate(self % nextBatchDungeons(self % N_cycles))
+    allocate(self % theseBatchDungeons(self % N_cycles))
+    allocate(self % tempBatchDungeons(self % N_cycles))
+
     ! Reset and start timer
     call timerReset(self % timerMain)
     call timerStart(self % timerMain)
 
-    allocate(self % batchPops(N_timeBins))
-    self % batchPops(1) = N_cycles
-
-    allocate(self % nextBatchDungeons(self % N_cycles))
-    allocate(self % theseBatchDungeons(self % N_cycles))
-    allocate(self % tempBatchDungeons(self % N_cycles))
     !t = 1
-    print *, 't', 1
+    print *, 'Time Step: ', 1
     do i=1, N_cycles
-      call self % nextBatchDungeons(i) % init(self % pop)
-      print *, 'cycle', i
+      call self % nextBatchDungeons(i) % init(nParticles)
+      print *, 'Cycle: ', i
       call self % fixedSource % generate(self % thisTimeInterval, nParticles, self % pRNG)
       call tally % reportCycleStart(self % thisTimeInterval)
-      nParticles = self % thisTimeInterval % popSize()
 
       gen: do n = 1, nParticles
         pRNG = self % pRNG
@@ -192,7 +196,6 @@ contains
             exit history
           endif
           if(p % isDead) exit history
-
           call collOp % collide(p, tally, self % thisTimeInterval, self % thisTimeInterval)
           if(p % isDead) exit history
         end do history
@@ -200,19 +203,21 @@ contains
 
       call tally % reportCycleEnd(self % thisTimeInterval,1)
       call self % thisTimeInterval % cleanPop()
-      call self % pRNG % stride(self % pop)
+      call self % pRNG % stride(nParticles)
     end do
-    self % tempBatchDungeons => self % nextBatchDungeons
-    self % nextBatchDungeons    => self % theseBatchDungeons
-    self % theseBatchDungeons    => self % tempBatchDungeons
+
+    !flip
+    self % tempBatchDungeons  => self % nextBatchDungeons
+    self % nextBatchDungeons  => self % theseBatchDungeons
+    self % theseBatchDungeons => self % tempBatchDungeons
 
     
     do t=2,N_timeBins
-      print *, 'time',t
+      print *, 'Time Step: ',t
       batchPop = 0
       do i=1, N_cycles
-        print *, 'cycle', i
-        call self % nextBatchDungeons(i) % init(self % pop)
+        print *, 'Cycle: ', i
+        call self % nextBatchDungeons(i) % init(nParticles)
         if (self % theseBatchDungeons(i) % popSize() == 0) then 
           print *, 'EMPTY SOURCE'
           cycle
@@ -220,7 +225,7 @@ contains
         batchPop = batchPop + 1
         
         if (self % useCombing) then
-          call self % theseBatchDungeons(i) % normCombing(self % pop, pRNG)
+          call self % theseBatchDungeons(i) % normCombing(nParticles, pRNG)
         end if
 
         call tally % reportCycleStart(self % theseBatchDungeons(i))
@@ -253,7 +258,7 @@ contains
           end do gen1
           call tally % reportCycleEnd(self % theseBatchDungeons(i),t)
         end if
-        call self % pRNG % stride(self % pop)
+        call self % pRNG % stride(nParticles)
       end do
       self % batchPops(t) = batchPop
       self % tempBatchDungeons => self % nextBatchDungeons
@@ -267,168 +272,6 @@ contains
     !finish new code
 
   end subroutine cycles
-
-
-!  subroutine cycles1(self, tally, N_cycles, N_timeBins, timeIncrement)
-!    class(timeDependentPhysicsPackage), intent(inout) :: self
-!    type(tallyAdmin), pointer,intent(inout)         :: tally
-!    integer(shortInt), intent(in)                   :: N_timeBins, N_cycles
-!    integer(shortInt)                               :: i, t, n, m, nParticles, offset
-!    integer(shortInt), save                         :: j, bufferExtra
-!    type(particle), save                            :: p, transferP
-!    type(particle), save                            :: p_Precursor
-!    type(particleDungeon), save                     :: buffer
-!    type(collisionOperator), save                   :: collOp
-!    class(transportOperator), allocatable, save     :: transOp
-!    type(RNG), target, save                         :: pRNG
-!    real(defReal)                                   :: elapsed_T, end_T, T_toEnd
-!    real(defReal)                                   :: newTotalWeight, ppBatch
-!    real(defReal)                                   :: decay_T, w_d
-!    real(defReal), intent(in)                       :: timeIncrement
-!    integer(shortInt), dimension(N_timeBins)       :: stepPopArray, stepPrecursorArray
-!    real(defReal), dimension(N_timeBins)           :: stepWeightArray, stepPrecursorWeightArray
-!    character(100),parameter :: Here ='cycles (timeDependentPhysicsPackage_class.f90)'
-
-
-!   
-!    ! Create particle buffer
-!    !call buffer % init(self % bufferSize)
-
-!    ! Initialise neutron
-!    p % geomIdx = self % geomIdx
-!    p % k_eff = ONE
-
-!    ! Create a collision + transport operator which can be made thread private
-!    collOp = self % collOp
-!    transOp = self % transOp
-!   
-
-!    nParticles = self % pop
-
-!    ! Reset and start timer
-!    call timerReset(self % timerMain)
-!    call timerStart(self % timerMain)
-
-!    !New code
-!    !First time generate particle dungeon array
-!    print *, 'SUCCESS'
- 
-!    allocate(self % thisBatchPopTracker(N_cycles))
-!    allocate(self % nextBatchPopTracker(N_cycles))
-!    self % thisBatchPopTracker(:) = 0
-!    self % nextBatchPopTracker(:) = 0
-
-
-!    !decay handler, e.g if no fission. Do different approach if super critical
-!    ! or both can be done like super critical since cant distinguish a-priori??
-
-!    !t = 1
-!    print *, 't', 1
-!    do i=1, N_cycles
-!      print *, 'cycle', i
-!      call self % fixedSource % generate(self % thisTimeInterval, nParticles, self % pRNG)
-!      call tally % reportCycleStart(self % thisTimeInterval)
-!      nParticles = self % thisTimeInterval % popSize()
-!     
-!      gen: do n = 1, nParticles
-!        pRNG = self % pRNG
-!        p % pRNG => pRNG
-!        call p % pRNG % stride(n)
-!        call self % thisTimeInterval % copy(p, n)
-!        call self % geom % placeCoord(p % coords)
-!        p % timeMax = timeIncrement
-!        call p % savePreHistory()
-!        ! Transport particle untill its death
-!        history: do
-!          call transOp % transport(p, tally, self % thisTimeInterval, self % thisTimeInterval)
-!          ! Put particle in dungeon if belongs to next time iteration
-!          if(p % fate == AGED_FATE) then
-!            if ((p % time <= p % timeMax + timeIncrement) .and. (p % time > p % timeMax)) then !last logic redundant
-!              self % nextBatchPopTracker(i) = self % nextBatchPopTracker(i) + 1
-!              call self % nextTimeInterval % detain(p)
-!            end if
-!            exit history
-!          endif
-!          if(p % isDead) exit history
-!          call collOp % collide(p, tally, self % thisTimeInterval, self % thisTimeInterval)
-!          if(p % isDead) exit history
-!        end do history
-!      end do gen
-!     
-!      call tally % reportCycleEnd(self % thisTimeInterval,t)
-!      call self % thisTimeInterval % cleanPop()
-!      call self % pRNG % stride(self % pop)
-!    end do
-!    self % temp_dungeon => self % nextTimeInterval
-!    self % nextTimeInterval    => self % thisTimeInterval
-!    self % thisTimeInterval    => self % temp_dungeon
-!    self % thisBatchPopTracker(:) = self % nextBatchPopTracker(:)
-!    self % nextBatchPopTracker(:) = 0
-!    !combing in case of super critical
-!
-!    offset = 0
-!    do t=2,N_timeBins
-!      print *, 'time',t
-!      offset = 0
-!      do i=1, N_cycles
-!        print *, 'cycle', i
-!        !comb here
-!        if (self % useCombing) then
-!          call self % thisTimeInterval % normCombing(self % pop, pRNG)
-!        end if
-!        !gen do popsize / M particles
-!
-!        call tally % reportCycleStart(self % thisTimeInterval)
-!        nParticles = self % thisBatchPopTracker(i)
-!        ppBatch = self % thisTimeInterval % popSize() / N_cycles
-!        nParticles = int(floor(ppBatch))
-!        if (nParticles > 0) then
-!          gen1: do n = 1 + offset, nParticles + offset
-!            pRNG = self % pRNG
-!            p % pRNG => pRNG
-!            call p % pRNG % stride(n)
-!            call self % thisTimeInterval % copy(p, n)
-!            call self % geom % placeCoord(p % coords)
-!            p % timeMax = t * timeIncrement
-!            p % fate = 0 !update fate
-!            call p % savePreHistory()
-!            ! Transport particle untill its death
-!            history1: do                 !NB COLLIDE THEN TRANSPORT? WERE TRANSPORTED PREVIOUSLY ?????
-!              call collOp % collide(p, tally, self % thisTimeInterval, self % thisTimeInterval)
-!              if(p % isDead) exit history1
-!              call transOp % transport(p, tally, self % thisTimeInterval, self % thisTimeInterval)
-!              ! Put particle in dungeon if belongs to next time iteration
-!              if(p % fate == AGED_FATE) then
-!                if ((p % time <= p % timeMax + timeIncrement) .and. (p % time > p % timeMax)) then !last logic redundant
-!                  self % nextBatchPopTracker(i) = self % nextBatchPopTracker(i) + 1
-!                  call self % nextTimeInterval % detain(p)
-!                end if
-!                exit history1
-!              endif
-!              if(p % isDead) exit history1
-!            end do history1
-!          end do gen1
-!          call tally % reportCycleEnd(self % thisTimeInterval,t)
-!          !call self % thisTimeInterval % cleanPop()
-
-!          !normalize here?
-!        end if
-!        call self % pRNG % stride(self % pop)
-!        offset = offset + nParticles
-!      end do
-
-!      call self % thisTimeInterval % cleanPop()
-!      self % temp_dungeon => self % nextTimeInterval
-!      self % nextTimeInterval    => self % thisTimeInterval
-!      self % thisTimeInterval    => self % temp_dungeon
-
-!      self % thisBatchPopTracker(:) = self % nextBatchPopTracker(:)
-!      self % nextBatchPopTracker(:) = 0
-!    end do
-!
-!    !finish new code
-!
-!  end subroutine cycles1
 
   !!
   !! Print calculation results to file
