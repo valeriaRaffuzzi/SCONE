@@ -287,16 +287,18 @@ contains
 
     if(mod(self % cycles, self % batchSize) == 0) then ! Close Batch
       if (present(t)) then
-        ! Normalise scores
-        self % parallelBins(t,:) = self % parallelBins(t,:) * normFactor
-        res = sum(self % parallelBins(t,:))
+        do i = 1, self % N
+          ! Normalise scores
+          self % parallelBins(i,:) = self % parallelBins(i,:) * normFactor
+          res = sum(self % parallelBins(i,:))
 
-        ! Zero all score bins
-        self % parallelBins(t,:) = ZERO
-       
-        ! Increment cumulative sums 
-        self % bins(t,CSUM)  = self % bins(t,CSUM) + res
-        self % bins(t,CSUM2) = self % bins(t,CSUM2) + res * res
+          ! Zero all score bins
+          self % parallelBins(i,:) = ZERO
+        
+          ! Increment cumulative sums 
+          self % bins(i,CSUM)  = self % bins(i,CSUM) + res
+          self % bins(i,CSUM2) = self % bins(i,CSUM2) + res * res
+        end do
       else
         !$omp parallel do
         do i = 1, self % N
