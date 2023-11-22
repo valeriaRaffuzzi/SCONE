@@ -134,7 +134,8 @@ contains
     type(tallyAdmin), pointer,intent(inout)         :: tally
     integer(shortInt), intent(in)                   :: N_timeBins, N_cycles
     integer(shortInt)                               :: i, t, n, nParticles, batchPop
-    type(particle), save                            :: p
+    integer(shortInt), save                         :: j, bufferExtra
+    type(particle), save                            :: p, transferP
     type(particle), save                            :: p_Precursor
     type(particleDungeon), save                     :: buffer
     type(collisionOperator), save                   :: collOp
@@ -147,6 +148,11 @@ contains
     integer(shortInt), dimension(N_timeBins)       :: stepPopArray, stepPrecursorArray
     real(defReal), dimension(N_timeBins)           :: stepWeightArray, stepPrecursorWeightArray
     character(100),parameter :: Here ='cycles (timeDependentPhysicsPackage_class.f90)'
+    !$omp threadprivate(p, buffer, collOp, transOp, pRNG, j, bufferExtra, transferP)
+
+    !$omp parallel
+    ! Create particle buffer
+    call buffer % init(self % bufferSize)
 
     ! Initialise neutron
     p % geomIdx = self % geomIdx
@@ -155,8 +161,9 @@ contains
     ! Create a collision + transport operator which can be made thread private
     collOp = self % collOp
     transOp = self % transOp
+    !$omp end parallel
 
-    ! Number of particles each batch
+    ! Number of particles in each batch
     nParticles = self % pop
 
     ! Track number of batches for each time step
@@ -172,15 +179,17 @@ contains
     call timerReset(self % timerMain)
     call timerStart(self % timerMain)
 
-    !t = 1
+    ! First time iteration, fixed source treatment
+    ! TODO: add treatment of converged stationary initial source
     print *, 'Time Step: ', 1
-    do i=1, N_cycles
+    do i = 1, N_cycles
       call self % nextBatchDungeons(i) % init(nParticles)
       print *, 'Cycle: ', i
       call self % fixedSource % generate(self % thisTimeInterval, nParticles, self % pRNG)
       call tally % reportCycleStart(self % thisTimeInterval)
 
-      gen: do n = 1, nParticles
+      !$omp parallel do schedule(dynamic)
+      gen_t0: do n = 1, nParticles
         pRNG = self % pRNG
         p % pRNG => pRNG
         call p % pRNG % stride(n)
@@ -189,31 +198,32 @@ contains
         p % timeMax = timeIncrement
         call p % savePreHistory()
         p % fate = 0
-        history: do
+        history_t0: do
           call transOp % transport(p, tally, self % thisTimeInterval, self % thisTimeInterval)
           if(p % fate == AGED_FATE) then
             call self % nextBatchDungeons(i) % detain(p)
-            exit history
+            exit history_t0
           endif
-          if(p % isDead) exit history
+          if(p % isDead) exit history_t0
           call collOp % collide(p, tally, self % thisTimeInterval, self % thisTimeInterval)
-          if(p % isDead) exit history
-        end do history
-      end do gen
+          if(p % isDead) exit history_t0
+        end do history_t0
+      end do gen_t0
+      !$omp end parallel do
 
       call tally % reportCycleEnd(self % thisTimeInterval,1)
       call self % thisTimeInterval % cleanPop()
       call self % pRNG % stride(nParticles)
     end do
 
-    !flip
+    ! Flip batch dungeons
     self % tempBatchDungeons  => self % nextBatchDungeons
     self % nextBatchDungeons  => self % theseBatchDungeons
     self % theseBatchDungeons => self % tempBatchDungeons
 
-    
-    do t=2,N_timeBins
-      print *, 'Time Step: ',t
+    ! Process Remaining time iterations
+    do t = 2, N_timeBins
+      print *, 'Time Step: ', t
       batchPop = 0
       do i=1, N_cycles
         print *, 'Cycle: ', i
@@ -231,7 +241,8 @@ contains
         call tally % reportCycleStart(self % theseBatchDungeons(i))
         nParticles = self % theseBatchDungeons(i) % popSize()
         if (nParticles > 0) then
-          gen1: do n = 1 , nParticles
+          !$omp parallel do schedule(dynamic)
+          gen: do n = 1, nParticles
             pRNG = self % pRNG
             p % pRNG => pRNG
             call p % pRNG % stride(n)
@@ -239,38 +250,39 @@ contains
             p % timeMax = t * timeIncrement
             if (p % time > p % timeMax ) then
               call self % nextBatchDungeons(i) % detain(p)
-              cycle gen1
+              cycle gen
             end if
             call self % geom % placeCoord(p % coords)
             p % fate = 0 !update fate
             call p % savePreHistory()
             ! Transport particle untill its death
-            history1: do
+            history: do
               call collOp % collide(p, tally, self % theseBatchDungeons(i), self % theseBatchDungeons(i))
-              if(p % isDead) exit history1
+              if(p % isDead) exit history
               call transOp % transport(p, tally, self % theseBatchDungeons(i), self % theseBatchDungeons(i))
               if(p % fate == AGED_FATE) then
                 call self % nextBatchDungeons(i) % detain(p)
-                exit history1
+                exit history
               endif
-              if(p % isDead) exit history1
-            end do history1
-          end do gen1
+              if(p % isDead) exit history
+            end do history
+          end do gen
+          !$omp end parallel do
           call tally % reportCycleEnd(self % theseBatchDungeons(i),t)
+          call self % theseBatchDungeons(i) % cleanPop()
+          call self % pRNG % stride(nParticles)
+
         end if
-        call self % pRNG % stride(nParticles)
       end do
       self % batchPops(t) = batchPop
-      self % tempBatchDungeons => self % nextBatchDungeons
-      self % nextBatchDungeons    => self % theseBatchDungeons
-      self % theseBatchDungeons    => self % tempBatchDungeons
+      self % tempBatchDungeons  => self % nextBatchDungeons
+      self % nextBatchDungeons  => self % theseBatchDungeons
+      self % theseBatchDungeons => self % tempBatchDungeons
       
     end do
 
     call self % tally % setBatchPops(self % batchPops)
     deallocate(self % batchPops)
-    !finish new code
-
   end subroutine cycles
 
   !!

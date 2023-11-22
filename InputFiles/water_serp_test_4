@@ -9,7 +9,7 @@ timeIncrement 1.E-05;
 combing 1; //toggle on or off
 //precursors 0; //toggle on or off
 //batches 100; // not implemented!!
-cycles 3;
+cycles 20;
 
 outputFormat asciiJSON;
 collisionOperator { neutronCE {type neutronCEtime; precursors 0;} }
