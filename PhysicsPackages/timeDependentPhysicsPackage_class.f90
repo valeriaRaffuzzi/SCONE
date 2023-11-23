@@ -87,6 +87,13 @@ module timeDependentPhysicsPackage_class
 
     ! Calculation components
     type(particleDungeon), pointer :: thisTimeInterval                  => null()
+    type(particleDungeon), pointer :: nextTimeInterval                  => null()
+    type(particleDungeon), pointer :: tempTimeInterval                  => null()
+
+    type(particleDungeon), pointer, dimension(:) :: currentTime  => null()
+    type(particleDungeon), pointer, dimension(:) :: nextTime     => null()
+    type(particleDungeon), pointer, dimension(:) :: tempTime     => null()
+
     type(particleDungeon), pointer, dimension(:) :: theseBatchDungeons  => null()
     type(particleDungeon), pointer, dimension(:) :: nextBatchDungeons   => null()
     type(particleDungeon), pointer, dimension(:) :: tempBatchDungeons   => null()
@@ -104,6 +111,7 @@ module timeDependentPhysicsPackage_class
     procedure :: init
     procedure :: printSettings
     procedure :: cycles
+    procedure :: cycles2
     procedure :: collectResults
     procedure :: run
     procedure :: kill
@@ -133,7 +141,7 @@ contains
     class(timeDependentPhysicsPackage), intent(inout) :: self
     type(tallyAdmin), pointer,intent(inout)         :: tally
     integer(shortInt), intent(in)                   :: N_timeBins, N_cycles
-    integer(shortInt)                               :: i, t, n, nParticles, batchPop
+    integer(shortInt)                               :: i, t, n, nParticles, batchPop, nParticlesCopy
     integer(shortInt), save                         :: j, bufferExtra
     type(particle), save                            :: p, transferP
     type(particle), save                            :: p_Precursor
@@ -175,6 +183,11 @@ contains
     allocate(self % theseBatchDungeons(self % N_cycles))
     allocate(self % tempBatchDungeons(self % N_cycles))
 
+    allocate(self % currentTime(self % N_cycles))
+    allocate(self % nextTime(self % N_cycles))
+    allocate(self % tempTime(self % N_cycles))
+
+
     ! Reset and start timer
     call timerReset(self % timerMain)
     call timerStart(self % timerMain)
@@ -184,6 +197,7 @@ contains
     print *, 'Time Step: ', 1
     do i = 1, N_cycles
       call self % nextBatchDungeons(i) % init(nParticles)
+      call self % currentTime(i) % init(nParticles)
       print *, 'Cycle: ', i
       call self % fixedSource % generate(self % thisTimeInterval, nParticles, self % pRNG)
       call tally % reportCycleStart(self % thisTimeInterval)
@@ -201,7 +215,12 @@ contains
         history_t0: do
           call transOp % transport(p, tally, self % thisTimeInterval, self % thisTimeInterval)
           if(p % fate == AGED_FATE) then
-            call self % nextBatchDungeons(i) % detain(p)
+
+            if (p % time <= p % timeMax + timeIncrement) then
+              call self % currentTime(i) % detain(p)
+            else
+              call self % nextBatchDungeons(i) % detain(p)
+            end if
             exit history_t0
           endif
           if(p % isDead) exit history_t0
@@ -227,58 +246,81 @@ contains
       batchPop = 0
       do i=1, N_cycles
         print *, 'Cycle: ', i
-        call self % nextBatchDungeons(i) % init(nParticles)
-        if (self % theseBatchDungeons(i) % popSize() == 0) then 
+        call self % nextBatchDungeons(i) % init(nParticles*3)
+        call self % nextTime(i) % init(nParticles)
+
+
+        if (self % currentTime(i) % popSize() == 0) then 
           print *, 'EMPTY SOURCE'
           cycle
         end if
         batchPop = batchPop + 1
         
         if (self % useCombing) then
-          call self % theseBatchDungeons(i) % normCombing(nParticles, pRNG)
+          call self % currentTime(i) % normCombing(nParticles, pRNG)
         end if
 
-        call tally % reportCycleStart(self % theseBatchDungeons(i))
-        nParticles = self % theseBatchDungeons(i) % popSize()
-        if (nParticles > 0) then
-          !$omp parallel do schedule(dynamic)
-          gen: do n = 1, nParticles
-            pRNG = self % pRNG
-            p % pRNG => pRNG
-            call p % pRNG % stride(n)
-            call self % theseBatchDungeons(i) % copy(p, n)
-            p % timeMax = t * timeIncrement
-            if (p % time > p % timeMax ) then
-              call self % nextBatchDungeons(i) % detain(p)
-              cycle gen
-            end if
-            call self % geom % placeCoord(p % coords)
-            p % fate = 0 !update fate
-            call p % savePreHistory()
-            ! Transport particle untill its death
-            history: do
-              call collOp % collide(p, tally, self % theseBatchDungeons(i), self % theseBatchDungeons(i))
-              if(p % isDead) exit history
-              call transOp % transport(p, tally, self % theseBatchDungeons(i), self % theseBatchDungeons(i))
-              if(p % fate == AGED_FATE) then
+        call tally % reportCycleStart(self % currentTime(i))
+
+        nParticles = self % currentTime(i) % popSize()
+        !$omp parallel do schedule(dynamic)
+        gen: do n = 1, nParticles
+          pRNG = self % pRNG
+          p % pRNG => pRNG
+          call p % pRNG % stride(n)
+          call self % currentTime(i) % copy(p, n)
+          p % timeMax = t * timeIncrement
+
+          call self % geom % placeCoord(p % coords)
+          p % fate = 0 !update fate
+          call p % savePreHistory()
+          ! Transport particle untill its death
+          history: do
+            call collOp % collide(p, tally, self % currentTime(i), self % currentTime(i))
+            if(p % isDead) exit history
+            call transOp % transport(p, tally, self % currentTime(i), self % currentTime(i))
+            if(p % fate == AGED_FATE) then
+
+              if (p % time <= p % timeMax + timeIncrement) then
+                call self % nextTime(i) % detain(p)
+              else
                 call self % nextBatchDungeons(i) % detain(p)
-                exit history
-              endif
-              if(p % isDead) exit history
-            end do history
-          end do gen
-          !$omp end parallel do
-          call tally % reportCycleEnd(self % theseBatchDungeons(i),t)
-          call self % theseBatchDungeons(i) % cleanPop()
-          call self % pRNG % stride(nParticles)
+              end if
+              exit history
+            endif
+            if(p % isDead) exit history
+          end do history
+        end do gen
+        !$omp end parallel do
 
-        end if
+        nParticlesCopy = self % theseBatchDungeons(i) % popSize()
+        !$omp parallel do schedule(dynamic)
+        pCopy: do n = 1, nParticlesCopy
+          call self % theseBatchDungeons(i) % copy(p, n)
+          p % fate = 0
+          p % timeMax = t * timeIncrement
+          if (p % time <= p % timeMax + timeIncrement) then
+            call self % nextTime(i) % detain(p)
+          else
+            call self % nextBatchDungeons(i) % detain(p)
+          end if  
+        end do pCopy
+        !$omp end parallel do
+
+        call tally % reportCycleEnd(self % currentTime(i),t)
+        call self % currentTime(i) % cleanPop()
+        call self % theseBatchDungeons(i) % cleanPop()
+        call self % pRNG % stride(nParticles)
+
       end do
       self % batchPops(t) = batchPop
       self % tempBatchDungeons  => self % nextBatchDungeons
       self % nextBatchDungeons  => self % theseBatchDungeons
       self % theseBatchDungeons => self % tempBatchDungeons
-      
+
+      self % tempTime  => self % nextTime
+      self % nextTime  => self % currentTime
+      self % currentTime => self % tempTime
     end do
 
     call self % tally % setBatchPops(self % batchPops)
@@ -475,4 +517,160 @@ contains
     print *, repeat("<>",50)
   end subroutine printSettings
 
+
+
+  subroutine cycles2(self, tally, N_cycles, N_timeBins, timeIncrement)
+    class(timeDependentPhysicsPackage), intent(inout) :: self
+    type(tallyAdmin), pointer,intent(inout)         :: tally
+    integer(shortInt), intent(in)                   :: N_timeBins, N_cycles
+    integer(shortInt)                               :: i, t, n, nParticles, batchPop, nParticlesCopy
+    integer(shortInt), save                         :: j, bufferExtra
+    type(particle), save                            :: p, transferP
+    type(particle), save                            :: p_Precursor
+    type(particleDungeon), save                     :: buffer
+    type(collisionOperator), save                   :: collOp
+    class(transportOperator), allocatable, save     :: transOp
+    type(RNG), target, save                         :: pRNG
+    real(defReal)                                   :: elapsed_T, end_T, T_toEnd
+    real(defReal)                                   :: newTotalWeight
+    real(defReal)                                   :: decay_T, w_d
+    real(defReal), intent(in)                       :: timeIncrement
+    integer(shortInt), dimension(N_timeBins)       :: stepPopArray, stepPrecursorArray
+    real(defReal), dimension(N_timeBins)           :: stepWeightArray, stepPrecursorWeightArray
+    character(100),parameter :: Here ='cycles (timeDependentPhysicsPackage_class.f90)'
+    !$omp threadprivate(p, buffer, collOp, transOp, pRNG, j, bufferExtra, transferP)
+
+    !$omp parallel
+    ! Create particle buffer
+    call buffer % init(self % bufferSize)
+
+    ! Initialise neutron
+    p % geomIdx = self % geomIdx
+    p % k_eff = ONE
+
+    ! Create a collision + transport operator which can be made thread private
+    collOp = self % collOp
+    transOp = self % transOp
+    !$omp end parallel
+
+    ! Number of particles in each batch
+    nParticles = self % pop
+
+    ! Track number of batches for each time step
+    allocate(self % batchPops(N_timeBins))
+    self % batchPops(1) = N_cycles
+
+    ! Reset and start timer
+    call timerReset(self % timerMain)
+    call timerStart(self % timerMain)
+
+    ! First time iteration, fixed source treatment
+    ! TODO: add treatment of converged stationary initial source
+    print *, 'Time Step: ', 1
+    allocate(self % nextTimeInterval)
+    allocate(self % tempTimeInterval)
+    call self % nextTimeInterval % init(10 * nParticles)
+    call self % tempTimeInterval % init(10 * nParticles)
+    print *, 'hereeee'
+    do i = 1, N_cycles
+      print *, 'Cycle: ', i
+      call self % fixedSource % generate(self % thisTimeInterval, nParticles, self % pRNG)
+      call tally % reportCycleStart(self % thisTimeInterval)
+
+      !$omp parallel do schedule(dynamic)
+      gen_t0: do n = 1, nParticles
+        pRNG = self % pRNG
+        p % pRNG => pRNG
+        call p % pRNG % stride(n)
+        call self % thisTimeInterval % copy(p, n)
+        call self % geom % placeCoord(p % coords)
+        p % timeMax = timeIncrement
+        call p % savePreHistory()
+        p % fate = 0
+        history_t0: do
+          call transOp % transport(p, tally, self % thisTimeInterval, self % thisTimeInterval)
+          if(p % fate == AGED_FATE) then
+            call self % nextTimeInterval % detain(p)
+            exit history_t0
+          endif
+          if(p % isDead) exit history_t0
+          call collOp % collide(p, tally, self % thisTimeInterval, self % thisTimeInterval)
+          if(p % isDead) exit history_t0
+        end do history_t0
+      end do gen_t0
+      !$omp end parallel do
+
+      call tally % reportCycleEnd(self % thisTimeInterval,1)
+      call self % thisTimeInterval % cleanPop()
+      call self % pRNG % stride(nParticles)
+    end do
+
+    ! Flip batch dungeons
+    self % tempTimeInterval  => self % nextTimeInterval
+    self % nextTimeInterval  => self % thisTimeInterval
+    self % thisTimeInterval => self % tempTimeInterval
+
+    ! Process Remaining time iterations
+    do t = 2, N_timeBins
+      print *, 'Time Step: ', t
+      batchPop = 0
+      call self % nextTimeInterval % init(10*nParticles)
+      if (self % useCombing) then
+        call self % thisTimeInterval % normCombing(nParticles, pRNG)
+      end if
+
+      do i=1, N_cycles
+        print *, 'Cycle: ', i
+
+        if (self % thisTimeInterval % popSize() == 0) then 
+          print *, 'EMPTY SOURCE'
+          cycle
+        end if
+        batchPop = batchPop + 1
+        
+
+        call tally % reportCycleStart(self % thisTimeInterval)
+
+        nParticles = self % thisTimeInterval % popSize()
+        !$omp parallel do schedule(dynamic)
+        gen: do n = 1, nParticles
+          pRNG = self % pRNG
+          p % pRNG => pRNG
+          call p % pRNG % stride(n)
+          call self % thisTimeInterval % copy(p, n)
+          p % timeMax = t * timeIncrement
+
+          call self % geom % placeCoord(p % coords)
+          p % fate = 0 !update fate
+          call p % savePreHistory()
+          ! Transport particle untill its death
+          history: do
+            call collOp % collide(p, tally, self % thisTimeInterval, self % thisTimeInterval)
+            if(p % isDead) exit history
+            call transOp % transport(p, tally, self % thisTimeInterval, self % thisTimeInterval)
+            if(p % fate == AGED_FATE) then
+              call self % nextTimeInterval % detain(p)
+              exit history
+            endif
+            if(p % isDead) exit history
+          end do history
+        end do gen
+        !$omp end parallel do
+
+
+        call tally % reportCycleEnd(self % thisTimeInterval,t)
+        
+        call self % pRNG % stride(nParticles)
+      end do
+      call self % thisTimeInterval % cleanPop()
+      self % batchPops(t) = batchPop
+      self % tempTimeInterval  => self % nextTimeInterval
+      self % nextTimeInterval  => self % thisTimeInterval
+      self % thisTimeInterval => self % tempTimeInterval
+
+    end do
+
+    call self % tally % setBatchPops(self % batchPops)
+    deallocate(self % batchPops)
+  end subroutine cycles2
 end module timeDependentPhysicsPackage_class

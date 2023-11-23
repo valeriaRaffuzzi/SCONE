@@ -31,8 +31,6 @@ tally  {
     //map1 { type cellMap; cells (8); }
     //map2 { type timeMap; grid lin; min 0.0; max 7E-04; N 70;}
     //} //make this work on averaged accross all cells, then fix multimap on time dependent
-
-
     map { type timeMap; grid lin; min 0.0; max 7E-04; N 70;}
     response (flux); flux {type fluxResponse;}
     handleVirtual 1;
@@ -59,15 +57,15 @@ geometry {
       }
 
     cells { 
-      polyBox { id 1; type simpleCell; surfaces (-1  2  4); filltype mat; material m2;} 
-      cadmium { id 2; type simpleCell; surfaces (-2  3  4); filltype mat; material m4;}
+      polyBox { id 1; type simpleCell; surfaces (-1  2  4); filltype mat; material m1;} 
+      cadmium { id 2; type simpleCell; surfaces (-2  3  4); filltype mat; material m1;}
       voidHole { id 3; type simpleCell; surfaces (-4); filltype mat; material void;} 
-      AlContainer { id 4; type simpleCell; surfaces (-5  6); filltype mat; material m3;} 
+      AlContainer { id 4; type simpleCell; surfaces (-5  6); filltype mat; material m1;} 
       WaterContainer { id 5; type simpleCell; surfaces (-6 -7); filltype mat; material m1;} 
       Void { id 6; type simpleCell; surfaces (-6  7); filltype mat; material void;}
-      detectorSheathOne { id 7; type simpleCell; surfaces (-8  9 10); filltype mat; material m5 ; }
-      detectorSheathTwo { id 8; type simpleCell; surfaces (-8  9 -11); filltype mat; material m5 ;}
-      HeDetector { id 9; type simpleCell; surfaces (-10 11); filltype mat; material m6;} 
+      detectorSheathOne { id 7; type simpleCell; surfaces (-8  9 10); filltype mat; material m1;}
+      detectorSheathTwo { id 8; type simpleCell; surfaces (-8  9 -11); filltype mat; material m1;}
+      HeDetector { id 9; type simpleCell; surfaces (-10 11); filltype mat; material m1;} 
       cellTwenty { id 20; type simpleCell; surfaces (-3 8 5); filltype mat; material void;}
       cellTwentyOne { id 21; type simpleCell; surfaces (-3 -9 5); filltype mat; material void;} 
       //cellThirty { id 30; type simpleCell; surfaces (1); filltype outside;} 
