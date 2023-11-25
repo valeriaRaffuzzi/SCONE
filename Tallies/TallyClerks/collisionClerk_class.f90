@@ -201,6 +201,15 @@ contains
       if (virtual) return
       flx = ONE / xsData % getTotalMatXS(p, p % matIdx())
     end if
+    !print *, 'idx', p % matIdx()
+    !print *, 'mat, maj: ', xsData % getTotalMatXS(p, p % matIdx()), xsData % getMajorantXS(p)
+    !if (virtual) then
+    !  flx = ONE / xsData % getMajorantXS(p)
+    !else if (.not. virtual) then
+    !  flx = ONE / xsData % getTotalMatXS(p, p % matIdx())
+    !end if
+
+
 
     ! Get current particle state
     state = p
@@ -286,6 +295,7 @@ contains
     if(allocated(mem % batchPops)) then
       do i=1,product(resArrayShape)
         Nsamples = mem % batchPops(i)
+        print *, 'NSAMPLES', Nsamples, i
         call mem % getResult(val, std, self % getMemAddress() - 1 + i, Nsamples)
         call outFile % addResult(val,std)
       end do

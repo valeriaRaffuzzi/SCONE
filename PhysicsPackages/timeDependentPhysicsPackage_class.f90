@@ -216,9 +216,9 @@ contains
           call transOp % transport(p, tally, self % thisTimeInterval, self % thisTimeInterval)
           if(p % fate == AGED_FATE) then
 
-            if (p % time <= p % timeMax + timeIncrement) then
+            if ((p % time <= p % timeMax + timeIncrement) .and. (p % time > p % timeMax)) then
               call self % currentTime(i) % detain(p)
-            else
+            else if (p % time > p % timeMax + timeIncrement) then
               call self % nextBatchDungeons(i) % detain(p)
             end if
             exit history_t0
@@ -234,7 +234,7 @@ contains
       call self % thisTimeInterval % cleanPop()
       call self % pRNG % stride(nParticles)
     end do
-
+    deallocate(self % thisTimeInterval)
     ! Flip batch dungeons
     self % tempBatchDungeons  => self % nextBatchDungeons
     self % nextBatchDungeons  => self % theseBatchDungeons
@@ -246,12 +246,13 @@ contains
       batchPop = 0
       do i=1, N_cycles
         print *, 'Cycle: ', i
-        call self % nextBatchDungeons(i) % init(nParticles*3)
-        call self % nextTime(i) % init(nParticles)
-
+        call self % nextBatchDungeons(i) % init(self % pop) !TODO: only add particle if time < absolutt maxtime
+        call self % nextTime(i) % init(self % pop)
 
         if (self % currentTime(i) % popSize() == 0) then 
           print *, 'EMPTY SOURCE'
+          call self % currentTime(i) % cleanPop()
+          call self % theseBatchDungeons(i) % cleanPop()
           cycle
         end if
         batchPop = batchPop + 1
@@ -272,6 +273,7 @@ contains
           p % timeMax = t * timeIncrement
 
           call self % geom % placeCoord(p % coords)
+
           p % fate = 0 !update fate
           call p % savePreHistory()
           ! Transport particle untill its death
@@ -279,12 +281,13 @@ contains
             call collOp % collide(p, tally, self % currentTime(i), self % currentTime(i))
             if(p % isDead) exit history
             call transOp % transport(p, tally, self % currentTime(i), self % currentTime(i))
+
             if(p % fate == AGED_FATE) then
 
               if (p % time <= p % timeMax + timeIncrement) then
                 call self % nextTime(i) % detain(p)
               else
-                call self % nextBatchDungeons(i) % detain(p)
+                if (p % time <= timeIncrement*N_timeBins) call self % nextBatchDungeons(i) % detain(p)
               end if
               exit history
             endif
@@ -302,7 +305,7 @@ contains
           if (p % time <= p % timeMax + timeIncrement) then
             call self % nextTime(i) % detain(p)
           else
-            call self % nextBatchDungeons(i) % detain(p)
+            if (p % time <= timeIncrement*N_timeBins) call self % nextBatchDungeons(i) % detain(p)
           end if  
         end do pCopy
         !$omp end parallel do
@@ -480,8 +483,8 @@ contains
     call self % thisTimeInterval % init(self % pop)
 
     ! Size precursor dungeon
-    allocate(self % precursorDungeon)
-    call self % precursorDungeon % init(10 * self % pop)
+    !allocate(self % precursorDungeon)
+    !call self % precursorDungeon % init(10 * self % pop)
 
     call self % printSettings()
 

@@ -1,18 +1,18 @@
-type timeDependentPhysicsPackage;
+type fixedSourcePhysicsPackage;
 
 pop      1000000;
-timeSteps   70;
+//timeSteps   70;
 XSdata   ce;
 dataType ce;
-timeIncrement 1.E-05;
+//timeIncrement 1.E-05;
 //buffer 500000;
 //combing 1; //toggle on or off
 //precursors 0; //toggle on or off
 //batches 100; // not implemented!!
-cycles 3;
+cycles 200;
 
 outputFormat asciiJSON;
-collisionOperator { neutronCE {type neutronCEstd;}}
+collisionOperator { neutronCE {type neutronCEtime; precursors 0;} }
 
 transportOperator { type transportOperatorDT;
                   }
@@ -31,9 +31,7 @@ tally  {
     //map1 { type cellMap; cells (8); }
     //map2 { type timeMap; grid lin; min 0.0; max 7E-04; N 70;}
     //} //make this work on averaged accross all cells, then fix multimap on time dependent
-
-
-    map { type timeMap; grid lin; min 0.0; max 7E-04; N 70;}
+    map { type energyMap; grid lin; min 0.0; max 14.1; N 70;}
     response (flux); flux {type fluxResponse;}
     handleVirtual 1;
   }

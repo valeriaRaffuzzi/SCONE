@@ -686,12 +686,18 @@ contains
 
     ! Call attachment
     if(associated(self % atch)) then
-      call reportCycleEnd(self % atch, end,t)
+      print *, 'BUUUHUUU'
+      if (present(t)) then
+        call reportCycleEnd(self % atch, end,t)
+      else
+        call reportCycleEnd(self % atch, end)
+      end if 
     end if
 
     ! Go through all clerks that request the report
     !$omp parallel do
     do i=1,self % cycleEndClerks % getSize()
+      print *, 'BUUHUUU'
       idx = self % cycleEndClerks % get(i)
       call self % tallyClerks(idx) % reportCycleEnd(end, self % mem)
     end do
@@ -712,8 +718,10 @@ contains
 
     ! Close cycle multipling all scores by multiplication factor¨
     if(present(t)) then
+      normFactor = ONE
       call self % mem % closeCycle(normFactor, t)
     else
+      normFactor = ONE
       call self % mem % closeCycle(normFactor)
     end if
 

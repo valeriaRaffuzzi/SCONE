@@ -1,26 +1,27 @@
-type timeDependentPhysicsPackage;
+type fixedSourcePhysicsPackage;
 
 pop      1000000;
-timeSteps   70;
+//timeSteps   70;
 XSdata   ce;
 dataType ce;
-timeIncrement 1.E-05;
+//timeIncrement 1.E-05;
 //buffer 500000;
 //combing 1; //toggle on or off
 //precursors 0; //toggle on or off
 //batches 100; // not implemented!!
-cycles 3;
+cycles 50;
 
 outputFormat asciiJSON;
-collisionOperator { neutronCE {type neutronCEtime; precursors 0;} }
-                  
+collisionOperator { neutronCE {type neutronCEstd; minEnergy 1E-11;}
+                  }
 transportOperator { type transportOperatorDT;
                   }
 
+
 source {
   type pointSource;
-  r (0.0 0.0 0.0);//(-31.00 0.0 0.0);
-  //dir (0.0 0.0 1.0); //ask valeria, should it be 1.0, 0.0, 0.0?
+  r (-31.0 0.0 0.0);
+  dir (0.0 0.0 1.0);
   particle neutron;
   E 14.1;
 }
@@ -31,7 +32,7 @@ tally  {
     //map1 { type cellMap; cells (8); }
     //map2 { type timeMap; grid lin; min 0.0; max 7E-04; N 70;}
     //} //make this work on averaged accross all cells, then fix multimap on time dependent
-    map { type timeMap; grid lin; min 0.0; max 7E-04; N 70;}
+    map { type spaceMap; axis x; grid lin; min -35; max 35; N 70;}
     response (flux); flux {type fluxResponse;}
     handleVirtual 1;
   }
@@ -43,20 +44,20 @@ geometry {
     graph {type shrunk;}
 
     surfaces { 
-      sphereBound { type sphere; id 1; origin ( 0.0 0.0 0.0); radius 50.0; }
-      sphereBoundtwo { type sphere; id 2; origin ( 0.0 0.0 0.0); radius 25.0; }
+      outerBox { id 1; type box; origin (0 0 0); halfwidth (33.02 33.02 33.02); } 
+      innerBox { id 2; type box; origin (0 0 0); halfwidth (30.48 30.48 30.48); } 
       }
 
     cells { 
-      outerSphere { id 1; type simpleCell; surfaces (-1 2); filltype mat; material m1;}
-      innerSphere { id 2; type simpleCell; surfaces (-2); filltype mat; material void;} 
+      polyBox { id 1; type simpleCell; surfaces (-1 2); filltype mat; material m1;} 
+      cadmium { id 2; type simpleCell; surfaces (-2); filltype mat; material m4;}
       }
 
 
     universes
     {
       root{id 1; type rootUniverse; border 1; fill u<2>;}
-      geom { id 2; type cellUniverse; cells (1 2);}    //cells (1 2 3 4 5 6 7 8 9 20 21)
+      geom { id 2; type cellUniverse; cells (1 2);}
     }
 }
 
@@ -73,9 +74,25 @@ nuclearData {
         8016.03   0.03347;}
       //moder { 1001.00 h-h2o-293; }
     }
+    //cadmium
+    m4 {
+      temp 12345;
+      composition {
+        //48106.03	7.19818E-05;
+        //48108.03	5.11781E-05;
+        //48110.03	0.00072;
+        //48111.03	0.00073;
+        //48112.03	0.00138;
+        //48113.03	0.00070;
+        //48114.03	0.00165;
+        48116.03	0.00043;        
+      }
+    }
+
 }
 
 }
+
 
 
 

@@ -283,45 +283,45 @@ contains
     !$omp threadprivate(res)
 
     ! Increment Cycle Counter
-    self % cycles = self % cycles + 1
+    !self % cycles = self % cycles + 1
+    !if(mod(self % cycles, self % batchSize) == 0) then ! Close Batch
+    !if (present(t)) then
 
-    if(mod(self % cycles, self % batchSize) == 0) then ! Close Batch
-      if (present(t)) then
+    ! Normalise scores
+ 
+    self % parallelBins(t,:) = self % parallelBins(t,:) !* normFactor
+    res = sum(self % parallelBins(t,:))
 
-        ! Normalise scores
-        self % parallelBins(t,:) = self % parallelBins(t,:) * normFactor
-        res = sum(self % parallelBins(t,:))
+    ! Zero all score bins
+    self % parallelBins(t,:) = ZERO
+  
+    ! Increment cumulative sums 
+    self % bins(t,CSUM)  = self % bins(t,CSUM) + res
+    self % bins(t,CSUM2) = self % bins(t,CSUM2) + res * res
 
-        ! Zero all score bins
-        self % parallelBins(t,:) = ZERO
-      
-        ! Increment cumulative sums 
-        self % bins(t,CSUM)  = self % bins(t,CSUM) + res
-        self % bins(t,CSUM2) = self % bins(t,CSUM2) + res * res
-
-      else
-        !$omp parallel do
-        do i = 1, self % N
-        
-          ! Normalise scores
-          self % parallelBins(i,:) = self % parallelBins(i,:) * normFactor
-          res = sum(self % parallelBins(i,:))
-
-          ! Zero all score bins
-          self % parallelBins(i,:) = ZERO
-       
-          ! Increment cumulative sums 
-          self % bins(i,CSUM)  = self % bins(i,CSUM) + res
-          self % bins(i,CSUM2) = self % bins(i,CSUM2) + res * res
-
-        end do
-        !$omp end parallel do
+    !!  else
+    !    !$omp parallel do
+    !    do i = 1, self % N
+    !    
+    !      ! Normalise scores
+    !      self % parallelBins(i,:) = self % parallelBins(i,:) * normFactor
+    !      res = sum(self % parallelBins(i,:))
+!
+    !      ! Zero all score bins
+    !      self % parallelBins(i,:) = ZERO
+    !   
+    !      ! Increment cumulative sums 
+    !      self % bins(i,CSUM)  = self % bins(i,CSUM) + res
+    !      self % bins(i,CSUM2) = self % bins(i,CSUM2) + res * res
+!
+    !    end do
+     !   !$omp end parallel do
 
         ! Increment batch counter
-        self % batchN = self % batchN + 1
-      end if
+        !self % batchN = self % batchN + 1
+      !end if
 
-    end if
+    !end if
 
   end subroutine closeCycle
 
@@ -477,13 +477,14 @@ contains
     allocate(self % batchPops(size(batchPops)))
     ! Add all individual entries
     self % batchPops(:) = batchPops(:)
+    print *, 'batchpops', self % batchPops(:) 
   end subroutine setBatchPops
 
-  function getBatchPops(self, idx) result(batchPop)
+  elemental subroutine getBatchPops(self, idx, batchPop)
     class(scoreMemory), intent(inout)            :: self
     integer(shortInt), intent(in) :: idx
-    integer(shortInt) :: batchPop
+    integer(shortInt), intent(inout) :: batchPop
     batchPop = self % batchPops(idx)
-  end function getBatchPops
+  end subroutine getBatchPops
 
 end module scoreMemory_class

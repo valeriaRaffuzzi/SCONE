@@ -55,19 +55,20 @@ contains
     DTLoop:do
       distance = -log( p% pRNG % get() ) * majorant_inv
 
-      if (p % timeMax > ZERO .and. p % time + distance / p % getSpeed() > p % timeMax) then
+      if (p % time + distance / p % getSpeed() > p % timeMax) then
         p % fate = AGED_FATE
         ! Move partice in the geometry
-        call self % geom % teleport(p % coords, distance)
+        !call self % geom % teleport(p % coords, distance)
         ! Update time
-        p % time = p % time + distance / p % getSpeed()
+        !p % time = p % time + distance / p % getSpeed()
 
-        if (p % matIdx() == OUTSIDE_FILL) then
-          p % fate = LEAK_FATE
-          p % isDead = .true.
-          return
-        end if
-        exit DTLoop
+        !if (p % matIdx() == OUTSIDE_FILL) then
+        !  p % fate = LEAK_FATE
+        !  p % isDead = .true.
+        !  return
+        !end if
+        !exit DTLoop
+        !return
       endif
 
       ! Move partice in the geometry
@@ -85,8 +86,10 @@ contains
 
       ! Check for void
       if(p % matIdx() == VOID_MAT) then
-        call tally % reportInColl(p, .true.)
-        cycle DTLoop
+        if (p % fate /= AGED_FATE) then
+          call tally % reportInColl(p, .true.)
+          cycle DTLoop
+        end if
       end if
 
       ! Give error if the particle somehow ended in an undefined material
@@ -103,7 +106,7 @@ contains
       if (p % pRNG % get() < sigmaT*majorant_inv) then
         exit DTLoop
       else
-        call tally % reportInColl(p, .true.)
+          call tally % reportInColl(p, .true.)
       end if
 
     end do DTLoop
