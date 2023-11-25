@@ -71,16 +71,18 @@ module transportOperator_inter
     !! Move particle from collision to collision
     !!  Kill particle if needed
     !!
-    subroutine transit(self, p, tally, thisCycle, nextCycle)
+    subroutine transit(self, p, tally, thisCycle, nextCycle, cycleIdx)
       import :: transportOperator, &
                 particle, &
                 tallyAdmin, &
-                particleDungeon
+                particleDungeon, &
+                shortInt
       class(transportOperator), intent(inout) :: self
       class(particle), intent(inout)          :: p
       type(tallyAdmin), intent(inout)         :: tally
       class(particleDungeon), intent(inout)   :: thisCycle
       class(particleDungeon), intent(inout)   :: nextCycle
+      integer(shortInt), intent(in), optional :: cycleIdx
     end subroutine transit
   end interface
 
@@ -90,12 +92,13 @@ contains
   !! Master non-overridable subroutine to perform transport
   !!  Performs everything common to all types of transport
   !!
-  subroutine transport(self, p, tally, thisCycle, nextCycle)
+  subroutine transport(self, p, tally, thisCycle, nextCycle, cycleIdx)
     class(transportOperator), intent(inout) :: self
     class(particle), intent(inout)          :: p
     type(tallyAdmin), intent(inout)         :: tally
     class(particleDungeon), intent(inout)   :: thisCycle
     class(particleDungeon), intent(inout)   :: nextCycle
+    integer(shortInt), intent(in), optional :: cycleIdx
     character(100),parameter :: Here ='transport (transportOperator_inter.f90)'
 
     ! Get nuclear data pointer form the particle
@@ -108,8 +111,11 @@ contains
     call p % savePreTransition()
 
     ! Perform transit
-    call self % transit(p, tally, thisCycle, nextCycle)
-
+    if (present(cycleIdx)) then
+      call self % transit(p, tally, thisCycle, nextCycle, cycleIdx)
+    else
+      call self % transit(p, tally, thisCycle, nextCycle)
+    end if
     ! Send history reports if particle died
     if( p  % isDead) then
       call tally % reportHist(p)

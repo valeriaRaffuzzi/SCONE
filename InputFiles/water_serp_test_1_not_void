@@ -38,6 +38,7 @@ tally  {
     map { type timeMap; grid lin; min 0.0; max 7E-04; N 70;}
     response (flux); flux {type fluxResponse;}
     handleVirtual 1;
+    batchSize 5;
   }
 }
 

@@ -37,12 +37,13 @@ module transportOperatorDT_class
 
 contains
 
-  subroutine deltaTracking(self, p, tally, thisCycle, nextCycle)
+  subroutine deltaTracking(self, p, tally, thisCycle, nextCycle, cycleIdx)
     class(transportOperatorDT), intent(inout) :: self
     class(particle), intent(inout)            :: p
     type(tallyAdmin), intent(inout)           :: tally
     class(particleDungeon), intent(inout)     :: thisCycle
     class(particleDungeon), intent(inout)     :: nextCycle
+    integer(shortInt), intent(in), optional          :: cycleIdx
     real(defReal)                             :: majorant_inv, sigmaT, distance
     character(100), parameter :: Here = 'deltaTracking (transportOIperatorDT_class.f90)'
 
@@ -57,18 +58,6 @@ contains
 
       if (p % time + distance / p % getSpeed() > p % timeMax) then
         p % fate = AGED_FATE
-        ! Move partice in the geometry
-        !call self % geom % teleport(p % coords, distance)
-        ! Update time
-        !p % time = p % time + distance / p % getSpeed()
-
-        !if (p % matIdx() == OUTSIDE_FILL) then
-        !  p % fate = LEAK_FATE
-        !  p % isDead = .true.
-        !  return
-        !end if
-        !exit DTLoop
-        !return
       endif
 
       ! Move partice in the geometry
@@ -87,7 +76,11 @@ contains
       ! Check for void
       if(p % matIdx() == VOID_MAT) then
         if (p % fate /= AGED_FATE) then
-          call tally % reportInColl(p, .true.)
+          if (present(cycleIdx)) then
+            call tally % reportInColl(p, .true., cycleIdx)
+          else 
+            call tally % reportInColl(p, .true.)
+          end if
           cycle DTLoop
         end if
       end if
@@ -106,7 +99,11 @@ contains
       if (p % pRNG % get() < sigmaT*majorant_inv) then
         exit DTLoop
       else
-          call tally % reportInColl(p, .true.)
+          if (present(cycleIdx)) then
+            call tally % reportInColl(p, .true., cycleIdx)
+          else 
+            call tally % reportInColl(p, .true.)
+          end if
       end if
 
     end do DTLoop

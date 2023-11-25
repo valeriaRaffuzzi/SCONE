@@ -182,12 +182,13 @@ contains
   !!
   !! See tallyClerk_inter for details
   !!
-  subroutine reportInColl(self, p, xsData, mem, virtual)
+  subroutine reportInColl(self, p, xsData, mem, virtual, cycleIdx)
     class(collisionClerk), intent(inout)  :: self
     class(particle), intent(in)           :: p
     class(nuclearDatabase), intent(inout) :: xsData
     type(scoreMemory), intent(inout)      :: mem
     logical(defBool), intent(in)          :: virtual
+    integer(shortInt), intent(in), optional :: cycleIdx
     type(particleState)                   :: state
     integer(shortInt)                     :: binIdx, i
     integer(longInt)                      :: adrr
@@ -201,15 +202,6 @@ contains
       if (virtual) return
       flx = ONE / xsData % getTotalMatXS(p, p % matIdx())
     end if
-    !print *, 'idx', p % matIdx()
-    !print *, 'mat, maj: ', xsData % getTotalMatXS(p, p % matIdx()), xsData % getMajorantXS(p)
-    !if (virtual) then
-    !  flx = ONE / xsData % getMajorantXS(p)
-    !else if (.not. virtual) then
-    !  flx = ONE / xsData % getTotalMatXS(p, p % matIdx())
-    !end if
-
-
 
     ! Get current particle state
     state = p
@@ -235,7 +227,11 @@ contains
     ! Append all bins
     do i=1,self % width
       scoreVal = self % response(i) % get(p, xsData) * p % w * flx
-      call mem % score(scoreVal, adrr + i)
+      if (present(cycleIdx)) then
+        call mem % score(scoreVal, adrr + i, cycleIdx)
+      else
+        call mem % score(scoreVal, adrr + i)
+      end if
 
     end do
 

@@ -45,12 +45,13 @@ contains
   !!
   !! Performs surface tracking
   !!
-  subroutine surfaceTracking(self, p, tally, thisCycle, nextCycle)
+  subroutine surfaceTracking(self, p, tally, thisCycle, nextCycle, cycleIdx)
     class(transportOperatorST), intent(inout) :: self
     class(particle), intent(inout)            :: p
     type(tallyAdmin), intent(inout)           :: tally
     class(particleDungeon),intent(inout)      :: thisCycle
     class(particleDungeon),intent(inout)      :: nextCycle
+    integer(shortInt), intent(in), optional   :: cycleIdx
     integer(shortInt)                         :: event
     real(defReal)                             :: sigmaT, dist
     type(distCache)                           :: cache

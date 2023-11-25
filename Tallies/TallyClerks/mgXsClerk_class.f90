@@ -208,12 +208,13 @@ contains
   !!
   !! See tallyClerk_inter for details
   !!
-  subroutine reportInColl(self, p, xsData, mem, virtual)
+  subroutine reportInColl(self, p, xsData, mem, virtual, cycleIdx)
     class(mgXsClerk), intent(inout)       :: self
     class(particle), intent(in)           :: p
     class(nuclearDatabase), intent(inout) :: xsData
     type(scoreMemory), intent(inout)      :: mem
     logical(defBool), intent(in)          :: virtual
+    integer(shortInt), intent(in), optional         :: cycleIdx
     type(particleState)                   :: state
     type(neutronMacroXSs)                 :: xss
     class(neutronMaterial), pointer       :: mat
@@ -416,7 +417,6 @@ contains
     type(scoreMemory), intent(inout)    :: mem
     integer(longInt)                    :: addr, binIdx, enIdx, matIdx
     integer(shortInt)                   :: N, i
-
     ! Loop over the whole neutron population
     N = end % popSize()
     do i = 1,N

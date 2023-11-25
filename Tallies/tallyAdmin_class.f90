@@ -209,12 +209,13 @@ contains
     end if
 
     ! Read batching size
-    call dict % getOrDefault(cyclesPerBatch,'batchSize',1)
+    call dict % getOrDefault(cyclesPerBatch,'batchSize',5)
 
     ! Initialise score memory
     ! Calculate required size.
     memSize = sum( self % tallyClerks % getSize() )
     call self % mem % init(memSize, 1, batchSize = cyclesPerBatch)
+    print *, '--------', cyclesPerBatch
 
     ! Assign memory locations to the clerks
     memLoc = 1
@@ -445,17 +446,22 @@ contains
   !! Errors:
   !!   None
   !!
-  recursive subroutine reportInColl(self, p, virtual)
+  recursive subroutine reportInColl(self, p, virtual, cycleIdx)
     class(tallyAdmin), intent(inout) :: self
     class(particle), intent(in)      :: p
     logical(defBool), intent(in)     :: virtual
+    integer(shortInt), intent(in), optional    :: cycleIdx
     integer(shortInt)                :: i, idx
     class(nuclearDatabase),pointer   :: xsData
     character(100), parameter :: Here = "reportInColl (tallyAdmin_class.f90)"
 
     ! Call attachment
     if(associated(self % atch)) then
-      call reportInColl(self % atch, p, virtual)
+      if (present(cycleIdx)) then
+        call reportInColl(self % atch, p, virtual, cycleIdx)
+      else
+        call reportInColl(self % atch, p, virtual)
+      end if
     end if
 
     ! Get Data
@@ -464,7 +470,11 @@ contains
     ! Go through all clerks that request the report
     do i=1,self % inCollClerks % getSize()
       idx = self % inCollClerks % get(i)
-      call self % tallyClerks(idx) % reportInColl(p, xsData, self % mem, virtual)
+      if (present(cycleIdx)) then
+        call self % tallyClerks(idx) % reportInColl(p, xsData, self % mem, virtual, cycleIdx)
+      else
+        call self % tallyClerks(idx) % reportInColl(p, xsData, self % mem, virtual)
+      end if
 
     end do
 
@@ -674,10 +684,10 @@ contains
   !! Errors:
   !!   None
   !!
-  recursive subroutine reportCycleEnd(self,end,t)
+  recursive subroutine reportCycleEnd(self,end,t, cycleIdx)
     class(tallyAdmin), intent(inout)       :: self
     class(particleDungeon), intent(in)     :: end
-    integer(shortInt), intent(in),optional :: t
+    integer(shortInt), intent(in),optional :: t, cycleIdx
     integer(shortInt)                      :: i
     integer(shortInt), save                :: idx
     real(defReal)                          :: normFactor, normScore
@@ -687,8 +697,8 @@ contains
     ! Call attachment
     if(associated(self % atch)) then
       print *, 'BUUUHUUU'
-      if (present(t)) then
-        call reportCycleEnd(self % atch, end,t)
+      if (present(t) .and. present(cycleIdx)) then
+        call reportCycleEnd(self % atch, end,t, cycleIdx)
       else
         call reportCycleEnd(self % atch, end)
       end if 
@@ -697,7 +707,6 @@ contains
     ! Go through all clerks that request the report
     !$omp parallel do
     do i=1,self % cycleEndClerks % getSize()
-      print *, 'BUUHUUU'
       idx = self % cycleEndClerks % get(i)
       call self % tallyClerks(idx) % reportCycleEnd(end, self % mem)
     end do
@@ -717,9 +726,9 @@ contains
     end if
 
     ! Close cycle multipling all scores by multiplication factor¨
-    if(present(t)) then
+    if(present(t) .and. present(cycleIdx)) then
       normFactor = ONE
-      call self % mem % closeCycle(normFactor, t)
+      call self % mem % closeCycle(normFactor, t, cycleIdx)
     else
       normFactor = ONE
       call self % mem % closeCycle(normFactor)

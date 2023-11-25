@@ -107,17 +107,22 @@ contains
   !!
   !! Determine type of the particle and call approperiate collisionProcessor
   !!
-  subroutine collide(self, p, tally, thisCycle, nextCycle)
+  subroutine collide(self, p, tally, thisCycle, nextCycle, cycleIdx)
     class(collisionOperator), intent(inout) :: self
     class(particle), intent(inout)           :: p
     type(tallyAdmin), intent(inout)          :: tally
     class(particleDungeon),intent(inout)     :: thisCycle
     class(particleDungeon),intent(inout)     :: nextCycle
+    integer(shortInt), intent(in), optional  :: cycleIdx
     integer(shortInt)                        :: idx, procType
     character(100), parameter :: Here = 'collide (collisionOperator_class.f90)'
 
     if(p % matIdx() == VOID_MAT) then
-      call tally % reportInColl(p, .true.)
+      if (present(cycleIdx)) then
+        call tally % reportInColl(p, .true., cycleIdx)
+      else
+        call tally % reportInColl(p, .true.)
+      end if
       return
     end if
 
@@ -142,7 +147,11 @@ contains
     end if
 
     ! Call physics
-    call self % physicsTable(idx) % proc % collide(p, tally, thisCycle, nextCycle)
+    if (present(cycleIdx)) then
+      call self % physicsTable(idx) % proc % collide(p, tally, thisCycle, nextCycle, cycleIdx)
+    else 
+      call self % physicsTable(idx) % proc % collide(p, tally, thisCycle, nextCycle)
+    end if
 
   end subroutine collide
     

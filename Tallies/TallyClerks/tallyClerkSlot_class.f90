@@ -165,15 +165,20 @@ contains
   !!
   !! See tallyClerk_inter for details
   !!
-  subroutine reportInColl(self, p, xsData, mem, virtual)
+  subroutine reportInColl(self, p, xsData, mem, virtual, cycleIdx)
     class(tallyClerkSlot), intent(inout)  :: self
     class(particle), intent(in)           :: p
     class(nuclearDatabase), intent(inout) :: xsData
     type(scoreMemory), intent(inout)      :: mem
     logical(defBool), intent(in)          :: virtual
+    integer(shortInt), intent(in), optional         :: cycleIdx
 
     ! Pass call to instance in the slot
-    call self % slot % reportInColl(p, xsData, mem, virtual)
+    if (present(cycleIdx)) then
+      call self % slot % reportInColl(p, xsData, mem, virtual, cycleIdx)
+    else
+      call self % slot % reportInColl(p, xsData, mem, virtual)
+    end if
 
   end subroutine reportInColl
 
@@ -269,8 +274,8 @@ contains
     class(tallyClerkSlot), intent(inout) :: self
     class(particleDungeon), intent(in)   :: end
     type(scoreMemory), intent(inout)     :: mem
-
     ! Pass call to instance in the slot
+
     call self % slot % reportCycleEnd(end, mem)
 
   end subroutine reportCycleEnd

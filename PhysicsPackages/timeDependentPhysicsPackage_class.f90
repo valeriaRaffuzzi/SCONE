@@ -207,15 +207,15 @@ contains
         pRNG = self % pRNG
         p % pRNG => pRNG
         call p % pRNG % stride(n)
+        !print *, 'hehe', i, n
         call self % thisTimeInterval % copy(p, n)
         call self % geom % placeCoord(p % coords)
         p % timeMax = timeIncrement
         call p % savePreHistory()
         p % fate = 0
         history_t0: do
-          call transOp % transport(p, tally, self % thisTimeInterval, self % thisTimeInterval)
+          call transOp % transport(p, tally, self % thisTimeInterval, self % thisTimeInterval, i)
           if(p % fate == AGED_FATE) then
-
             if ((p % time <= p % timeMax + timeIncrement) .and. (p % time > p % timeMax)) then
               call self % currentTime(i) % detain(p)
             else if (p % time > p % timeMax + timeIncrement) then
@@ -224,13 +224,13 @@ contains
             exit history_t0
           endif
           if(p % isDead) exit history_t0
-          call collOp % collide(p, tally, self % thisTimeInterval, self % thisTimeInterval)
+          call collOp % collide(p, tally, self % thisTimeInterval, self % thisTimeInterval, i)
           if(p % isDead) exit history_t0
         end do history_t0
       end do gen_t0
       !$omp end parallel do
 
-      call tally % reportCycleEnd(self % thisTimeInterval,1)
+      call tally % reportCycleEnd(self % thisTimeInterval,1, i)
       call self % thisTimeInterval % cleanPop()
       call self % pRNG % stride(nParticles)
     end do
@@ -278,9 +278,9 @@ contains
           call p % savePreHistory()
           ! Transport particle untill its death
           history: do
-            call collOp % collide(p, tally, self % currentTime(i), self % currentTime(i))
+            call collOp % collide(p, tally, self % currentTime(i), self % currentTime(i), i)
             if(p % isDead) exit history
-            call transOp % transport(p, tally, self % currentTime(i), self % currentTime(i))
+            call transOp % transport(p, tally, self % currentTime(i), self % currentTime(i), i)
 
             if(p % fate == AGED_FATE) then
 
@@ -310,7 +310,7 @@ contains
         end do pCopy
         !$omp end parallel do
 
-        call tally % reportCycleEnd(self % currentTime(i),t)
+        call tally % reportCycleEnd(self % currentTime(i),t, i)
         call self % currentTime(i) % cleanPop()
         call self % theseBatchDungeons(i) % cleanPop()
         call self % pRNG % stride(nParticles)
