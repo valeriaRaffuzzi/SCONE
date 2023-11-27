@@ -8,18 +8,16 @@ module collisionProcessorFactory_func
   use collisionProcessor_inter, only : collisionProcessor
 
   ! Implementation
-  use neutronCEstd_class, only  : neutronCEstd
-  use neutronCEimp_class, only  : neutronCEimp
-  use neutronMGstd_class, only  : neutronMGstd
-  use neutronMGimp_class, only  : neutronMGimp
-  use neutronCEtime_class, only : neutronCEtime
+  use neutronCEstd_class,  only  : neutronCEstd
+  use neutronCEimp_class,  only  : neutronCEimp
+  use neutronMGstd_class,  only  : neutronMGstd
+  use neutronCEtime_class, only  : neutronCEtime
 
   implicit none
   private
 
   public :: new_collisionProcessor
 
-  ! *** ADD NAME OF A NEW COLLISION PROCESSOR HERE ***!
   ! List that contains all accaptable types of collisionProcessors
   ! It is printed if type was unrecognised
   ! NOTE:
@@ -27,7 +25,6 @@ module collisionProcessorFactory_func
   character(nameLen),dimension(*),parameter :: AVALIBLE_collisionProcessors = [ 'neutronCEstd ',&
                                                                                 'neutronCEimp ',&
                                                                                 'neutronMGstd ',&
-                                                                                'neutronMGimp ',&
                                                                                 'neutronCEtime']
 
 contains
@@ -49,38 +46,27 @@ contains
     call dict % get(type,'type')
 
     ! Allocate approperiate subclass of collisionProcessor
-    ! *** ADD CASE STATEMENT FOR A NEW COLLISION PROCESSOR BELOW ***!
     select case(type)
       case('neutronCEstd')
         allocate(neutronCEstd :: new)
-        call new % init(dict)
 
       case('neutronCEimp')
         allocate(neutronCEimp :: new)
-        call new % init(dict)
 
       case('neutronMGstd')
         allocate(neutronMGstd :: new)
-        call new % init(dict)
-
-      case('neutronMGimp')
-        allocate(neutronMGimp :: new)
-        call new % init(dict)
 
       case('neutronCEtime')
         allocate(neutronCEtime :: new)
-        call new % init(dict)
 
-     !*** NEW COLLISION PROCESSOR TEMPLATE ***!
-     !case('<newcollisionProcessorName>')
-     !  allocate(<newcollisionProcessorName> :: new)
-     !  call new % init(dict)
-     !
       case default
         print *, AVALIBLE_collisionProcessors
         call fatalError(Here, 'Unrecognised type of collisionProcessor: ' // trim(type))
 
     end select
+
+    ! Initialise new processor
+    call new % init(dict)
 
   end subroutine new_collisionProcessor
 

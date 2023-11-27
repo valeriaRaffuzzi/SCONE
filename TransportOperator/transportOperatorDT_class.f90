@@ -43,7 +43,7 @@ contains
     type(tallyAdmin), intent(inout)           :: tally
     class(particleDungeon), intent(inout)     :: thisCycle
     class(particleDungeon), intent(inout)     :: nextCycle
-    integer(shortInt), intent(in), optional          :: cycleIdx
+    integer(shortInt), intent(in), optional   :: cycleIdx
     real(defReal)                             :: majorant_inv, sigmaT, distance
     character(100), parameter :: Here = 'deltaTracking (transportOIperatorDT_class.f90)'
 

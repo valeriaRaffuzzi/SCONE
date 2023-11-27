@@ -101,7 +101,7 @@ module neutronCEtime_class
     logical(defBool) :: implicitAbsorption ! Prevents particles dying through capture
     logical(defBool) :: implicitSites ! Generates fission sites on every fissile collision
     logical(defBool) :: branchlessFiss ! Fission without making new particles
-    
+
     ! Precursors
     logical(defBool) :: usePrecursors
     logical(defBool) :: groupedPrecursor
@@ -160,7 +160,7 @@ contains
     call dict % getOrDefault(self % implicitAbsorption,'impAbs', .false.)
     call dict % getOrDefault(self % implicitSites,'impGen', .true.)
     call dict % getOrDefault(self % branchlessFiss, 'branchless', .false.)
-    
+
     ! Obtain precursor settings
     call dict % getOrDefault(self % usePrecursors, 'precursors', .true.)
     call dict % getOrDefault(self % groupedPrecursor, 'groupedPrecursor', .true.)
@@ -258,7 +258,7 @@ contains
       call self % nuc % getMicroXSs(microXSs, p % E, p % pRNG)
       sig_nufiss = microXSs % nuFission
       sig_tot    = microXSs % total
-  
+
       ! Sample number of fission sites generated
       ! Support -ve weight particles
       n = int(abs( (wgt * sig_nufiss) / (w0 * sig_tot * k_eff)) + rand1, shortInt)
@@ -280,7 +280,7 @@ contains
                 !print *, numToChar(sum(fd_i(1:precursorGroups)))
             else
                 call fission % sampleDelayed(mu, phi, E_out, p % E, p % pRNG, lambda, p_del)
-                
+
                 ! Form arrays from single values
                 E_out_i(1) = E_out
                 E_out_i(2:) = ZERO
@@ -289,13 +289,13 @@ contains
                 fd_i(1) = ONE
                 fd_i(2:) = ZERO
             endif
-            
+
             dir = rotateVector(p % dirGlobal(), mu, phi)
 
             do j=1, precursorGroups
                 if (E_out_i(i) > self % maxE) E_out_i(i) = self % maxE
             end do
-            
+
             ! Create precursor particle
             ! Copy extra detail from parent particle (i.e. time, flags ect.)
             pTemp       = p
@@ -304,7 +304,7 @@ contains
             pTemp % r   = r
             pTemp % dir = dir
             pTemp % wgt = wgt * p_del
-            
+
             ! Precursor properties
             pTemp % type = 3_shortInt
             pTemp % lambda_i = lambda_i
@@ -363,7 +363,7 @@ contains
     type(collisionData), intent(inout)   :: collDat
     class(particleDungeon),intent(inout) :: thisCycle
     class(particleDungeon),intent(inout) :: nextCycle
-    
+
     !print *, '---time of capture: ', numToChar(p % time)
 
     p % isDead =.true.
@@ -391,7 +391,7 @@ contains
     real(defReal)                        :: sig_nufiss, sig_fiss, k_eff
     character(100),parameter             :: Here = 'fission (neutronCEtime_class.f90)'
 
-    
+
     ! Obtain required data
     wgt   = p % w                ! Current weight
     w0    = p % preHistory % wgt ! Starting weight
@@ -409,12 +409,12 @@ contains
         if (self % branchlessFiss) then
             ! Calculate value of nu to adjust particle weight by
             nu = abs((sig_nufiss) / (sig_fiss * k_eff))
-        
+
             r = p % rGlobal()
             call fiss % samplePrompt(mu, phi, E_out, p % E, p % pRNG, p_del)
-        
+
             if (E_out > self % maxE) E_out = self % maxE
-        
+   
             call p % rotate(mu, phi)
             p % E = E_out
             p % w = nu * p % w * (ONE - p_del)
@@ -431,13 +431,13 @@ contains
             ! Store new sites in the next cycle dungeon
             wgt =  sign(w0, wgt)
             r   = p % rGlobal()
-        
+
             do i=1,n
                 call fiss % samplePrompt(mu, phi, E_out, p % E, p % pRNG, p_del)
                 dir = rotateVector(p % dirGlobal(), mu, phi)
-          
+
                 if (E_out > self % maxE) E_out = self % maxE
-          
+
                 ! Copy extra detail from parent particle (i.e. time, flags ect.)
                 pTemp       = p
 
@@ -446,7 +446,7 @@ contains
                   pTemp % dir = dir
                   pTemp % E   = E_out
                   pTemp % wgt = wgt * (ONE - p_del)
-                  
+
                   call nextCycle % detain(pTemp)
             end do
         end if

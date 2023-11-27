@@ -29,13 +29,13 @@ source {
 
 tally  {
   flux_time { type collisionClerk;
-    map { type multiMap; maps (map1 map2); // this supported properly in current implementation?
-    map1 { type cellMap; cells (8); }
-    map2 { type timeMap; grid lin; min 0.0; max 7E-04; N 70;}
-    } //make this work on averaged accross all cells, then fix multimap on time dependent
+    //map { type multiMap; maps (map1 map2); // this supported properly in current implementation?
+    //map1 { type cellMap; cells (8); }
+    //map2 { type timeMap; grid lin; min 0.0; max 7E-04; N 70;}
+    //} //make this work on averaged accross all cells, then fix multimap on time dependent
 
 
-    //map { type timeMap; grid lin; min 0.0; max 7E-04; N 70;}
+    map { type timeMap; grid lin; min 0.0; max 7E-04; N 70;}
     response (flux); flux {type fluxResponse;}
     handleVirtual 1;
   }
