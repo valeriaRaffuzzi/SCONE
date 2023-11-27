@@ -81,7 +81,6 @@ module scoreMemory_class
       !private
       real(defReal),dimension(:,:),allocatable     :: bins          !! Space for storing cumul data (2nd dim size is always 2!)
       real(defReal),dimension(:,:),allocatable     :: parallelBins  !! Space for scoring for different threads
-      real(defReal),dimension(:,:),allocatable   :: bins_time          !! Space for storing cumul data (2nd dim size is always 2!)
       real(defReal),dimension(:,:,:),allocatable   :: parallelBins_time  !! Space for scoring for different threads
       integer(longInt)                             :: N = 0         !! Size of memory (number of bins)
       integer(shortInt)                            :: nThreads = 0  !! Number of threads used for parallelBins
@@ -124,11 +123,12 @@ contains
   !! Allocate space for the bins given number of bins N
   !! Optionaly change batchSize from 1 to any +ve number
   !!
-  subroutine init(self, N, id, batchSize )
+  subroutine init(self, N, id, batchSize, Ncycles)
     class(scoreMemory),intent(inout)      :: self
     integer(longInt),intent(in)           :: N
     integer(shortInt),intent(in)          :: id
     integer(shortInt),optional,intent(in) :: batchSize
+    integer(shortInt),optional,intent(in) :: Ncycles
     character(100), parameter :: Here= 'init (scoreMemory_class.f90)'
 
     ! Allocate space and zero all bins
@@ -143,16 +143,9 @@ contains
 
     !time dependent
 
-    ! Allocate space and zero all bins
-    allocate( self % bins_time(N, DIM2))
-    self % bins = ZERO
-
-    self % nThreads = ompGetMaxThreads()
-
     ! Note the array padding to avoid false sharing
-    print *, 'allocating', batchSize
-    allocate( self % parallelBins_time(N + array_pad, batchSize, self % nThreads))
-    self % parallelBins = ZERO
+    allocate( self % parallelBins_time(N + array_pad, Ncycles, self % nThreads))
+    self % parallelBins_time = ZERO
     ! end time dependent
 
     ! Save size of memory
@@ -185,6 +178,7 @@ contains
    if(allocated(self % bins)) deallocate(self % bins)
    if(allocated(self % parallelBins)) deallocate(self % parallelBins)
    if(allocated(self % batchPops)) deallocate(self % batchPops)
+   if(allocated(self % parallelBins_time)) deallocate(self % parallelBins_time)
    self % N = 0
    self % nThreads = 0
    self % batchN = 0
@@ -322,16 +316,17 @@ contains
  
     if (present(t) .and. present(cycleIdx)) then
       res = sum(self % parallelBins_time(t, cycleIdx,:))
-      print *, 'res', res
+
       ! Zero all score bins
-      !self % parallelBins_time(t,cycleIdx,:) = ZERO
+      self % parallelBins_time(t,cycleIdx,:) = ZERO
     
       ! Increment cumulative sums 
-      self % bins_time(t,CSUM)  = self % bins_time(t,CSUM) + res
-      self % bins_time(t,CSUM2) = self % bins_time(t,CSUM2) + res * res
+      self % bins(t,CSUM)  = self % bins(t,CSUM) + res
+      self % bins(t,CSUM2) = self % bins(t,CSUM2) + res * res
     end if
 
-    
+    ! Increment batch counter
+    self % batchN = self % batchN + 1
 
   end subroutine closeCycle
 
@@ -418,7 +413,7 @@ contains
       N = self % batchN
     end if
     ! Calculate mean
-    mean = self % bins_time(idx, CSUM) / N
+    mean = self % bins(idx, CSUM) / N
 
     ! Calculate STD
     inv_N   = ONE / N
@@ -427,7 +422,7 @@ contains
     else
       inv_Nm1 = ONE
     end if
-    STD = self % bins_time(idx, CSUM2) *inv_N * inv_Nm1 - mean * mean * inv_Nm1
+    STD = self % bins(idx, CSUM2) *inv_N * inv_Nm1 - mean * mean * inv_Nm1
     STD = sqrt(STD)
 
   end subroutine getResult_withSTD

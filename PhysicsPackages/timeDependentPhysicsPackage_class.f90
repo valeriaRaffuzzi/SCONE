@@ -235,6 +235,25 @@ contains
       call self % pRNG % stride(nParticles)
     end do
     deallocate(self % thisTimeInterval)
+
+
+    call timerStop(self % timerMain)
+    elapsed_T = timerTime(self % timerMain)
+    ! Predict time to end
+    end_T = real(N_timeBins,defReal) * elapsed_T / 1
+    T_toEnd = max(ZERO, end_T - elapsed_T)
+    ! Display progress
+    call printFishLineR(1)
+    print *
+    print *, 'Time step: ', numToChar(1), ' of ', numToChar(N_timeBins)
+    print *, 'Pop:          ', numToChar(self % pop)
+    print *, 'Elapsed time: ', trim(secToChar(elapsed_T))
+    print *, 'End time:     ', trim(secToChar(end_T))
+    print *, 'Time to end:  ', trim(secToChar(T_toEnd))
+    call tally % display()
+
+
+
     ! Flip batch dungeons
     self % tempBatchDungeons  => self % nextBatchDungeons
     self % nextBatchDungeons  => self % theseBatchDungeons
@@ -324,10 +343,30 @@ contains
       self % tempTime  => self % nextTime
       self % nextTime  => self % currentTime
       self % currentTime => self % tempTime
+
+      ! Calculate times
+      call timerStop(self % timerMain)
+      elapsed_T = timerTime(self % timerMain)
+
+      ! Predict time to end
+      end_T = real(N_timeBins,defReal) * elapsed_T / t
+      T_toEnd = max(ZERO, end_T - elapsed_T)
+
+      ! Display progress
+      call printFishLineR(t)
+      print *
+      print *, 'Time step: ', numToChar(t), ' of ', numToChar(N_timeBins)
+      print *, 'Pop:          ', numToChar(self % batchPops(t))
+      print *, 'Elapsed time: ', trim(secToChar(elapsed_T))
+      print *, 'End time:     ', trim(secToChar(end_T))
+      print *, 'Time to end:  ', trim(secToChar(T_toEnd))
+      call tally % display()
     end do
 
     call self % tally % setBatchPops(self % batchPops)
     deallocate(self % batchPops)
+
+
   end subroutine cycles
 
   !!
@@ -476,7 +515,7 @@ contains
     ! Initialise tally Admin
     tempDict => dict % getDictPtr('tally')
     allocate(self % tally)
-    call self % tally % init(tempDict)
+    call self % tally % init(tempDict, self % N_cycles)
 
     ! Size particle dungeon
     allocate(self % thisTimeInterval)
@@ -514,7 +553,7 @@ contains
     print *, "/\/\ TIME DEPENDENT CALCULATION /\/\"
     print *, "Time grid [start, stop, increment]: ", numToChar(TStart), numToChar(Tstop), numToChar(Tincrement)
     print *, "Source batches:                     ", numToChar(self % N_cycles)
-    print *, "Population per batch:               ", numToChar(self % pop)
+    print *, "Initial Population per batch:       ", numToChar(self % pop)
     print *, "Initial RNG Seed:                   ", numToChar(self % pRNG % getSeed())
     print *
     print *, repeat("<>",50)

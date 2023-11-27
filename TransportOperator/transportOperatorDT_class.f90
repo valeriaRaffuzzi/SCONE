@@ -75,14 +75,14 @@ contains
 
       ! Check for void
       if(p % matIdx() == VOID_MAT) then
-        if (p % fate /= AGED_FATE) then
-          if (present(cycleIdx)) then
-            call tally % reportInColl(p, .true., cycleIdx)
-          else 
-            call tally % reportInColl(p, .true.)
-          end if
-          cycle DTLoop
+        !if (p % fate /= AGED_FATE) then !TODO keep this??
+        if (present(cycleIdx)) then
+          call tally % reportInColl(p, .true., cycleIdx)
+        else 
+          call tally % reportInColl(p, .true.)
         end if
+        cycle DTLoop
+        !end if
       end if
 
       ! Give error if the particle somehow ended in an undefined material

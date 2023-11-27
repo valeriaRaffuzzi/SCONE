@@ -164,9 +164,10 @@ contains
   !! Errors:
   !!   fatalError if there are mistakes in definition
   !!
-  subroutine init(self,dict)
+  subroutine init(self,dict, Ncycles)
     class(tallyAdmin), intent(inout)            :: self
     class(dictionary), intent(in)               :: dict
+    integer(shortInt), optional, intent(in)     :: Ncycles
     character(nameLen),dimension(:),allocatable :: names
     integer(shortInt)                           :: i, j, cyclesPerBatch
     integer(longInt)                            :: memSize, memLoc
@@ -209,12 +210,12 @@ contains
     end if
 
     ! Read batching size
-    call dict % getOrDefault(cyclesPerBatch,'batchSize',5)
+    call dict % getOrDefault(cyclesPerBatch,'batchSize',1)
 
     ! Initialise score memory
     ! Calculate required size.
     memSize = sum( self % tallyClerks % getSize() )
-    call self % mem % init(memSize, 1, batchSize = cyclesPerBatch)
+    call self % mem % init(memSize, 1, batchSize = cyclesPerBatch, Ncycles = Ncycles)
     print *, '--------', cyclesPerBatch
 
     ! Assign memory locations to the clerks
@@ -696,7 +697,6 @@ contains
 
     ! Call attachment
     if(associated(self % atch)) then
-      print *, 'BUUUHUUU'
       if (present(t) .and. present(cycleIdx)) then
         call reportCycleEnd(self % atch, end,t, cycleIdx)
       else
