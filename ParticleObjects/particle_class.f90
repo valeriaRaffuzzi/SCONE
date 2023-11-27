@@ -150,7 +150,7 @@ module particle_class
     procedure                  :: matIdx
     procedure, non_overridable :: getType
     procedure                  :: getSpeed
-    
+
     ! Inquiry about precursor parameters
     procedure               :: getPrecWeight
     procedure               :: getExpPrecWeight
@@ -228,19 +228,19 @@ contains
     else
       self % time = ZERO
     end if
-    
+
     if(present(lambda_i)) then
       self % lambda_i = lambda_i
     else
       self % lambda_i = -ONE
     end if
-    
+
     if(present(fd_i)) then
       self % fd_i = fd_i
     else
       self % fd_i = -ONE
     end if
-    
+
     if(present(E_out_i)) then
       self % E_out_i = E_out_i
     else
@@ -292,13 +292,13 @@ contains
     else
       self % time = ZERO
     end if
-    
+
     if(present(lambda_i)) then
       self % lambda_i = lambda_i
     else
       self % lambda_i = -ONE
     end if
-    
+
     if(present(fd_i)) then
       self % fd_i = fd_i
     else
@@ -513,7 +513,7 @@ contains
     end if
 
   end function getSpeed
-  
+
   !!
   !! Return neutron weight for forced decay at time t
   !!
@@ -526,7 +526,7 @@ contains
   !!   Returns ZERO if particle is not a precursor
   !!
   !! Errors:
-  !!   
+  !!
   !!
   function getPrecWeight(self, t, delta_T) result(w_d)
     class(particle), intent(in) :: self
@@ -534,7 +534,7 @@ contains
     real(defReal), intent(in)   :: delta_T
     integer(shortInt)           :: i
     real(defReal)               :: w_d
-    
+
     w_d = ZERO
     if (self % type == P_PRECURSOR) then
         ! Loop over precursor groups
@@ -545,7 +545,7 @@ contains
     end if
     w_d = w_d * self % w * delta_T
   end function getPrecWeight
-  
+
   !!
   !! Return expected neutron weight for decay in next time step
   !!
@@ -558,14 +558,14 @@ contains
   !!   Returns ZERO if particle is not a precursor
   !!
   !! Errors:
-  !!   
+  !!
   !!
   function getExpPrecWeight(self, t1, step_T) result(w_d_av)
     class(particle), intent(in) :: self
     real(defReal), intent(in)   :: t1, step_T
     integer(shortInt)           :: i
     real(defReal)               :: w_d_av
-    
+
     w_d_av = ZERO
     if (self % type == P_PRECURSOR) then
         ! Loop over precursor groups
@@ -578,7 +578,7 @@ contains
     w_d_av = w_d_av * self % w
 
   end function getExpPrecWeight
-  
+
   !!
   !! Return current timed weight of particle
   !!
@@ -590,20 +590,20 @@ contains
   !!   Returns ZERO if particle is not a precursor
   !!
   !! Errors:
-  !!   
+  !!
   !!
   function getTimedWeight(self, t) result(w_Timed)
     class(particle), intent(in) :: self
     real(defReal), intent(in)   :: t
     integer(shortInt)           :: i
     real(defReal)               :: w_Timed
-    
+
     w_Timed = ZERO
     if (self % type == P_PRECURSOR) then
         ! Loop over precursor groups
         do i=1, precursorGroups
             w_Timed = w_Timed + self % fd_i(i) * exp(-self % lambda_i(i) * (t - self % time))
-        end do 
+        end do
         !print *, 'lambda_i:       ', numToChar(self % lambda_i)
         !print *
     end if
@@ -614,8 +614,8 @@ contains
     !print *, 'Current time:   ', numToChar(t)
     !print *, 'Timed weight:   ', numToChar(w_Timed)
   end function getTimedWeight
-  
-  
+
+
   !!
   !! Sample and return precursor energy at t
   !!
@@ -628,7 +628,7 @@ contains
   !!   only 1 precursor group
   !!
   !! Errors:
-  !!   
+  !!
   !!
   function getDelayedEnergy(self, t) result(E_out)
     class(particle), intent(in)               :: self
@@ -637,12 +637,12 @@ contains
     real(defReal), dimension(precursorGroups) :: probArray
     integer(shortInt)                         :: i
     real(defReal)                             :: E_out
-    
+
     if (self % type == P_PRECURSOR) then
         r1 = self % pRNG % get()
-        
+
         w_Prob = ZERO
-        
+
         ! Create w_Prob by summing over all groups
         !print *, "E_out_i"
         do i=1, precursorGroups
@@ -650,13 +650,13 @@ contains
             w_Prob = w_Prob + self % fd_i(i) * self % lambda_i(i) *&
                                     exp(-self % lambda_i(i) * (t - self % time))
         end do
-        
+
         ! Create array of probabilities of selecting each group
         do i=1, precursorGroups
             probArray(i) = self % fd_i(i) * self % lambda_i(i) *&
                                     exp(-self % lambda_i(i) * (t - self % time)) / w_Prob
         end do
-        
+
         ! Select a precursor energy
         do i=1, precursorGroups
             r1 = r1 - probArray(i)
@@ -665,7 +665,7 @@ contains
                 return
             end if
         end do
-        
+
         ! Sampling fails
         print *, 'Precursor energy sampling failed in particle object'
         E_out = self % E_out_i(precursorGroups)
@@ -817,7 +817,7 @@ contains
 
     state = self
     call state % display()
-    print *, self % coords % matIdx
+    print *, 'Material: ', self % coords % matIdx
 
   end subroutine display_particle
 
@@ -925,7 +925,13 @@ contains
   subroutine display_particleState(self)
     class(particleState), intent(in) :: self
 
-    print *, self % r, self % dir, self % E, self % G, self % isMG, self % wgt, self % time
+    print*, 'Position: ', self % r
+    print*, 'Direction: ', self % dir
+    print*, 'Energy: ', self % E
+    print*, 'Group: ', self % G
+    print*, 'isMG: ', self % isMG
+    print*, 'Weight: ', self % wgt
+    print*, 'Time: ', self % time
 
   end subroutine display_particleState
 

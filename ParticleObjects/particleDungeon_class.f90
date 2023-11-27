@@ -480,23 +480,10 @@ contains
     curWeight = ZERO
 
     j=1
-   !print *, 'pop: ', numToChar(self % pop)
-   !print *, 'w_av: ', numToChar(w_av)
-   !print *, 'target pop: ', numToChar(N)
-
     do i=1, N
-      !print *, ' '
-      !print *, 'j: ', numToChar(j)
-     !print *, 'i: ', numToChar(i)
-     !print *, 'curWeight: ', numToChar(curWeight)
-     !print *, 'wgt: ', numToChar(self % prisoners(j) % wgt)
-     !print *, 'nextTooth: ', numToChar(nextTooth)
       ! Iterate over current particles
       ! until a tooth falls within bounds of particle weight
       do while (curWeight + self % prisoners(j) % wgt < nextTooth)
-       !print *, '  j: ', numToChar(j)
-       !print *, '  curWeight: ', numToChar(curWeight)
-       !print *, '  nextTooth: ', numToChar(nextTooth)
         curWeight = curWeight + self % prisoners(j) % wgt
         j = j + 1
       end do

@@ -268,14 +268,14 @@ contains
         call self % nextBatchDungeons(i) % init(self % pop) !TODO: only add particle if time < absolutt maxtime
         call self % nextTime(i) % init(self % pop)
 
-        if (self % currentTime(i) % popSize() == 0) then 
+        if (self % currentTime(i) % popSize() == 0) then
           print *, 'EMPTY SOURCE'
           call self % currentTime(i) % cleanPop()
           call self % theseBatchDungeons(i) % cleanPop()
           cycle
         end if
         batchPop = batchPop + 1
-        
+
         if (self % useCombing) then
           call self % currentTime(i) % normCombing(nParticles, pRNG)
         end if
@@ -325,7 +325,7 @@ contains
             call self % nextTime(i) % detain(p)
           else
             if (p % time <= timeIncrement*N_timeBins) call self % nextBatchDungeons(i) % detain(p)
-          end if  
+          end if
         end do pCopy
         !$omp end parallel do
 
@@ -406,7 +406,7 @@ contains
     call self % tally % print(out)
 
     call out % writeToFile(self % outputFile)
-    
+if (self % thisTimeInterval % popSize() == 0)
   end subroutine collectResults
 
   !!
@@ -664,12 +664,11 @@ contains
       do i=1, N_cycles
         print *, 'Cycle: ', i
 
-        if (self % thisTimeInterval % popSize() == 0) then 
+        if (self % thisTimeInterval % popSize() == 0) then
           print *, 'EMPTY SOURCE'
           cycle
         end if
         batchPop = batchPop + 1
-        
 
         call tally % reportCycleStart(self % thisTimeInterval)
 
@@ -699,9 +698,8 @@ contains
         end do gen
         !$omp end parallel do
 
-
         call tally % reportCycleEnd(self % thisTimeInterval,t)
-        
+
         call self % pRNG % stride(nParticles)
       end do
       call self % thisTimeInterval % cleanPop()

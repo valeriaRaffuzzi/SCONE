@@ -183,16 +183,16 @@ contains
   !! See tallyClerk_inter for details
   !!
   subroutine reportInColl(self, p, xsData, mem, virtual, cycleIdx)
-    class(collisionClerk), intent(inout)  :: self
-    class(particle), intent(in)           :: p
-    class(nuclearDatabase), intent(inout) :: xsData
-    type(scoreMemory), intent(inout)      :: mem
-    logical(defBool), intent(in)          :: virtual
-    integer(shortInt), intent(in), optional :: cycleIdx
-    type(particleState)                   :: state
-    integer(shortInt)                     :: binIdx, i
-    integer(longInt)                      :: adrr
-    real(defReal)                         :: scoreVal, flx
+    class(collisionClerk), intent(inout)    :: self
+    class(particle), intent(in)             :: p
+    class(nuclearDatabase), intent(inout)   :: xsData
+    type(scoreMemory), intent(inout)        :: mem
+    logical(defBool), intent(in)            :: virtual
+    integer(shortInt), optional, intent(in) :: cycleIdx
+    type(particleState)                     :: state
+    integer(shortInt)                       :: binIdx, i
+    integer(longInt)                        :: adrr
+    real(defReal)                           :: scoreVal, flx
     character(100), parameter :: Here =' reportInColl (collisionClerk_class.f90)'
 
     ! Calculate flux sample based on physical or virtual collision
@@ -264,9 +264,6 @@ contains
     integer(shortInt),dimension(:),allocatable :: resArrayShape
     character(nameLen)                         :: name
 
-    integer(shortInt)                      :: deleteMeN
-    real(defReal)                          :: deleteMeinv_N, deleteMeinv_Nm1, deleteMe
-
     ! Begin block
     call outFile % startBlock(self % getName())
 
@@ -291,7 +288,6 @@ contains
     if(allocated(mem % batchPops)) then
       do i=1,product(resArrayShape)
         Nsamples = mem % batchPops(i)
-        print *, 'NSAMPLES', Nsamples, i
         call mem % getResult(val, std, self % getMemAddress() - 1 + i, Nsamples)
         call outFile % addResult(val,std)
       end do

@@ -68,7 +68,7 @@ module universalVariables
                                   tooManyIter       = -2,&
                                   targetNotFound    = -3, &
                                   NOT_FOUND         = -3
-                                  
+
   ! Number of neutron precusor groups
   integer(shortInt), parameter :: precursorGroups = 8
 

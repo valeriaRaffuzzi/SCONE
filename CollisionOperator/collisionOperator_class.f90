@@ -5,7 +5,7 @@ module collisionOperator_class
   use dictionary_class,      only : dictionary
   use particle_class,        only : particle, P_NEUTRON, P_PHOTON, printType
   use particleDungeon_class, only : particleDungeon
-  use universalVariables
+
   ! Tally interfaces
   use tallyAdmin_class,      only : tallyAdmin
 
@@ -117,15 +117,6 @@ contains
     integer(shortInt)                        :: idx, procType
     character(100), parameter :: Here = 'collide (collisionOperator_class.f90)'
 
-    if(p % matIdx() == VOID_MAT) then
-      if (present(cycleIdx)) then
-        call tally % reportInColl(p, .true., cycleIdx)
-      else
-        call tally % reportInColl(p, .true.)
-      end if
-      return
-    end if
-
     ! Select processing index with ternary expression
     if(p % isMG) then
       procType = P_MG
@@ -149,7 +140,7 @@ contains
     ! Call physics
     if (present(cycleIdx)) then
       call self % physicsTable(idx) % proc % collide(p, tally, thisCycle, nextCycle, cycleIdx)
-    else 
+    else
       call self % physicsTable(idx) % proc % collide(p, tally, thisCycle, nextCycle)
     end if
 

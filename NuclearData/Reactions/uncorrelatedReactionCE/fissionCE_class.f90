@@ -226,19 +226,19 @@ contains
     class(RNG), intent(inout)            :: rand
     real(defReal), intent(out), optional :: p_del
     character(100),parameter :: Here = 'samplePrompt (fissionCE_class.f90)'
-    
+
     ! Sample mu
     mu = TWO * rand % get() - ONE
 
     ! Sample Phi
     phi = TWO_PI * rand % get()
-    
+
     ! Recalculate delayed neutron probability (needed by neutronCEtime)
     if(present(p_del)) p_del = self % releaseDelayed(E_in) / self % release(E_in)
-    
+
     E_out = self % eLawPrompt % sample(E_in, rand)
   end subroutine samplePrompt
-  
+
   !!
   !! Subroutine for sampling properties of individual delayed neutrons
   !!
@@ -256,7 +256,7 @@ contains
     real(defReal)                                          :: r2
     integer(shortInt)                                      :: i, N
     character(100),parameter :: Here = 'sampleDelayed (fissionCE_class.f90)'
-  
+
     r2 = rand % get()
 
     ! Sample mu
@@ -264,7 +264,7 @@ contains
 
     ! Sample Phi
     phi = TWO_PI * rand % get()
-    
+
     ! Calculate delayed neutron probability (needed by neutronCEtime)
     if(present (p_del)) p_del = self % releaseDelayed(E_in) / self % release(E_in)
 
@@ -306,22 +306,22 @@ contains
     real(defReal), intent(out)                             :: p_del
     integer(shortInt)                                      :: i
     character(100),parameter :: Here = 'sampleDelayedGrouped (fissionCE_class.f90)'
-  
+
     ! If the numer of precursor groups is different to the constant this has been set to
     if (size(self % delayed) /= precursorGroups) then
         call fatalError(Here, 'Delayed precursor groups =/= set value (8)')
     endif
-    
+
     ! Sample mu
     mu = TWO * rand % get() - ONE
 
     ! Sample Phi
     phi = TWO_PI * rand % get()
-    
+
     ! Calculate delayed neutron probability
     p_del = self % releaseDelayed(E_in) / self % release(E_in)
     !print *, "p_del", numToChar(p_del)
-  
+
     ! Create arrays of precursor properties
     precursors: do i=1,size(self % delayed)
         E_out_i(i) = self % delayed(i) % eLaw % sample(E_in, rand)
@@ -329,7 +329,7 @@ contains
         fd_i(i) = self % delayed(i) % prob % at(E_in)
         !print *, numToChar(lambda_i(i)), numToChar(fd_i(i))
     end do precursors
-  
+
   end subroutine sampleDelayedGrouped
 
   !!
@@ -360,7 +360,7 @@ contains
     end if
 
     r1 = rand % get()
-    
+
     if( r1 > p_del ) then ! Prompt emission
       call self % samplePrompt(mu, phi, E_out, E_in, rand)
       ! Set precursor decay constant to -1.0 (non-physical value)

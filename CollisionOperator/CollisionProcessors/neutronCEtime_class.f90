@@ -414,7 +414,7 @@ contains
             call fiss % samplePrompt(mu, phi, E_out, p % E, p % pRNG, p_del)
 
             if (E_out > self % maxE) E_out = self % maxE
-   
+
             call p % rotate(mu, phi)
             p % E = E_out
             p % w = nu * p % w * (ONE - p_del)
