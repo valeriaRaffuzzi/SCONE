@@ -51,7 +51,7 @@ contains
     type(tallyAdmin), intent(inout)           :: tally
     class(particleDungeon),intent(inout)      :: thisCycle
     class(particleDungeon),intent(inout)      :: nextCycle
-    integer(shortInt), intent(in), optional   :: cycleIdx
+    integer(shortInt), optional, intent(in)   :: cycleIdx
     integer(shortInt)                         :: event
     real(defReal)                             :: sigmaT, dist
     type(distCache)                           :: cache

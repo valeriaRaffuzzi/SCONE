@@ -215,9 +215,11 @@ contains
     ! Initialise score memory
     ! Calculate required size.
     memSize = sum( self % tallyClerks % getSize() )
-    call self % mem % init(memSize, 1, batchSize = cyclesPerBatch, Ncycles = Ncycles)
-    print *, '--------', cyclesPerBatch
-
+    if (present(Ncycles)) then
+      call self % mem % init(memSize, 1, batchSize = cyclesPerBatch, Ncycles = Ncycles)
+    else
+      call self % mem % init(memSize, 1, batchSize = cyclesPerBatch)
+    end if
     ! Assign memory locations to the clerks
     memLoc = 1
     do i=1,size(self % tallyClerks)
@@ -418,10 +420,10 @@ contains
   !!   None
   !!
   subroutine print(self,output)
-    class(tallyAdmin), intent(inout)     :: self
-    class(outputFile), intent(inout)     :: output
-    integer(shortInt)                    :: i
-    character(nameLen)                   :: name
+    class(tallyAdmin), intent(in)    :: self
+    class(outputFile), intent(inout) :: output
+    integer(shortInt)                :: i
+    character(nameLen)               :: name
 
     ! Print tallyAdmin settings
     name = 'batchSize'
@@ -448,12 +450,12 @@ contains
   !!   None
   !!
   recursive subroutine reportInColl(self, p, virtual, cycleIdx)
-    class(tallyAdmin), intent(inout) :: self
-    class(particle), intent(in)      :: p
-    logical(defBool), intent(in)     :: virtual
-    integer(shortInt), intent(in), optional    :: cycleIdx
-    integer(shortInt)                :: i, idx
-    class(nuclearDatabase),pointer   :: xsData
+    class(tallyAdmin), intent(inout)        :: self
+    class(particle), intent(in)             :: p
+    logical(defBool), intent(in)            :: virtual
+    integer(shortInt), optional, intent(in) :: cycleIdx
+    integer(shortInt)                       :: i, idx
+    class(nuclearDatabase),pointer          :: xsData
     character(100), parameter :: Here = "reportInColl (tallyAdmin_class.f90)"
 
     ! Call attachment
@@ -685,23 +687,23 @@ contains
   !! Errors:
   !!   None
   !!
-  recursive subroutine reportCycleEnd(self,end,t, cycleIdx)
-    class(tallyAdmin), intent(inout)       :: self
-    class(particleDungeon), intent(in)     :: end
-    integer(shortInt), intent(in),optional :: t, cycleIdx
-    integer(shortInt)                      :: i
-    integer(shortInt), save                :: idx
-    real(defReal)                          :: normFactor, normScore
-    character(100), parameter              :: Here ='reportCycleEnd (tallyAdmin)class.f90)'
+  recursive subroutine reportCycleEnd(self, end, t, cycleIdx)
+    class(tallyAdmin), intent(inout)        :: self
+    class(particleDungeon), intent(in)      :: end
+    integer(shortInt), optional, intent(in) :: t, cycleIdx
+    integer(shortInt)                       :: i
+    integer(shortInt), save                 :: idx
+    real(defReal)                           :: normFactor, normScore
+    character(100), parameter               :: Here ='reportCycleEnd (tallyAdmin)class.f90)'
     !$omp threadprivate(idx)
 
     ! Call attachment
     if(associated(self % atch)) then
       if (present(t) .and. present(cycleIdx)) then
-        call reportCycleEnd(self % atch, end,t, cycleIdx)
+        call reportCycleEnd(self % atch, end, t, cycleIdx)
       else
         call reportCycleEnd(self % atch, end)
-      end if 
+      end if
     end if
 
     ! Go through all clerks that request the report
@@ -725,12 +727,10 @@ contains
       normFactor = ONE
     end if
 
-    ! Close cycle multipling all scores by multiplication factor¨
+    ! Close cycle multipling all scores by multiplication factor
     if(present(t) .and. present(cycleIdx)) then
-      normFactor = ONE
       call self % mem % closeCycle(normFactor, t, cycleIdx)
     else
-      normFactor = ONE
       call self % mem % closeCycle(normFactor)
     end if
 
@@ -739,7 +739,6 @@ contains
   subroutine setBatchPops(self, batchPops)
     class(tallyAdmin), intent(inout)            :: self
     integer(shortInt), dimension(:), intent(in) :: batchPops
-    integer(shortInt) :: i
 
     call self % mem % setBatchPops(batchPops)
   end subroutine setBatchPops

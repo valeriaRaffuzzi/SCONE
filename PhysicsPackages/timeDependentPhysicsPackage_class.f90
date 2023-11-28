@@ -406,7 +406,7 @@ contains
     call self % tally % print(out)
 
     call out % writeToFile(self % outputFile)
-if (self % thisTimeInterval % popSize() == 0)
+
   end subroutine collectResults
 
   !!

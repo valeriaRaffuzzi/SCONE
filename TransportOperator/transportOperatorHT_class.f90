@@ -60,7 +60,7 @@ contains
     type(tallyAdmin), intent(inout)                        :: tally
     class(particleDungeon), intent(inout)                  :: thisCycle
     class(particleDungeon), intent(inout)                  :: nextCycle
-    integer(shortInt), intent(in), optional :: cycleIdx
+    integer(shortInt), optional, intent(in)                :: cycleIdx
     real(defReal)                                          :: majorant_inv, sigmaT, ratio
     character(100), parameter :: Here = 'hybridTracking (transportOIperatorHT_class.f90)'
 

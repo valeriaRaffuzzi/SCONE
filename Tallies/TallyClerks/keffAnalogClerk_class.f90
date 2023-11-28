@@ -150,6 +150,7 @@ contains
     class(particleDungeon), intent(in)    :: end
     type(scoreMemory), intent(inout)      :: mem
     real(defReal)                         :: k_norm, k_eff
+
     ! Update end population weight
     self % endPopWgt = self % endPopWgt + end % popWeight()
 

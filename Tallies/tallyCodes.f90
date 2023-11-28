@@ -22,7 +22,6 @@ module tallyCodes
   integer(shortInt),parameter,public :: abs_FATE  = 5000 ,&
                                         leak_FATE = 5001 ,&
                                         lost_FATE = 5002 ,&
-                                        aged_FATE = 5003 ,&
-                                        virtual_aged_FATE = 5004
+                                        aged_FATE = 5003
 
 end module tallyCodes

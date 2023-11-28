@@ -43,9 +43,9 @@ contains
     type(tallyAdmin), intent(inout)           :: tally
     class(particleDungeon), intent(inout)     :: thisCycle
     class(particleDungeon), intent(inout)     :: nextCycle
-    integer(shortInt), intent(in), optional   :: cycleIdx
+    integer(shortInt), optional, intent(in)   :: cycleIdx
     real(defReal)                             :: majorant_inv, sigmaT, distance
-    character(100), parameter :: Here = 'deltaTracking (transportOIperatorDT_class.f90)'
+    character(100), parameter :: Here = 'deltaTracking (transportOperatorDT_class.f90)'
 
     ! Get majornat XS inverse: 1/Sigma_majorant
     majorant_inv = ONE / self % xsData % getMajorantXS(p)
@@ -66,7 +66,7 @@ contains
       ! Update time
       p % time = p % time + distance / p % getSpeed()
 
-      ! If particle has leaked exit
+      ! If particle has leaked, exit
       if (p % matIdx() == OUTSIDE_FILL) then
         p % fate = LEAK_FATE
         p % isDead = .true.
@@ -75,14 +75,12 @@ contains
 
       ! Check for void
       if(p % matIdx() == VOID_MAT) then
-        !if (p % fate /= AGED_FATE) then !TODO keep this??
         if (present(cycleIdx)) then
           call tally % reportInColl(p, .true., cycleIdx)
         else 
           call tally % reportInColl(p, .true.)
         end if
         cycle DTLoop
-        !end if
       end if
 
       ! Give error if the particle somehow ended in an undefined material
@@ -101,7 +99,7 @@ contains
       else
           if (present(cycleIdx)) then
             call tally % reportInColl(p, .true., cycleIdx)
-          else 
+          else
             call tally % reportInColl(p, .true.)
           end if
       end if

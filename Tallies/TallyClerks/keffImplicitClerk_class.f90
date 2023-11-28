@@ -155,7 +155,7 @@ contains
     class(nuclearDatabase),intent(inout)     :: xsData
     type(scoreMemory), intent(inout)         :: mem
     logical(defBool), intent(in)             :: virtual
-    integer(shortInt), intent(in), optional         :: cycleIdx
+    integer(shortInt), optional, intent(in)  :: cycleIdx
     type(neutronMacroXSs)                    :: xss
     class(neutronMaterial), pointer          :: mat
     real(defReal)                            :: totalXS, nuFissXS, absXS, flux

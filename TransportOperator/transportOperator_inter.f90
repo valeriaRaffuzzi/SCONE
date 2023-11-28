@@ -82,7 +82,7 @@ module transportOperator_inter
       type(tallyAdmin), intent(inout)         :: tally
       class(particleDungeon), intent(inout)   :: thisCycle
       class(particleDungeon), intent(inout)   :: nextCycle
-      integer(shortInt), intent(in), optional :: cycleIdx
+      integer(shortInt), optional, intent(in) :: cycleIdx
     end subroutine transit
   end interface
 
@@ -98,7 +98,7 @@ contains
     type(tallyAdmin), intent(inout)         :: tally
     class(particleDungeon), intent(inout)   :: thisCycle
     class(particleDungeon), intent(inout)   :: nextCycle
-    integer(shortInt), intent(in), optional :: cycleIdx
+    integer(shortInt), optional, intent(in) :: cycleIdx
     character(100),parameter :: Here ='transport (transportOperator_inter.f90)'
 
     ! Get nuclear data pointer form the particle

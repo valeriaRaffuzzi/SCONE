@@ -79,15 +79,15 @@ module scoreMemory_class
   !!
   type, public :: scoreMemory
       !private
-      real(defReal),dimension(:,:),allocatable     :: bins          !! Space for storing cumul data (2nd dim size is always 2!)
-      real(defReal),dimension(:,:),allocatable     :: parallelBins  !! Space for scoring for different threads
-      real(defReal),dimension(:,:,:),allocatable   :: parallelBins_time  !! Space for scoring for different threads
-      integer(longInt)                             :: N = 0         !! Size of memory (number of bins)
-      integer(shortInt)                            :: nThreads = 0  !! Number of threads used for parallelBins
-      integer(shortInt)                            :: id            !! Id of the tally
-      integer(shortInt)                            :: batchN = 0    !! Number of Batches
-      integer(shortInt)                            :: cycles = 0    !! Cycles counter
-      integer(shortInt)                            :: batchSize = 1 !! Batch interval size (in cycles)
+      real(defReal),dimension(:,:),allocatable     :: bins              !! Space for storing cumul data (2nd dim size is always 2!)
+      real(defReal),dimension(:,:),allocatable     :: parallelBins      !! Space for scoring for different threads
+      real(defReal),dimension(:,:,:),allocatable   :: parallelBins_time !! Space for scoring for different threads and cycles
+      integer(longInt)                             :: N = 0             !! Size of memory (number of bins)
+      integer(shortInt)                            :: nThreads = 0      !! Number of threads used for parallelBins
+      integer(shortInt)                            :: id                !! Id of the tally
+      integer(shortInt)                            :: batchN = 0        !! Number of Batches
+      integer(shortInt)                            :: cycles = 0        !! Cycles counter
+      integer(shortInt)                            :: batchSize = 1     !! Batch interval size (in cycles)
       integer(shortInt), dimension(:), allocatable :: batchPops
   contains
     ! Interface procedures
@@ -138,15 +138,13 @@ contains
     self % nThreads = ompGetMaxThreads()
 
     ! Note the array padding to avoid false sharing
-    allocate( self % parallelBins(N + array_pad, self % nThreads))
-    self % parallelBins = ZERO
-
-    !time dependent
-
-    ! Note the array padding to avoid false sharing
-    allocate( self % parallelBins_time(N + array_pad, Ncycles, self % nThreads))
-    self % parallelBins_time = ZERO
-    ! end time dependent
+    if (present(Ncycles)) then
+      allocate( self % parallelBins_time(N + array_pad, Ncycles, self % nThreads))
+      self % parallelBins_time = ZERO
+    else
+      allocate( self % parallelBins(N + array_pad, self % nThreads))
+      self % parallelBins = ZERO
+    end if
 
     ! Save size of memory
     self % N = N
@@ -211,8 +209,8 @@ contains
   subroutine score_defReal_time(self, score, idx, cycleIdx)
     class(scoreMemory), intent(inout) :: self
     real(defReal), intent(in)         :: score
-    integer(longInt), intent(in)      :: idx 
-    integer(shortInt), intent(in)      :: cycleIdx 
+    integer(longInt), intent(in)      :: idx
+    integer(shortInt), intent(in)     :: cycleIdx
     integer(shortInt)                 :: thread_idx
     character(100),parameter :: Here = 'score_defReal (scoreMemory_class.f90)'
 
@@ -272,9 +270,6 @@ contains
     self % bins(idx, CSUM)  = self % bins(idx, CSUM)  + score
     self % bins(idx, CSUM2) = self % bins(idx, CSUM2) + score * score
 
-    !print *, 'CSUM111', self % bins(idx,CSUM), score
-    !print *, 'CSUM222', self % bins(idx,CSUM2), score
-
   end subroutine accumulate_defReal
 
   !!
@@ -309,24 +304,46 @@ contains
   subroutine closeCycle(self, normFactor, t, cycleIdx)
     class(scoreMemory), intent(inout)       :: self
     real(defReal),intent(in)                :: normFactor
-    integer(shortInt), intent(in), optional :: t, cycleIdx
+    integer(shortInt), optional, intent(in) :: t, cycleIdx
     integer(longInt)                        :: i
     real(defReal), save                     :: res
     !$omp threadprivate(res)
- 
+
     if (present(t) .and. present(cycleIdx)) then
       res = sum(self % parallelBins_time(t, cycleIdx,:))
 
       ! Zero all score bins
       self % parallelBins_time(t,cycleIdx,:) = ZERO
-    
-      ! Increment cumulative sums 
+
+      ! Increment cumulative sums
       self % bins(t,CSUM)  = self % bins(t,CSUM) + res
       self % bins(t,CSUM2) = self % bins(t,CSUM2) + res * res
-    end if
 
-    ! Increment batch counter
-    self % batchN = self % batchN + 1
+    else
+      if(mod(self % cycles, self % batchSize) == 0) then ! Close Batch
+
+        !$omp parallel do
+        do i = 1, self % N
+
+          ! Normalise scores
+          self % parallelBins(i,:) = self % parallelBins(i,:) * normFactor
+          res = sum(self % parallelBins(i,:))
+
+          ! Zero all score bins
+          self % parallelBins(i,:) = ZERO
+
+          ! Increment cumulative sums
+          self % bins(i,CSUM)  = self % bins(i,CSUM) + res
+          self % bins(i,CSUM2) = self % bins(i,CSUM2) + res * res
+
+        end do
+        !$omp end parallel do
+
+        ! Increment batch counter
+        self % batchN = self % batchN + 1
+
+      end if
+    end if
 
   end subroutine closeCycle
 
@@ -355,8 +372,6 @@ contains
     self % bins(idx,CSUM)  = self % bins(idx,CSUM) + res
     self % bins(idx,CSUM2) = self % bins(idx,CSUM2) + res * res
 
-    !print *, 'CSUM11', self % bins(idx,CSUM), res
-    !print *, 'CSUM22', self % bins(idx,CSUM2), res
     ! Zero the score
     self % parallelBins(idx,:) = ZERO
 
@@ -412,6 +427,7 @@ contains
     else
       N = self % batchN
     end if
+
     ! Calculate mean
     mean = self % bins(idx, CSUM) / N
 
@@ -475,20 +491,18 @@ contains
   end function getScore
 
   subroutine setBatchPops(self, batchPops)
-    class(scoreMemory), intent(inout)            :: self
+    class(scoreMemory), intent(inout)           :: self
     integer(shortInt), dimension(:), intent(in) :: batchPops
-    integer(shortInt) :: i
 
     allocate(self % batchPops(size(batchPops)))
-    ! Add all individual entries
     self % batchPops(:) = batchPops(:)
-    print *, 'batchpops', self % batchPops(:) 
   end subroutine setBatchPops
 
   elemental subroutine getBatchPops(self, idx, batchPop)
-    class(scoreMemory), intent(inout)            :: self
-    integer(shortInt), intent(in) :: idx
-    integer(shortInt), intent(inout) :: batchPop
+    class(scoreMemory), intent(inout) :: self
+    integer(shortInt), intent(in)     :: idx
+    integer(shortInt), intent(inout)  :: batchPop
+
     batchPop = self % batchPops(idx)
   end subroutine getBatchPops
 
