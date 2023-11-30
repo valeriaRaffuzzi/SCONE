@@ -37,13 +37,12 @@ module transportOperatorDT_class
 
 contains
 
-  subroutine deltaTracking(self, p, tally, thisCycle, nextCycle, cycleIdx)
+  subroutine deltaTracking(self, p, tally, thisCycle, nextCycle)
     class(transportOperatorDT), intent(inout) :: self
     class(particle), intent(inout)            :: p
     type(tallyAdmin), intent(inout)           :: tally
     class(particleDungeon), intent(inout)     :: thisCycle
     class(particleDungeon), intent(inout)     :: nextCycle
-    integer(shortInt), optional, intent(in)   :: cycleIdx
     real(defReal)                             :: majorant_inv, sigmaT, distance
     character(100), parameter :: Here = 'deltaTracking (transportOperatorDT_class.f90)'
 
@@ -57,7 +56,11 @@ contains
       distance = -log( p% pRNG % get() ) * majorant_inv
 
       if (p % time + distance / p % getSpeed() > p % timeMax) then
+        distance = distance * (p % timeMax - p % time)/(distance / p % getSpeed())
         p % fate = AGED_FATE
+        p % time = p % timeMax
+        call self % geom % teleport(p % coords, distance)
+        return
       endif
 
       ! Move partice in the geometry
@@ -75,11 +78,7 @@ contains
 
       ! Check for void
       if(p % matIdx() == VOID_MAT) then
-        if (present(cycleIdx)) then
-          call tally % reportInColl(p, .true., cycleIdx)
-        else 
-          call tally % reportInColl(p, .true.)
-        end if
+        call tally % reportInColl(p, .true.)
         cycle DTLoop
       end if
 
@@ -97,11 +96,7 @@ contains
       if (p % pRNG % get() < sigmaT*majorant_inv) then
         exit DTLoop
       else
-          if (present(cycleIdx)) then
-            call tally % reportInColl(p, .true., cycleIdx)
-          else
-            call tally % reportInColl(p, .true.)
-          end if
+        call tally % reportInColl(p, .true.)
       end if
 
     end do DTLoop

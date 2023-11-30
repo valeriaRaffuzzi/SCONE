@@ -81,7 +81,6 @@ module scoreMemory_class
       !private
       real(defReal),dimension(:,:),allocatable     :: bins              !! Space for storing cumul data (2nd dim size is always 2!)
       real(defReal),dimension(:,:),allocatable     :: parallelBins      !! Space for scoring for different threads
-      real(defReal),dimension(:,:,:),allocatable   :: parallelBins_time !! Space for scoring for different threads and cycles
       integer(longInt)                             :: N = 0             !! Size of memory (number of bins)
       integer(shortInt)                            :: nThreads = 0      !! Number of threads used for parallelBins
       integer(shortInt)                            :: id                !! Id of the tally
@@ -93,7 +92,7 @@ module scoreMemory_class
     ! Interface procedures
     procedure :: init
     procedure :: kill
-    generic   :: score      => score_defReal, score_defReal_time, score_shortInt, score_longInt
+    generic   :: score      => score_defReal, score_shortInt, score_longInt
     generic   :: accumulate => accumulate_defReal, accumulate_shortInt, accumulate_longInt
     generic   :: getResult  => getResult_withSTD, getResult_withoutSTD
     procedure :: getScore
@@ -106,7 +105,6 @@ module scoreMemory_class
 
     ! Private procedures
     procedure, private :: score_defReal
-    procedure, private :: score_defReal_time
     procedure, private :: score_shortInt
     procedure, private :: score_longInt
     procedure, private :: accumulate_defReal
@@ -123,12 +121,11 @@ contains
   !! Allocate space for the bins given number of bins N
   !! Optionaly change batchSize from 1 to any +ve number
   !!
-  subroutine init(self, N, id, batchSize, Ncycles)
+  subroutine init(self, N, id, batchSize)
     class(scoreMemory),intent(inout)      :: self
     integer(longInt),intent(in)           :: N
     integer(shortInt),intent(in)          :: id
     integer(shortInt),optional,intent(in) :: batchSize
-    integer(shortInt),optional,intent(in) :: Ncycles
     character(100), parameter :: Here= 'init (scoreMemory_class.f90)'
 
     ! Allocate space and zero all bins
@@ -138,13 +135,8 @@ contains
     self % nThreads = ompGetMaxThreads()
 
     ! Note the array padding to avoid false sharing
-    if (present(Ncycles)) then
-      allocate( self % parallelBins_time(N + array_pad, Ncycles, self % nThreads))
-      self % parallelBins_time = ZERO
-    else
-      allocate( self % parallelBins(N + array_pad, self % nThreads))
-      self % parallelBins = ZERO
-    end if
+    allocate( self % parallelBins(N + array_pad, self % nThreads))
+    self % parallelBins = ZERO
 
     ! Save size of memory
     self % N = N
@@ -176,7 +168,6 @@ contains
    if(allocated(self % bins)) deallocate(self % bins)
    if(allocated(self % parallelBins)) deallocate(self % parallelBins)
    if(allocated(self % batchPops)) deallocate(self % batchPops)
-   if(allocated(self % parallelBins_time)) deallocate(self % parallelBins_time)
    self % N = 0
    self % nThreads = 0
    self % batchN = 0
@@ -205,27 +196,6 @@ contains
             self % parallelBins(idx, thread_idx) + score
 
   end subroutine score_defReal
-
-  subroutine score_defReal_time(self, score, idx, cycleIdx)
-    class(scoreMemory), intent(inout) :: self
-    real(defReal), intent(in)         :: score
-    integer(longInt), intent(in)      :: idx
-    integer(shortInt), intent(in)     :: cycleIdx
-    integer(shortInt)                 :: thread_idx
-    character(100),parameter :: Here = 'score_defReal (scoreMemory_class.f90)'
-
-    ! Verify bounds for the index
-    if( idx < 0_longInt .or. idx > self % N) then
-      call fatalError(Here,'Index '//numToChar(idx)//' is outside bounds of &
-                            & memory with size '//numToChar(self % N))
-    end if
-
-    ! Add the score
-    thread_idx = ompGetThreadNum() + 1
-    self % parallelBins_time(idx, cycleIdx, thread_idx) = &
-            self % parallelBins_time(idx, cycleIdx, thread_idx) + score
-
-  end subroutine score_defReal_time
 
   !!
   !! Score a result with shortInt on a given bin under idx
@@ -301,19 +271,19 @@ contains
   !! Increments cycle counter and detects end-of-batch
   !! When batch finishes it normalises all scores by the factor and moves them to CSUMs
   !!
-  subroutine closeCycle(self, normFactor, t, cycleIdx)
+  subroutine closeCycle(self, normFactor, t)
     class(scoreMemory), intent(inout)       :: self
     real(defReal),intent(in)                :: normFactor
-    integer(shortInt), optional, intent(in) :: t, cycleIdx
+    integer(shortInt), optional, intent(in) :: t
     integer(longInt)                        :: i
     real(defReal), save                     :: res
     !$omp threadprivate(res)
 
-    if (present(t) .and. present(cycleIdx)) then
-      res = sum(self % parallelBins_time(t, cycleIdx,:))
+    if (present(t)) then
+      res = sum(self % parallelBins(t,:))
 
       ! Zero all score bins
-      self % parallelBins_time(t,cycleIdx,:) = ZERO
+      self % parallelBins(t,:) = ZERO
 
       ! Increment cumulative sums
       self % bins(t,CSUM)  = self % bins(t,CSUM) + res

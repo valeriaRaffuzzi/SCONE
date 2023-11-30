@@ -182,13 +182,12 @@ contains
   !!
   !! See tallyClerk_inter for details
   !!
-  subroutine reportInColl(self, p, xsData, mem, virtual, cycleIdx)
+  subroutine reportInColl(self, p, xsData, mem, virtual)
     class(collisionClerk), intent(inout)    :: self
     class(particle), intent(in)             :: p
     class(nuclearDatabase), intent(inout)   :: xsData
     type(scoreMemory), intent(inout)        :: mem
     logical(defBool), intent(in)            :: virtual
-    integer(shortInt), optional, intent(in) :: cycleIdx
     type(particleState)                     :: state
     integer(shortInt)                       :: binIdx, i
     integer(longInt)                        :: adrr
@@ -222,16 +221,12 @@ contains
     if (binIdx == 0) return
 
     ! Calculate bin address
-    adrr = self % getMemAddress() + self % width * (binIdx -1)  - 1
+    adrr = self % getMemAddress() + self % width * (binIdx - 1)  - 1
 
     ! Append all bins
     do i=1,self % width
       scoreVal = self % response(i) % get(p, xsData) * p % w * flx
-      if (present(cycleIdx)) then
-        call mem % score(scoreVal, adrr + i, cycleIdx)
-      else
-        call mem % score(scoreVal, adrr + i)
-      end if
+      call mem % score(scoreVal, adrr + i)
 
     end do
 

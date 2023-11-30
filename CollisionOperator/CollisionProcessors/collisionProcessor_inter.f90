@@ -104,13 +104,12 @@ contains
   !!
   !! Generic flow of collision processing
   !!
-  subroutine collide(self, p, tally ,thisCycle, nextCycle, cycleIdx)
+  subroutine collide(self, p, tally ,thisCycle, nextCycle)
     class(collisionProcessor), intent(inout) :: self
     class(particle), intent(inout)           :: p
     type(tallyAdmin), intent(inout)          :: tally
     class(particleDungeon),intent(inout)     :: thisCycle
     class(particleDungeon),intent(inout)     :: nextCycle
-    integer(shortInt), intent(in), optional  :: cycleIdx
     type(collisionData)                      :: collDat
     character(100),parameter                 :: Here = ' collide (collisionProcessor.f90)'
 
@@ -121,11 +120,8 @@ contains
     ! Note: the ordering must not be changed between feeding the particle to the tally
     ! and updating the particle's preCollision state, otherwise this may cause certain 
     ! tallies (e.g., collisionProbability) to return dubious results
-    if (present(cycleIdx)) then
-      call tally % reportInColl(p, .false., cycleIdx)
-    else
-      call tally % reportInColl(p, .false.)
-    end if
+    call tally % reportInColl(p, .false.)
+
     call p % savePreCollision()
 
     ! Choose collision nuclide and general type (Scatter, Capture or Fission)

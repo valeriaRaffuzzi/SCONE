@@ -164,10 +164,9 @@ contains
   !! Errors:
   !!   fatalError if there are mistakes in definition
   !!
-  subroutine init(self,dict, Ncycles)
+  subroutine init(self,dict)
     class(tallyAdmin), intent(inout)            :: self
     class(dictionary), intent(in)               :: dict
-    integer(shortInt), optional, intent(in)     :: Ncycles
     character(nameLen),dimension(:),allocatable :: names
     integer(shortInt)                           :: i, j, cyclesPerBatch
     integer(longInt)                            :: memSize, memLoc
@@ -215,11 +214,7 @@ contains
     ! Initialise score memory
     ! Calculate required size.
     memSize = sum( self % tallyClerks % getSize() )
-    if (present(Ncycles)) then
-      call self % mem % init(memSize, 1, batchSize = cyclesPerBatch, Ncycles = Ncycles)
-    else
-      call self % mem % init(memSize, 1, batchSize = cyclesPerBatch)
-    end if
+    call self % mem % init(memSize, 1, batchSize = cyclesPerBatch)
     ! Assign memory locations to the clerks
     memLoc = 1
     do i=1,size(self % tallyClerks)
@@ -449,22 +444,17 @@ contains
   !! Errors:
   !!   None
   !!
-  recursive subroutine reportInColl(self, p, virtual, cycleIdx)
+  recursive subroutine reportInColl(self, p, virtual)
     class(tallyAdmin), intent(inout)        :: self
     class(particle), intent(in)             :: p
     logical(defBool), intent(in)            :: virtual
-    integer(shortInt), optional, intent(in) :: cycleIdx
     integer(shortInt)                       :: i, idx
     class(nuclearDatabase),pointer          :: xsData
     character(100), parameter :: Here = "reportInColl (tallyAdmin_class.f90)"
 
     ! Call attachment
     if(associated(self % atch)) then
-      if (present(cycleIdx)) then
-        call reportInColl(self % atch, p, virtual, cycleIdx)
-      else
-        call reportInColl(self % atch, p, virtual)
-      end if
+      call reportInColl(self % atch, p, virtual)
     end if
 
     ! Get Data
@@ -473,11 +463,7 @@ contains
     ! Go through all clerks that request the report
     do i=1,self % inCollClerks % getSize()
       idx = self % inCollClerks % get(i)
-      if (present(cycleIdx)) then
-        call self % tallyClerks(idx) % reportInColl(p, xsData, self % mem, virtual, cycleIdx)
-      else
-        call self % tallyClerks(idx) % reportInColl(p, xsData, self % mem, virtual)
-      end if
+      call self % tallyClerks(idx) % reportInColl(p, xsData, self % mem, virtual)
 
     end do
 
@@ -687,10 +673,10 @@ contains
   !! Errors:
   !!   None
   !!
-  recursive subroutine reportCycleEnd(self, end, t, cycleIdx)
+  recursive subroutine reportCycleEnd(self, end, t)
     class(tallyAdmin), intent(inout)        :: self
     class(particleDungeon), intent(in)      :: end
-    integer(shortInt), optional, intent(in) :: t, cycleIdx
+    integer(shortInt), optional, intent(in) :: t
     integer(shortInt)                       :: i
     integer(shortInt), save                 :: idx
     real(defReal)                           :: normFactor, normScore
@@ -699,8 +685,8 @@ contains
 
     ! Call attachment
     if(associated(self % atch)) then
-      if (present(t) .and. present(cycleIdx)) then
-        call reportCycleEnd(self % atch, end, t, cycleIdx)
+      if (present(t)) then
+        call reportCycleEnd(self % atch, end, t)
       else
         call reportCycleEnd(self % atch, end)
       end if
@@ -728,8 +714,8 @@ contains
     end if
 
     ! Close cycle multipling all scores by multiplication factor
-    if(present(t) .and. present(cycleIdx)) then
-      call self % mem % closeCycle(normFactor, t, cycleIdx)
+    if(present(t)) then
+      call self % mem % closeCycle(normFactor, t)
     else
       call self % mem % closeCycle(normFactor)
     end if

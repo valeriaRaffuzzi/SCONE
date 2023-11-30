@@ -208,13 +208,12 @@ contains
   !!
   !! See tallyClerk_inter for details
   !!
-  subroutine reportInColl(self, p, xsData, mem, virtual, cycleIdx)
+  subroutine reportInColl(self, p, xsData, mem, virtual)
     class(mgXsClerk), intent(inout)         :: self
     class(particle), intent(in)             :: p
     class(nuclearDatabase), intent(inout)   :: xsData
     type(scoreMemory), intent(inout)        :: mem
     logical(defBool), intent(in)            :: virtual
-    integer(shortInt), optional, intent(in) :: cycleIdx
     type(particleState)                     :: state
     type(neutronMacroXSs)                   :: xss
     class(neutronMaterial), pointer         :: mat

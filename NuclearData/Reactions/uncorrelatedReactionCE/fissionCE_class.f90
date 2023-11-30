@@ -213,7 +213,7 @@ contains
   end function releaseDelayed
 
   !!
-  !! Returns mu, phi, E_out for a prompt neutron
+  !! Sample outgoing prompt neutron
   !!
   !! Sometimes called by self % sampleOut, sometimes by neutronCEtime
   !!
@@ -240,7 +240,7 @@ contains
   end subroutine samplePrompt
 
   !!
-  !! Subroutine for sampling properties of individual delayed neutrons
+  !! Sample outgoing delayed neutrons
   !!
   !! Sometimes called by self % sampleOut, sometimes by neutronCEtime
   !!

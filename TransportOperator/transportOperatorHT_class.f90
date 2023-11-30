@@ -54,13 +54,12 @@ contains
 
   end subroutine init
 
-  subroutine tracking_selection(self, p, tally, thisCycle, nextCycle, cycleIdx)
+  subroutine tracking_selection(self, p, tally, thisCycle, nextCycle)
     class(transportOperatorHT), intent(inout)              :: self
     class(particle), intent(inout)                         :: p
     type(tallyAdmin), intent(inout)                        :: tally
     class(particleDungeon), intent(inout)                  :: thisCycle
     class(particleDungeon), intent(inout)                  :: nextCycle
-    integer(shortInt), optional, intent(in)                :: cycleIdx
     real(defReal)                                          :: majorant_inv, sigmaT, ratio
     character(100), parameter :: Here = 'hybridTracking (transportOIperatorHT_class.f90)'
 

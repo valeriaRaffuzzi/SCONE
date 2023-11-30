@@ -28,7 +28,6 @@ module tallyMapFactory_func
 
   public :: new_tallyMap
 
-
   ! List that contains all accaptable types of tallyMaps1D
   ! It is printed if type was unrecognised
   ! NOTE:

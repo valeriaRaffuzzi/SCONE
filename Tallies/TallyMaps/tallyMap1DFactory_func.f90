@@ -102,7 +102,7 @@ contains
 
       case('testMap')
         allocate(testMap :: new)
-        
+
       case('timeMap')
         allocate(timeMap :: new)
 
