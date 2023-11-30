@@ -94,7 +94,6 @@ module timeDependentPhysicsPackage_class
 
     type(particleDungeon), pointer :: precursorDungeon                  => null()
     real(defReal), dimension(:), allocatable :: precursorWeights
-    integer(shortInt), dimension(:), allocatable :: batchPops
     class(source), allocatable     :: fixedSource
 
     ! Timer bins
@@ -136,7 +135,7 @@ contains
     class(timeDependentPhysicsPackage), intent(inout) :: self
     type(tallyAdmin), pointer,intent(inout)         :: tally
     integer(shortInt), intent(in)                   :: N_timeBins, N_cycles
-    integer(shortInt)                               :: i, t, n, nParticles, batchPop, nPhysical, nVirtual, endIdx, counter
+    integer(shortInt)                               :: i, t, n, nParticles, nPhysical
     integer(shortInt), save                         :: j, bufferExtra
     type(particle), save                            :: p, transferP
     type(particle), save                            :: p_Precursor
@@ -165,10 +164,6 @@ contains
 
     ! Number of particles in each batch
     nParticles = self % pop
-
-    ! Track number of batches for each time step
-    allocate(self % batchPops(N_timeBins))
-    self % batchPops(1) = N_cycles
 
     ! Dungeon for each batch
     allocate(self % currentTime(self % N_cycles))
@@ -215,12 +210,10 @@ contains
 
       call tally % reportCycleEnd(self % thisTimeInterval,1)
       call self % thisTimeInterval % cleanPop()
-      !call self % thisTimeInterval % kill()
       call self % pRNG % stride(nParticles)
     end do
-    !deallocate(self % thisTimeInterval)
 
-
+    call tally % resetBatchN(1)
     call timerStop(self % timerMain)
     elapsed_T = timerTime(self % timerMain)
     ! Predict time to end
@@ -239,15 +232,12 @@ contains
 
     ! Process Remaining time iterations
     do t = 2, N_timeBins
-      batchPop = 0
       do i = 1, N_cycles
 
         if (self % currentTime(i) % popSize() == 0) then
           print *, 'EMPTY BATCH SOURCE'
           cycle
         end if
-        batchPop = batchPop + 1
-
 
         nPhysical = self % currentTime(i) % popSize()
         !$omp parallel do schedule(dynamic)
@@ -260,7 +250,6 @@ contains
           end if
         end do
         !$omp end parallel do
-
 
         if (self % useCombing) then
           call self % thisTimeInterval % normCombing(200000, pRNG)
@@ -299,11 +288,12 @@ contains
         call self % pRNG % stride(nParticles)
         call self % currentTime(i) % cleanPop()
       end do
-      self % batchPops(t) = batchPop
 
       self % tempTime  => self % nextTime
       self % nextTime  => self % currentTime
       self % currentTime => self % tempTime
+
+      call tally % resetBatchN(t)
 
       ! Calculate times
       call timerStop(self % timerMain)
@@ -317,16 +307,11 @@ contains
       call printFishLineR(t)
       print *
       print *, 'Time step: ', numToChar(t), ' of ', numToChar(N_timeBins)
-      print *, 'Pop:          ', numToChar(self % batchPops(t))
       print *, 'Elapsed time: ', trim(secToChar(elapsed_T))
       print *, 'End time:     ', trim(secToChar(end_T))
       print *, 'Time to end:  ', trim(secToChar(T_toEnd))
       call tally % display()
     end do
-
-    call self % tally % setBatchPops(self % batchPops)
-    deallocate(self % batchPops)
-
 
   end subroutine cycles
 
