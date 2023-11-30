@@ -147,7 +147,7 @@ module tallyAdmin_class
     ! File writing procedures
     procedure :: print
 
-    procedure :: setBatchPops
+    procedure :: resetBatchN
 
     procedure,private :: addToReports
 
@@ -431,6 +431,13 @@ contains
 
   end subroutine print
 
+  subroutine resetBatchN(self, binIdx)
+    class(tallyAdmin), intent(inout) :: self
+    integer(shortInt), intent(in)    :: binIdx
+
+    call self % mem % resetBatchN(binIdx)
+  end subroutine resetBatchN
+
   !!
   !! Process pre-collision report
   !!
@@ -673,10 +680,10 @@ contains
   !! Errors:
   !!   None
   !!
-  recursive subroutine reportCycleEnd(self, end, t)
+  recursive subroutine reportCycleEnd(self, end, binIdx)
     class(tallyAdmin), intent(inout)        :: self
     class(particleDungeon), intent(in)      :: end
-    integer(shortInt), optional, intent(in) :: t
+    integer(shortInt), optional, intent(in) :: binIdx
     integer(shortInt)                       :: i
     integer(shortInt), save                 :: idx
     real(defReal)                           :: normFactor, normScore
@@ -685,8 +692,8 @@ contains
 
     ! Call attachment
     if(associated(self % atch)) then
-      if (present(t)) then
-        call reportCycleEnd(self % atch, end, t)
+      if (present(binIdx)) then
+        call reportCycleEnd(self % atch, end, binIdx)
       else
         call reportCycleEnd(self % atch, end)
       end if
@@ -714,20 +721,13 @@ contains
     end if
 
     ! Close cycle multipling all scores by multiplication factor
-    if(present(t)) then
-      call self % mem % closeCycle(normFactor, t)
+    if(present(binIdx)) then
+      call self % mem % closeCycle(normFactor, binIdx)
     else
       call self % mem % closeCycle(normFactor)
     end if
 
   end subroutine reportCycleEnd
-
-  subroutine setBatchPops(self, batchPops)
-    class(tallyAdmin), intent(inout)            :: self
-    integer(shortInt), dimension(:), intent(in) :: batchPops
-
-    call self % mem % setBatchPops(batchPops)
-  end subroutine setBatchPops
 
   !!
   !! Get result from the clerk defined by name

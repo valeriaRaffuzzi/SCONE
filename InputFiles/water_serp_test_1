@@ -12,7 +12,7 @@ combing 1; //toggle on or off
 cycles 5;
 
 outputFormat asciiJSON;
-collisionOperator { neutronCE {type neutronCEstd; minEnergy 1E-11;}
+collisionOperator { neutronCE {type neutronCEtime; minEnergy 1E-11;}
 
 }
 
