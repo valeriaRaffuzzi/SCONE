@@ -2,7 +2,6 @@ module fissionCE_class
 
   use numPrecision
   use endfConstants
-  use universalVariables,           only : shake, precursorGroups
   use genericProcedures,            only : fatalError, numToChar
   use RNG_class,                    only : RNG
   use dataDeck_inter,               only : dataDeck
@@ -79,9 +78,6 @@ module fissionCE_class
 
     ! Type specific procedures
     procedure :: buildFromACE
-    procedure :: samplePrompt
-    procedure :: sampleDelayed
-    procedure :: sampleDelayedGrouped
   end type fissionCE
 
 contains
@@ -213,126 +209,6 @@ contains
   end function releaseDelayed
 
   !!
-  !! Sample outgoing prompt neutron
-  !!
-  !! Sometimes called by self % sampleOut, sometimes by neutronCEtime
-  !!
-  subroutine samplePrompt(self, mu, phi, E_out, E_in, rand, p_del)
-    class(fissionCE), intent(in)         :: self
-    real(defReal), intent(out)           :: mu
-    real(defReal), intent(out)           :: phi
-    real(defReal), intent(out)           :: E_out
-    real(defReal), intent(in)            :: E_in
-    class(RNG), intent(inout)            :: rand
-    real(defReal), intent(out), optional :: p_del
-    character(100),parameter :: Here = 'samplePrompt (fissionCE_class.f90)'
-
-    ! Sample mu
-    mu = TWO * rand % get() - ONE
-
-    ! Sample Phi
-    phi = TWO_PI * rand % get()
-
-    ! Recalculate delayed neutron probability (needed by neutronCEtime)
-    if(present(p_del)) p_del = self % releaseDelayed(E_in) / self % release(E_in)
-
-    E_out = self % eLawPrompt % sample(E_in, rand)
-  end subroutine samplePrompt
-
-  !!
-  !! Sample outgoing delayed neutrons
-  !!
-  !! Sometimes called by self % sampleOut, sometimes by neutronCEtime
-  !!
-  subroutine sampleDelayed(self, mu, phi, E_out, E_in, rand, lambda, p_del)
-    class(fissionCE), intent(in)                           :: self
-    real(defReal), intent(out)                             :: mu
-    real(defReal), intent(out)                             :: phi
-    real(defReal), intent(out)                             :: E_out
-    real(defReal), intent(in)                              :: E_in
-    class(RNG), intent(inout)                              :: rand
-    real(defReal), intent(out), optional                   :: lambda
-    real(defReal), intent(out), optional                   :: p_del
-    real(defReal)                                          :: r2
-    integer(shortInt)                                      :: i, N
-    character(100),parameter :: Here = 'sampleDelayed (fissionCE_class.f90)'
-
-    r2 = rand % get()
-
-    ! Sample mu
-    mu = TWO * rand % get() - ONE
-
-    ! Sample Phi
-    phi = TWO_PI * rand % get()
-
-    ! Calculate delayed neutron probability (needed by neutronCEtime)
-    if(present (p_del)) p_del = self % releaseDelayed(E_in) / self % release(E_in)
-
-    ! Loop over precursor groups
-    precursors: do i=1,size(self % delayed)
-      r2 = r2 - self % delayed(i) % prob % at(E_in)
-      if( r2 < ZERO) then
-        E_out = self % delayed(i) % eLaw % sample(E_in, rand)
-        lambda = self % delayed(i) % lambda
-        !print *, 'lambda: ', numToChar(lambda)
-        return
-      end if
-    end do precursors
-
-    ! Sampling failed -> Choose top precursor group
-    N = size(self % delayed)
-    E_out = self % delayed(N) % eLaw % sample(E_in, rand)
-    lambda = self % delayed(N) % lambda
-
-  end subroutine sampleDelayed
-
-
-  !!
-  !! Sample delayed precursor properties for single grouped precursor
-  !!
-  !! Uses arrays of properties (e.g. E_out, lambda) instead of single values
-  !!
-  !! Only called by neutronCEtime
-  !!
-  subroutine sampleDelayedGrouped(self, mu, phi, E_out_i, E_in, rand, lambda_i, fd_i, p_del)
-    class(fissionCE), intent(in)                           :: self
-    real(defReal), intent(out)                             :: mu
-    real(defReal), intent(out)                             :: phi
-    real(defReal), intent(out), dimension(precursorGroups) :: E_out_i
-    real(defReal), intent(in)                              :: E_in
-    class(RNG), intent(inout)                              :: rand
-    real(defReal), intent(out), dimension(precursorGroups) :: lambda_i
-    real(defReal), intent(out), dimension(precursorGroups) :: fd_i
-    real(defReal), intent(out)                             :: p_del
-    integer(shortInt)                                      :: i
-    character(100),parameter :: Here = 'sampleDelayedGrouped (fissionCE_class.f90)'
-
-    ! If the numer of precursor groups is different to the constant this has been set to
-    if (size(self % delayed) /= precursorGroups) then
-        call fatalError(Here, 'Delayed precursor groups =/= set value (8)')
-    endif
-
-    ! Sample mu
-    mu = TWO * rand % get() - ONE
-
-    ! Sample Phi
-    phi = TWO_PI * rand % get()
-
-    ! Calculate delayed neutron probability
-    p_del = self % releaseDelayed(E_in) / self % release(E_in)
-    !print *, "p_del", numToChar(p_del)
-
-    ! Create arrays of precursor properties
-    precursors: do i=1,size(self % delayed)
-        E_out_i(i) = self % delayed(i) % eLaw % sample(E_in, rand)
-        lambda_i(i) = self % delayed(i) % lambda
-        fd_i(i) = self % delayed(i) % prob % at(E_in)
-        !print *, numToChar(lambda_i(i)), numToChar(fd_i(i))
-    end do precursors
-
-  end subroutine sampleDelayedGrouped
-
-  !!
   !! Sample outgoing particle
   !!
   !! See uncorrelatedReactionCE for details
@@ -345,12 +221,18 @@ contains
     real(defReal), intent(in)            :: E_in
     class(RNG), intent(inout)            :: rand
     real(defReal), intent(out), optional :: lambda
-    real(defReal)                        :: p_del, r1
-    real(defReal)                        :: temp_lambda
+    real(defReal)                        :: p_del, r1, r2
+    integer(shortInt)                    :: i, N
     character(100),parameter :: Here = 'sample (fissionCE_class.f90)'
 
+    ! Sample mu
+    mu = TWO * rand % get() - ONE
+
+    ! Sample Phi
+    phi = TWO_PI * rand % get()
+
     ! Sample E_out
-    !E_out = self % eLawPrompt % sample(E_in, rand)
+    E_out = self % eLawPrompt % sample(E_in, rand)
 
     ! Calculate delayed emission probability
     if(allocated(self % delayed)) then
@@ -360,14 +242,29 @@ contains
     end if
 
     r1 = rand % get()
-
     if( r1 > p_del ) then ! Prompt emission
-      call self % samplePrompt(mu, phi, E_out, E_in, rand)
-      ! Set precursor decay constant to -1.0 (non-physical value)
-      if(present(lambda)) lambda = -ONE
+      E_out = self % eLawPrompt % sample(E_in, rand)
+      if(present(lambda)) lambda = huge(lambda)
+
     else ! Delayed emission
-      call self % sampleDelayed(mu, phi, E_out, E_in, rand, temp_lambda)
-      if(present(lambda)) lambda = temp_lambda
+      r2 = rand % get()
+
+      ! Loop over precursor groups
+      precursors: do i=1,size(self % delayed)
+        r2 = r2 - self % delayed(i) % prob % at(E_in)
+        if( r2 < ZERO) then
+          E_out = self % delayed(i) % eLaw % sample(E_in, rand)
+          if(present(lambda)) lambda = self % delayed(i) % lambda
+          return
+
+        end if
+      end do precursors
+
+      ! Sampling failed -> Choose top precursor group
+      N = size(self % delayed)
+      E_out = self % delayed(N) % eLaw % sample(E_in, rand)
+      if(present(lambda)) lambda = self % delayed(N) % lambda
+
     end if
   end subroutine sampleOut
 
@@ -388,7 +285,7 @@ contains
 
     if(abs(mu) <= ONE .and. E_out > ZERO .and. phi <= TWO_PI .and. phi >= ZERO) then
 
-      ! Set delayed probability
+      ! Set delayed robability
       if (allocated(self % delayed)) then
         p_delayed = self % releaseDelayed(E_in) / self % release(E_in)
       else
@@ -470,11 +367,9 @@ contains
 
       ! Read Precursor data
       call ACE % setToPrecursors()
-      !print *, '--------'
       do i=1,size(self % delayed)
         ! Read delay constant
-        self % delayed(i) % lambda = ACE % readReal() / shake
-        !print *, 'lambda ACE: ', numToChar(self % delayed(i) % lambda)
+        self % delayed(i) % lambda = ACE % readReal()
         nr = ACE % readInt()
 
         if(nr < 0) call fatalError(Here, 'NR < 0. WTF?')

@@ -290,6 +290,7 @@ contains
         ! Normalise scores
         self % parallelBins(binIdx,:) = self % parallelBins(binIdx,:) * normFactor
         res = sum(self % parallelBins(binIdx,:))
+        print *, 'res', res
 
         ! Zero all score bins
         self % parallelBins(binIdx,:) = ZERO

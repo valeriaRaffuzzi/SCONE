@@ -9,10 +9,10 @@ timeIncrement 1.E-05;
 combing 1; //toggle on or off
 //precursors 0; //toggle on or off
 //batches 100; // not implemented!!
-cycles 5;
+cycles 3;
 
 outputFormat asciiJSON;
-collisionOperator { neutronCE {type neutronCEtime; minEnergy 1E-11;}
+collisionOperator { neutronCE {type neutronCEkin; minEnergy 1E-11;}
 
 }
 

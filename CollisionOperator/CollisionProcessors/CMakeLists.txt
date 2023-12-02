@@ -4,4 +4,4 @@ add_sources( ./collisionProcessor_inter.f90
              ./neutronCEstd_class.f90
 	     ./neutronCEimp_class.f90
              ./neutronMGstd_class.f90
-             ./neutronCEtime_class.f90)
+             ./kinetic_neutronCE_class.f90)

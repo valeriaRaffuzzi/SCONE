@@ -457,7 +457,6 @@ contains
     character(100), parameter :: Here =' normCombing (particleDungeon_class.f90)'
 
     ! Protect against invalid N
-    ! From normSize
     if( N > size(self % prisoners)) then
       call fatalError(Here,'Requested size: '//numToChar(N) //&
                            'is greather then max size: '//numToChar(size(self % prisoners)))
@@ -465,7 +464,7 @@ contains
       call fatalError(Here,'Requested size: '//numToChar(N) //' is not +ve')
     end if
 
-    ! Get tooth length/new particle weight
+    ! Get new particle weight
     w_av = self % popWeight() / N
 
     ! Fill array with each prisoner weight (probably neater way to do this)
