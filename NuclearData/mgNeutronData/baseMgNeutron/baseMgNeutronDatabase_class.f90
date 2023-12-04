@@ -216,6 +216,9 @@ contains
       case(macroIEScatter)
         reac => self % mats(idx) % scatter
 
+      case(macroEScatter)
+        reac => self % mats(idx) % elScatter
+
       case default
         reac => null()
 

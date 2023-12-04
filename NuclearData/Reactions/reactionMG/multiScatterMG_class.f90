@@ -96,7 +96,7 @@ contains
     ! Select dynamic type of data deck and build
     select type(data)
       type is(dictDeck)
-        call self % buildFromDict(data % dict)
+        call self % buildFromDict(data % dict, MT)
 
       class default
         call fatalError(Here,'multiScatterMG cannot be build from: '//data % myType())
@@ -316,10 +316,11 @@ contains
   !!   FatalError if number of groups is not +ve
   !!   FatalError if P1 or scatteringMultiplicity does not match # of groups
   !!
-  subroutine buildFromDict(self, dict)
+  subroutine buildFromDict(self, dict, MT)
     class(multiScatterMG), intent(inout)    :: self
     class(dictionary), intent(in)           :: dict
-    real(defReal),dimension(:),allocatable  :: temp
+    integer(shortInt), intent(in)           :: MT
+    real(defReal),dimension(:),allocatable  :: temp, temp2
     integer(shortInt)                       :: nG
     character(100),parameter :: Here = 'buildFromDict (multiScatterMG_class.f90)'
 
@@ -328,7 +329,14 @@ contains
     if(nG <= 0) call fatalError(Here, 'Not +ve number of energy groups')
 
     ! Read scattering matrix
-    call dict % get(temp, 'P0')
+    if (MT == macroEscatter) then
+      call dict % get(temp, 'P0_elastic')
+      call dict % get(temp2, 'scatteringMultiplicity_elastic')
+    else
+      call dict % get(temp, 'P0')
+      call dict % get(temp2, 'scatteringMultiplicity')
+    end if
+
     if( size(temp) /= nG*nG) then
       call fatalError(Here,'Invalid size of P0. Expected: '//numToChar(nG**2)//&
                            ' got: '//numToChar(size(temp)))
@@ -336,13 +344,12 @@ contains
     self % P0 = reshape(temp,[nG, nG])
 
     ! Read production matrix
-    call dict % get(temp, 'scatteringMultiplicity')
-    if( size(temp) /= nG*nG) then
+    if( size(temp2) /= nG*nG) then
       call fatalError(Here,'Invalid size of scatteringMultiplicity. Expected: '//numToChar(nG**2)//&
-                           ' got: '//numToChar(size(temp)))
+                           ' got: '//numToChar(size(temp2)))
     end if
 
-    self % prod = reshape(temp,[nG, nG])
+    self % prod = reshape(temp2,[nG, nG])
 
     ! Calculate P0 total scattering XSs
     ! Behold the GLORY of Fortran you lowly C++ slaves!

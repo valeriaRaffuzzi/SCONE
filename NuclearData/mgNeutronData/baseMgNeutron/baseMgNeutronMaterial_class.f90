@@ -29,11 +29,12 @@ module baseMgNeutronMaterial_class
 
   ! Public data location parameters
   ! Use them if accessing data entries directly
-  integer(shortInt), parameter, public :: TOTAL_XS      = 1
-  integer(shortInt), parameter, public :: IESCATTER_XS  = 2
-  integer(shortInt), parameter, public :: CAPTURE_XS    = 3
-  integer(shortInt), parameter, public :: FISSION_XS    = 4
-  integer(shortInt), parameter, public :: NU_FISSION    = 5
+  integer(shortInt), parameter, public :: TOTAL_XS     = 1
+  integer(shortInt), parameter, public :: ESCATTER_XS  = 2
+  integer(shortInt), parameter, public :: IESCATTER_XS = 3
+  integer(shortInt), parameter, public :: CAPTURE_XS   = 4
+  integer(shortInt), parameter, public :: FISSION_XS   = 5
+  integer(shortInt), parameter, public :: NU_FISSION   = 6
 
   !!
   !! Basic type of MG material data
@@ -70,6 +71,7 @@ module baseMgNeutronMaterial_class
   type, public, extends(mgNeutronMaterial) :: baseMgNeutronMaterial
     real(defReal),dimension(:,:), allocatable :: data
     class(multiScatterMG), allocatable        :: scatter
+    class(multiScatterMG), allocatable        :: elScatter
     type(fissionMG), allocatable              :: fission
 
   contains
@@ -96,9 +98,10 @@ contains
     call kill_super(self)
 
     ! Kill local content
-    if(allocated(self % data))    deallocate(self % data)
-    if(allocated(self % scatter)) deallocate(self % scatter)
-    if(allocated(self % fission)) deallocate(self % fission)
+    if(allocated(self % data))      deallocate(self % data)
+    if(allocated(self % scatter))   deallocate(self % scatter)
+    if(allocated(self % elScatter)) deallocate(self % elScatter)
+    if(allocated(self % fission))   deallocate(self % fission)
 
   end subroutine kill
 
@@ -122,7 +125,7 @@ contains
 
     ! Get XSs
     xss % total            = self % data(TOTAL_XS, G)
-    xss % elasticScatter   = ZERO
+    xss % elasticScatter   = self % data(ESCATTER_XS, G)
     xss % inelasticScatter = self % data(IESCATTER_XS, G)
     xss % capture          = self % data(CAPTURE_XS, G)
 
@@ -185,8 +188,8 @@ contains
     integer(shortInt)                           :: nG, N, i
     real(defReal), dimension(:), allocatable    :: temp
     type(dictDeck)                              :: deck
+    logical(defBool)                            :: elastic
     character(100), parameter :: Here = 'init (baseMgNeutronMaterial_class.f90)'
-
 
     ! Read number of groups
     call dict % get(nG, 'numberOfGroups')
@@ -194,6 +197,9 @@ contains
 
     ! Set fissile flag
     call self % set(fissile = dict % isPresent('fission'))
+
+    ! See if elastic cross section is present
+    elastic = dict % isPresent('P0_elastic')
 
     ! Build scattering reaction
     ! Prepare input deck
@@ -203,9 +209,11 @@ contains
     select case(scatterKey)
       case ('P0')
         allocate( multiScatterMG :: self % scatter)
+        if (elastic) allocate( multiScatterMG :: self % elScatter)
 
       case ('P1')
         allocate( multiScatterP1MG :: self % scatter)
+        if (elastic) allocate( multiScatterP1MG :: self % elScatter)
 
       case default
         call fatalError(Here,'scatterKey: '//trim(scatterKey)//'is wrong. Must be P0 or P1')
@@ -213,7 +221,8 @@ contains
     end select
 
     ! Initialise
-    call self % scatter % init(deck, macroAllScatter)
+    call self % scatter % init(deck, macroIEscatter)
+    if (elastic) call self % elScatter % init(deck, macroEscatter)
 
     ! Deal with fission
     if(self % isFissile()) allocate(self % fission)
@@ -221,9 +230,9 @@ contains
 
     ! Allocate space for data
     if(self % isFissile()) then
-      N = 5
+      N = 6
     else
-      N = 3
+      N = 4
     end if
 
     allocate(self % data(N, nG))
@@ -242,6 +251,12 @@ contains
                             &. Clearly programming error.')
     end if
     self % data(IESCATTER_XS,:) = self % scatter % scatterXSs
+
+    if (elastic) then
+      self % data(ESCATTER_XS,:) = self % elScatter % scatterXSs
+    else
+      self % data(ESCATTER_XS,:) = ZERO
+    end if
 
     ! Load Fission-data
     if( self % isFissile()) then
@@ -263,12 +278,14 @@ contains
     end if
 
     ! Calculate total XS
-    do i =1,nG
-      self % data(TOTAL_XS, i) = self % data(IESCATTER_XS, i) + self % data(CAPTURE_XS, i)
+    do i = 1,nG
+      self % data(TOTAL_XS, i) = self % data(IESCATTER_XS, i) + self % data(CAPTURE_XS, i) + &
+                                 self % data(ESCATTER_XS, i)
       if(self % isFissile()) then
         self % data(TOTAL_XS, i) = self % data(TOTAL_XS, i) + self % data(FISSION_XS, i)
       end if
     end do
+
   end subroutine init
 
   !!

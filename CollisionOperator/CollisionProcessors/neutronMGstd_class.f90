@@ -191,8 +191,29 @@ contains
     type(collisionData), intent(inout)   :: collDat
     class(particleDungeon),intent(inout) :: thisCycle
     class(particleDungeon),intent(inout) :: nextCycle
+    class(multiScatterMG),pointer        :: scatter
+    integer(shortInt)                    :: G_out   ! Post-collision energy group
+    real(defReal)                        :: phi     ! Azimuthal scatter angle
+    real(defReal)                        :: w_mul   ! Weight multiplier
+    character(100),parameter :: Here = "elastic (neutronMGstd_class.f90)"
 
-    ! Do nothing. Should not be called
+    ! Assign MT number
+    collDat % MT = macroEscatter
+
+    ! Get Scatter object
+    scatter => multiScatterMG_CptrCast( self % xsData % getReaction(macroEscatter, collDat % matIdx))
+    if(.not.associated(scatter)) call fatalError(Here, "Failed to get scattering reaction object for MG neutron")
+
+    ! Sample Mu and G_out
+    call scatter % sampleOut(collDat % muL, phi, G_out, p % G, p % pRNG)
+
+    ! Read scattering multiplicity
+    w_mul = scatter % production(p % G, G_out)
+
+    ! Update neutron state
+    p % G = G_out
+    p % w = p % w * w_mul
+    call p % rotate(collDat % muL, phi)
 
   end subroutine elastic
 

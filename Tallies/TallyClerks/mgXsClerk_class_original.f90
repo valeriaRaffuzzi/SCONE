@@ -26,28 +26,18 @@ module mgXsClerk_class
   private
 
   !! Size of clerk memory
-  integer(shortInt), parameter  :: ARRAY_SCORE_SIZE   = 11 ,&  ! Size of data to store as 1D arrays
-                                   MATRIX_SCORE_SMALL = 3  ,&  ! Size of data to store as 2D arrays when scoring up to P1
-                                   MATRIX_SCORE_FULL  = 9  ,&  ! Size of data to store as 2D arrays when scoring up to P7
-                                   SCATT_REACTIONS    = 3
-
- !! Indexes of different scattering reactions
- integer(longInt), parameter   :: TOTAL     = 0 ,&
-                                  ELASTIC   = 1 ,&
-                                  INELASTIC = 2
+  integer(shortInt), parameter  :: ARRAY_SCORE_SIZE   = 7 ,&  ! Size of data to store as 1D arrays
+                                   MATRIX_SCORE_SMALL = 3 ,&  ! Size of data to store as 2D arrays when scoring up to P1
+                                   MATRIX_SCORE_FULL  = 9     ! Size of data to store as 2D arrays when scoring up to P7
 
   !! Locations of different bins wrt memory address of the clerk
-  integer(longInt), parameter   :: FLUX_idx        = 1  ,&  ! Flux
-                                   SCATT_idx       = 2  ,&  ! Scattering macroscopic reaction rate
-                                   SCATT_EL_idx    = 3  ,&  ! Elastic scattering macroscopic reaction rate
-                                   SCATT_INEL_idx  = 4  ,&  ! Inelastic scattering macroscopic reaction rate
-                                   CAPT_idx        = 5  ,&  ! Capture macroscopic reaction rate
-                                   FISS_idx        = 6  ,&  ! Fission macroscopic reaction rate
-                                   NUBAR_idx       = 7  ,&  ! NuBar
-                                   CHI_idx         = 8  ,&  ! Fission neutron spectrum
-                                   SCATT_EV_idx    = 9  ,&  ! Analog: number of scattering events
-                                   SCATT_EV_EL_idx = 10 ,&  ! Analog: number of elastic scattering events
-                                   SCATT_EV_INEL_idx = 11   ! Analog: number of inelastic scattering events
+  integer(longInt), parameter   :: FLUX_idx      = 1 ,&  ! Flux
+                                   SCATT_idx     = 2 ,&  ! Scattering macroscopic reaction rate
+                                   CAPT_idx      = 3 ,&  ! Capture macroscopic reaction rate
+                                   FISS_idx      = 4 ,&  ! Fission macroscopic reaction rate
+                                   NUBAR_idx     = 5 ,&  ! NuBar
+                                   CHI_idx       = 6 ,&  ! Fission neutron spectrum
+                                   SCATT_EV_idx  = 7     ! Analog: number of scattering events
 
   !!
   !! Multi-group macroscopic cross section calculation
@@ -97,7 +87,6 @@ module mgXsClerk_class
     integer(shortInt) :: energyN = 0
     integer(shortInt) :: matN = 0
     integer(shortInt) :: width = 0
-    integer(shortInt) :: matrixN
     logical(defBool)  :: PN = .false.
 
   contains
@@ -115,7 +104,6 @@ module mgXsClerk_class
     ! Output procedures
     procedure  :: print
     procedure  :: processRes
-    procedure  :: processScatt
     procedure  :: processPN
     procedure  :: display
 
@@ -136,7 +124,7 @@ contains
 
     ! Assign name
     call self % setName(name)
-
+    
     ! Load energy map and bin number
     if (dict % isPresent('energyMap')) then
       call new_tallyMap(self % energyMap, dict % getDictPtr('energyMap'))
@@ -156,15 +144,12 @@ contains
     ! Get PN flag
     call dict % getOrDefault(self % PN, 'PN', .true.)
 
-    ! Determine how many scattering matrices are required
-    if (self % PN) then
-      self % matrixN = MATRIX_SCORE_FULL
-    else
-      self % matrixN = MATRIX_SCORE_SMALL
-    end if
-
     ! Set memory width
-    self % width = ARRAY_SCORE_SIZE + SCATT_REACTIONS * self % matrixN * self % energyN
+    if (self % PN) then
+      self % width = ARRAY_SCORE_SIZE + MATRIX_SCORE_FULL * self % energyN
+    else
+      self % width = ARRAY_SCORE_SIZE + MATRIX_SCORE_SMALL * self % energyN
+    end if
 
   end subroutine init
 
@@ -231,8 +216,7 @@ contains
     type(particleState)                   :: state
     type(neutronMacroXSs)                 :: xss
     class(neutronMaterial), pointer       :: mat
-    real(defReal)                         :: totalXS, nuFissXS, captXS, fissXS, &
-                                             scattXS, elScattXS, inelScattXS, flux
+    real(defReal)                         :: totalXS, nuFissXS, captXS, fissXS, scattXS, flux
     integer(shortInt)                     :: enIdx, matIdx, binIdx
     integer(longInt)                      :: addr
     character(100), parameter :: Here =' reportInColl (mgXsClerk_class.f90)'
@@ -275,12 +259,10 @@ contains
     flux = p % w / totalXS
 
     ! Calculate reaction rates
-    nuFissXS    = xss % nuFission * flux
-    captXS      = xss % capture * flux
-    fissXS      = xss % fission * flux
-    elScattXS   = xss % elasticScatter * flux
-    inelScattXS = xss % inelasticScatter * flux
-    scattXS     = elScattXS + inelScattXS
+    nuFissXS = xss % nuFission * flux
+    captXS   = xss % capture * flux
+    fissXS   = xss % fission * flux
+    scattXS  = (xss % elasticScatter + xss % inelasticScatter) * flux
 
     ! Add scores to counters
     call mem % score(flux,     addr + FLUX_idx)
@@ -288,8 +270,6 @@ contains
     call mem % score(captXS,   addr + CAPT_idx)
     call mem % score(fissXS,   addr + FISS_idx)
     call mem % score(scattXS,  addr + SCATT_idx)
-    call mem % score(elScattXS,   addr + SCATT_EL_idx)
-    call mem % score(inelScattXS, addr + SCATT_INEL_idx)
 
   end subroutine reportInColl
 
@@ -308,35 +288,11 @@ contains
     type(particleState)                     :: preColl, postColl
     real(defReal)                           :: score, prod, mu, mu2, mu3, mu4, mu5
     integer(shortInt)                       :: enIdx, matIdx, binIdx, binEnOut
-    integer(longInt)                        :: EVENT_idx, LAST_idx
     integer(longInt)                        :: addr
 
     ! Get pre and post collision particle state
     preColl  = p % preCollision
     postColl = p
-
-    ! Score in case of scattering events
-    select case(MT)
-      case (N_N_ELASTIC)
-
-        ! Score elastic and total
-        EVENT_idx = SCATT_EV_EL_idx
-        LAST_idx  = SCATT_EV_INEL_idx + self % matrixN * self % energyN * ELASTIC
-
-      case (N_N_INELASTIC, N_N_ThermINEL, N_Nl(1):N_Nl(40), N_Ncont, &
-            N_2N, N_2Na, N_2Nd, N_2Nf, N_2Np, N_2N2a, N_2Nl(1):N_2Nl(16),  &
-            N_3N, N_3Na, N_3Nf, N_3Np, N_4N, N_Na, N_Np, N_Nd, N_Nt)
-
-        ! Score inelastic and total
-        EVENT_idx = SCATT_EV_INEL_idx
-        LAST_idx  = SCATT_EV_INEL_idx + self % matrixN * self % energyN * INELASTIC
-
-      case default
-
-        ! Don't score anything
-        return
-
-    end select
 
     ! Find multipliers to account for scattering multiplicity
     select case(MT)
@@ -350,97 +306,98 @@ contains
         score = ONE
     end select
 
-    ! Find bin indexes
-    ! Energy
-    if (allocated(self % energyMap)) then
-      enIdx = self % energyN + 1 - self % energyMap % map(preColl)
-    else
-      enIdx = 1
-    end if
-    ! Space
-    if (allocated(self % spaceMap)) then
-      matIdx = self % spaceMap % map(preColl)
-    else
-      matIdx = 1
-    end if
+    ! Score in case of scattering events
+    select case(MT)
+      case ( N_N_ELASTIC, N_N_INELASTIC, N_N_ThermINEL, N_Nl(1):N_Nl(40), N_Ncont, &
+             N_2N, N_2Na, N_2Nd, N_2Nf, N_2Np, N_2N2a, N_2Nl(1):N_2Nl(16),  &
+             N_3N, N_3Na, N_3Nf, N_3Np, N_4N, N_Na, N_Np, N_Nd, N_Nt)
 
-    ! Return if invalid bin index
-    if ((enIdx == self % energyN + 1) .or. matIdx == 0) return
+        ! Find bin indexes
+        ! Energy
+        if (allocated(self % energyMap)) then
+          enIdx = self % energyN + 1 - self % energyMap % map(preColl)
+        else
+          enIdx = 1
+        end if
+        ! Space
+        if (allocated(self % spaceMap)) then
+          matIdx = self % spaceMap % map(preColl)
+        else
+          matIdx = 1
+        end if
 
-    ! Calculate bin address
-    binIdx = self % energyN * (matIdx - 1) + enIdx
-    addr = self % getMemAddress() + self % width * (binIdx - 1) - 1
+        ! Return if invalid bin index
+        if ((enIdx == self % energyN + 1) .or. matIdx == 0) return
 
-    ! Score a scattering event from group g
-    call mem % score(preColl % wgt, addr + SCATT_EV_idx)
-    call mem % score(preColl % wgt, addr + EVENT_idx)
+        ! Calculate bin address
+        binIdx = self % energyN * (matIdx - 1) + enIdx
+        addr = self % getMemAddress() + self % width * (binIdx - 1) - 1
 
-    ! Get bin of outgoing energy
-    if (allocated(self % energyMap)) then
-      binEnOut = self % energyN + 1 - self % energyMap % map(postColl)
-    else
-      binEnOut = 1
-    end if
+        ! Score a scattering event from group g
+        call mem % score(preColl % wgt, addr + SCATT_EV_idx)
 
-    ! Return if invalid bin index
-    if (binEnOut == self % energyN + 1) return
+        ! Get bin of outgoing energy
+        if (allocated(self % energyMap)) then
+          binEnOut = self % energyN + 1 - self % energyMap % map(postColl)
+        else
+          binEnOut = 1
+        end if
 
-    ! Score scattering event from group g to g'
-    call mem % score(preColl % wgt, addr + SCATT_EV_INEL_idx + binEnOut)
-    call mem % score(preColl % wgt, addr + LAST_idx + binEnOut)
+        ! Return if invalid bin index
+        if (binEnOut == self % energyN + 1) return
 
-    ! Score outgoing scattering angle for P1 matrix
-    mu = muL * preColl % wgt
-    call mem % score(mu, addr + SCATT_EV_INEL_idx + self % energyN + binEnOut)
-    call mem % score(mu, addr + LAST_idx + self % energyN + binEnOut)
+        ! Score scattering event from group g to g'
+        call mem % score(preColl % wgt, addr + SCATT_EV_idx + binEnOut)
 
-    ! Score multiplicity matrix
-    prod = score * preColl % wgt
-    call mem % score(prod, addr + SCATT_EV_INEL_idx + 2*self % energyN + binEnOut)
-    call mem % score(prod, addr + LAST_idx + 2*self % energyN + binEnOut)
+        ! Score outgoing scattering angle for P1 matrix
+        mu = muL * preColl % wgt
+        call mem % score(mu, addr + SCATT_EV_idx + self % energyN + binEnOut)
 
-    ! Higher order scattering matrices
-    if (self % PN) then
+        ! Score multiplicity matrix
+        prod = score * preColl % wgt
+        call mem % score(prod, addr + SCATT_EV_idx + 2*self % energyN + binEnOut)
 
-      ! Pre-computing powers
-      mu2 = muL * muL
-      mu3 = mu2 * muL
-      mu4 = mu3 * muL
-      mu5 = mu4 * muL
+        ! Higher order scattering matrices
+        if (self % PN) then
 
-      ! Score outgoing scattering angle for P2 matrix
-      mu = HALF * (3.0_defReal*mu2 - ONE) * preColl % wgt
-      call mem % score(mu, addr + SCATT_EV_idx + 3*self % energyN + binEnOut)
-      call mem % score(mu, addr + LAST_idx + 3*self % energyN + binEnOut)
+          ! Pre-computing powers
+          mu2 = muL * muL
+          mu3 = mu2 * muL
+          mu4 = mu3 * muL
+          mu5 = mu4 * muL
 
-      ! Score outgoing scattering angle for P3 matrix
-      mu = HALF * (5.0_defReal*mu3 - 3.0_defReal*muL) * preColl % wgt
-      call mem % score(mu, addr + SCATT_EV_idx + 4*self % energyN + binEnOut)
-      call mem % score(mu, addr + LAST_idx + 4*self % energyN + binEnOut)
+          ! Score outgoing scattering angle for P2 matrix
+          mu = HALF * (3.0_defReal*mu2 - ONE) * preColl % wgt
+          call mem % score(mu, addr + SCATT_EV_idx + 3*self % energyN + binEnOut)
 
-      ! Score outgoing scattering angle for P4 matrix
-      mu = (35.0_defReal*mu4 - 30.0_defReal*mu2 + 3.0_defReal)/8.0_defReal * preColl % wgt
-      call mem % score(mu, addr + SCATT_EV_idx + 5*self % energyN + binEnOut)
-      call mem % score(mu, addr + LAST_idx + 5*self % energyN + binEnOut)
+          ! Score outgoing scattering angle for P3 matrix
+          mu = HALF * (5.0_defReal*mu3 - 3.0_defReal*muL) * preColl % wgt
+          call mem % score(mu, addr + SCATT_EV_idx + 4*self % energyN + binEnOut)
 
-      ! Score outgoing scattering angle for P5 matrix
-      mu = (63.0_defReal*mu5 - 70.0_defReal*mu3 + 15.0_defReal*muL)/8.0_defReal * preColl % wgt
-      call mem % score(mu, addr + SCATT_EV_idx + 6*self % energyN + binEnOut)
-      call mem % score(mu, addr + LAST_idx + 6*self % energyN + binEnOut)
+          ! Score outgoing scattering angle for P4 matrix
+          mu = (35.0_defReal*mu4 - 30.0_defReal*mu2 + 3.0_defReal)/8.0_defReal * preColl % wgt
+          call mem % score(mu, addr + SCATT_EV_idx + 5*self % energyN + binEnOut)
 
-      ! Score outgoing scattering angle for P6 matrix
-      mu = (231.0_defReal*mu5*muL - 315.0_defReal*mu4 + 105.0_defReal*mu2 &
-            - 5.0_defReal)/16.0_defReal * preColl % wgt
-      call mem % score(mu, addr + SCATT_EV_idx + 7*self % energyN + binEnOut)
-      call mem % score(mu, addr + LAST_idx + 7*self % energyN + binEnOut)
+          ! Score outgoing scattering angle for P5 matrix
+          mu = (63.0_defReal*mu5 - 70.0_defReal*mu3 + 15.0_defReal*muL)/8.0_defReal * preColl % wgt
+          call mem % score(mu, addr + SCATT_EV_idx + 6*self % energyN + binEnOut)
 
-      ! Score outgoing scattering angle for P7 matrix
-      mu = (429.0_defReal*mu5*mu2 - 693.0_defReal*mu5 + 315.0_defReal*mu3 &
-            - 35.0_defReal*muL)/16.0_defReal * preColl % wgt
-      call mem % score(mu, addr + SCATT_EV_idx + 8*self % energyN + binEnOut)
-      call mem % score(mu, addr + LAST_idx + 8*self % energyN + binEnOut)
+          ! Score outgoing scattering angle for P6 matrix
+          mu = (231.0_defReal*mu5*muL - 315.0_defReal*mu4 + 105.0_defReal*mu2 &
+                - 5.0_defReal)/16.0_defReal * preColl % wgt
+          call mem % score(mu, addr + SCATT_EV_idx + 7*self % energyN + binEnOut)
 
-    end if
+          ! Score outgoing scattering angle for P7 matrix
+          mu = (429.0_defReal*mu5*mu2 - 693.0_defReal*mu5 + 315.0_defReal*mu3 &
+                - 35.0_defReal*muL)/16.0_defReal * preColl % wgt
+          call mem % score(mu, addr + SCATT_EV_idx + 8*self % energyN + binEnOut)
+
+        end if
+
+      case default
+        ! Do nothing
+
+    end select
 
   end subroutine reportOutColl
 
@@ -489,39 +446,60 @@ contains
   end subroutine reportCycleEnd
 
   !!
-  !! Final processing to calculate the multi-group cross sections and fission data
+  !! Final processing to calculate the multi-group cross sections, fission data and
+  !! P0, P1 and production scattering matrices
   !!
   !! Args:
   !!   mem [in] -> memory
   !!   capt_res [out]    -> capture MG xss and uncertainties
   !!   fiss_res [out]    -> fission MG xss and uncertainties
+  !!   transFL_res [out] -> transport MG xss and uncertainties with flux limited approximation
+  !!   transOS_res [out] -> transport MG xss and uncertainties with out-scatter approximation
   !!   nu_res   [out]    -> MG nuBar and uncertainties
   !!   chi_res  [out]    -> MG fission spectrum and uncertainties
+  !!   P0_res   [out]    -> P0 scattering matrix and uncertainties
+  !!   P1_res   [out]    -> P1 scattering matrix and uncertainties
+  !!   prod_res [out]    -> P0 scattering production matrix and uncertainties
   !!
   !! Errors:
   !!   none
   !!
-  pure subroutine processRes(self, mem, capt_res, fiss_res, nu_res, chi_res)
+  pure subroutine processRes(self, mem, capt_res, fiss_res, transFL_res, transOS_res, &
+                             nu_res, chi_res, P0_res, P1_res, prod_res)
     class(mgXsClerk), intent(in)    :: self
     type(scoreMemory), intent(in)   :: mem
     real(defReal), dimension(:,:), allocatable, intent(out) :: capt_res
     real(defReal), dimension(:,:), allocatable, intent(out) :: fiss_res
+    real(defReal), dimension(:,:), allocatable, intent(out) :: transFL_res
+    real(defReal), dimension(:,:), allocatable, intent(out) :: transOS_res
     real(defReal), dimension(:,:), allocatable, intent(out) :: nu_res
     real(defReal), dimension(:,:), allocatable, intent(out) :: chi_res
+    real(defReal), dimension(:,:), allocatable, intent(out) :: P0_res
+    real(defReal), dimension(:,:), allocatable, intent(out) :: P1_res
+    real(defReal), dimension(:,:), allocatable, intent(out) :: prod_res
+    real(defReal), dimension(:,:), allocatable  :: delta, deltaStd
+    real(defReal), dimension(:), allocatable    :: tot, totStd, fluxG, fluxGstd
     integer(longInt)  :: addr
-    integer(shortInt) :: N, M, i, g1, gEnd
-    real(defReal)     :: capt, fiss, nu, chi, flux, sumChi, &
-                         captStd, fissStd, nuStd, chiStd, fluxStd
+    integer(shortInt) :: N, M, i, j, k, g1, gEnd, idx
+    real(defReal)     :: capt, fiss, scatt, nu, chi, P0, P1, prod, sumChi, flux, scattProb, &
+                         captStd, fissStd, scattStd, nuStd, chiStd, P0std, P1std, prodStd,  &
+                         fluxStd, scattProbStd, scattXS, scattXSstd
 
     ! Get number of bins
     N = self % energyN
     M = self % matN
 
     ! Allocate arrays for MG xss
-    allocate( capt_res(2,N*M), fiss_res(2,N*M), nu_res(2,N*M), chi_res(2,N*M) )
+    allocate( capt_res(2,N*M), fiss_res(2,N*M), transFL_res(2,N*M), transOS_res(2,N*M), &
+              nu_res(2,N*M), chi_res(2,N*M), P0_res(2,N*N*M), P1_res(2,N*N*M),          &
+              prod_res(2,N*N*M), tot(N*M), fluxG(N*M), delta(M, N), totStd(N*M),        &
+              fluxGstd(N*M), deltaStd(M, N) )
 
     ! Initialise values
     sumChi = 0    ! to normalise chi
+    k      = 1    ! to calculate transport xss
+    delta  = ZERO
+    deltaStd = ZERO
 
     ! Loop over all energies and spatial bins
     do i = 1, N*M
@@ -531,16 +509,22 @@ contains
       call mem % getResult(flux,  fluxStd,  addr + FLUX_idx)
       call mem % getResult(fiss,  fissStd,  addr + FISS_idx)
       call mem % getResult(capt,  captStd,  addr + CAPT_idx)
+      call mem % getResult(scatt, scattStd, addr + SCATT_idx)
       call mem % getResult(nu,    nuStd,    addr + NUBAR_idx)
       call mem % getResult(chi,   chiStd,   addr + CHI_idx)
+      call mem % getResult(scattProb, scattProbStd, addr + SCATT_EV_idx)
 
       ! Calculate MG constants, being careful to avoid division by zero
       ! If flux is zero all cross sections must be set to zero
       if (flux == ZERO) then
         capt_res(1:2,i) = ZERO
+        scattXS         = ZERO
+        scattXSstd      = ZERO
       else
         capt_res(1,i) = capt/flux
         capt_res(2,i) = capt_res(1,i) * sqrt((captStd/capt)**2 + (fluxStd/flux)**2)
+        scattXS       = scatt/flux
+        scattXSstd    = scattXS * sqrt((scattStd/scatt)**2 + (fluxStd/flux)**2)
       end if
 
       ! Calculate fission production term and uncertainties
@@ -566,93 +550,9 @@ contains
         sumChi = 0
       end if
 
-    end do
-
-  end subroutine processRes
-
-
-  !!
-  !! Final processing to calculate the multi-group transport cross sections and
-  !! P0, P1 and production scattering matrices
-  !!
-  !! Args:
-  !!   mem [in] -> memory
-  !!   transFL_res [out] -> transport MG xss and uncertainties with flux limited approximation
-  !!   transOS_res [out] -> transport MG xss and uncertainties with out-scatter approximation
-  !!   P0_res   [out]    -> P0 scattering matrix and uncertainties
-  !!   P1_res   [out]    -> P1 scattering matrix and uncertainties
-  !!   prod_res [out]    -> P0 scattering production matrix and uncertainties
-  !!
-  !! Errors:
-  !!   none
-  !!
-  pure subroutine processScatt(self, mem, transport, XS_idx, EVENT_idx, LAST_idx, &
-                               transFL_res, transOS_res, P0_res, P1_res, prod_res)
-    class(mgXsClerk), intent(in)    :: self
-    type(scoreMemory), intent(in)   :: mem
-    logical(defBool), intent(in)    :: transport
-    integer(longInt), intent(in)   :: XS_idx
-    integer(longInt), intent(in)   :: EVENT_idx
-    integer(longInt), intent(in)   :: LAST_idx
-    real(defReal), dimension(:,:), allocatable, intent(out) :: transFL_res
-    real(defReal), dimension(:,:), allocatable, intent(out) :: transOS_res
-    real(defReal), dimension(:,:), allocatable, intent(out) :: P0_res
-    real(defReal), dimension(:,:), allocatable, intent(out) :: P1_res
-    real(defReal), dimension(:,:), allocatable, intent(out) :: prod_res
-    real(defReal), dimension(:,:), allocatable  :: delta, deltaStd
-    real(defReal), dimension(:), allocatable    :: tot, totStd, fluxG, fluxGstd
-    integer(longInt)  :: addr
-    integer(shortInt) :: N, M, i, j, k, g1, gEnd, idx
-    real(defReal)     :: scatt, P0, P1, prod, flux, scattProb, scattStd, P0std, &
-                         P1std, prodStd, fluxStd, scattProbStd, scattXS, scattXSstd, &
-                         capt, fiss, captStd, fissStd, captXS, fissXS, captXSstd, fissXSstd
-
-    ! Get number of bins
-    N = self % energyN
-    M = self % matN
-
-    ! Allocate arrays for MG xss
-    allocate( transFL_res(2,N*M), transOS_res(2,N*M), P0_res(2,N*N*M), P1_res(2,N*N*M), &
-              prod_res(2,N*N*M), tot(N*M), fluxG(N*M), delta(M, N), totStd(N*M),        &
-              fluxGstd(N*M), deltaStd(M, N) )
-
-    ! Initialise values
-    k      = 1    ! to calculate transport xss
-    delta  = ZERO
-    deltaStd = ZERO
-
-    ! Loop over all energies and spatial bins
-    do i = 1, N*M
-
-      ! Retrieve reaction rates and flux from memory
-      addr = self % getMemAddress() + self % width * (i - 1) - 1
-      call mem % getResult(fiss,  fissStd,  addr + FISS_idx)
-      call mem % getResult(capt,  captStd,  addr + CAPT_idx)
-      call mem % getResult(flux,  fluxStd,  addr + FLUX_idx)
-      call mem % getResult(scatt, scattStd, addr + XS_idx)
-      call mem % getResult(scattProb, scattProbStd, addr + EVENT_idx)
-
-      ! Calculate MG constants, being careful to avoid division by zero
-      ! If flux is zero all cross sections must be set to zero
-      if (flux == ZERO) then
-        scattXS    = ZERO
-        scattXSstd = ZERO
-        captXS     = ZERO
-        captXSstd  = ZERO
-        fissXS     = ZERO
-        fissXSstd  = ZERO
-      else
-        scattXS    = scatt/flux
-        scattXSstd = scattXS * sqrt((scattStd/scatt)**2 + (fluxStd/flux)**2)
-        captXS     = capt/flux
-        captXSstd  = captXS * sqrt((captStd/capt)**2 + (fluxStd/flux)**2)
-        fissXS     = fiss/flux
-        fissXSstd  = fissXS * sqrt((fissStd/fiss)**2 + (fluxStd/flux)**2)
-      end if
-
       ! Store total cross section and flux for this energy group
-      tot(i)    = captXS + fissXS + scattXS
-      totStd(i) = sqrt(captXSstd**2 + fissXSstd**2 + scattXSstd**2)
+      tot(i)    = capt_res(1,i) + fiss_res(1,i) + scattXS
+      totStd(i) = sqrt(capt_res(2,i)**2 + fiss_res(1,i)**2 + scattXSstd**2)
       fluxG(i)  = flux
       fluxGstd(i) = fluxStd
 
@@ -660,9 +560,9 @@ contains
       do j = 1, N
 
         ! Retrieve results from memory
-        call mem % getResult(P0, P0std, addr + LAST_idx + j)
-        call mem % getResult(P1, P1std, addr + LAST_idx + N + j)
-        call mem % getResult(prod, prodStd, addr + LAST_idx + 2*N + j)
+        call mem % getResult(P0, P0std, addr + SCATT_EV_idx + j)
+        call mem % getResult(P1, P1std, addr + SCATT_EV_idx + N + j)
+        call mem % getResult(prod, prodStd, addr + SCATT_EV_idx + 2*N + j)
 
         ! Calculate scattering matrices and uncertainties
         idx = N*(i-1) + j
@@ -678,50 +578,40 @@ contains
           P1_res(2, idx) = P1_res(1,idx) * sqrt((P1std/P1)**2 + (scattProbStd/scattProb)**2 + (scattXSstd/scattXS)**2)
           prod_res(1, idx) = prod/P0
           prod_res(2, idx) = prod_res(1,idx) * sqrt((prodStd/prod)**2 + (P0std/P0)**2)
-
-          if (transport) then
-            ! Accumulate quantities over all outgoing groups for transport cross section generation
-            delta(k,j)    = delta(k,j) + P1/scattProb*scatt
-            deltaStd(k,j) = sqrt(deltaStd(k,j)**2 + ((P1std/P1)**2 + (scattProbStd/scattProb)**2 + &
-                            (scattStd/scatt)**2) * (P1/scattProb*scatt)**2)
-          end if
-
+          ! Accumulate quantities over all outgoing groups for transport cross section generation
+          delta(k,j)    = delta(k,j) + P1/scattProb*scatt
+          deltaStd(k,j) = sqrt(deltaStd(k,j)**2 + ((P1std/P1)**2 + (scattProbStd/scattProb)**2 + &
+                          (scattStd/scatt)**2) * (P1/scattProb*scatt)**2)
         end if
 
       end do
 
-      if (transport) then
-        ! If this is the last energy group for a material increment index
-        if (mod(i, N) == 0) k = k + 1
+      ! If this is the last energy group for a material increment index
+      if (mod(i, N) == 0) k = k + 1
 
-        ! Calculate out-scatter transport cross section
-        g1   = N*(i-1) + 1
-        gEnd = N*(i-1) + N
-        transOS_res(1,i) = tot(i) - sum(P1_res(1, g1:gEnd))
-        transOS_res(2,i) = sqrt(totStd(i)**2 + sum(P1_res(2, g1:gEnd)))
-      end if
+      ! Calculate out-scatter transport cross section
+      g1   = N*(i-1) + 1
+      gEnd = N*(i-1) + N
+      transOS_res(1,i) = tot(i) - sum(P1_res(1, g1:gEnd))
+      transOS_res(2,i) = sqrt(totStd(i)**2 + sum(P1_res(2, g1:gEnd)))
 
     end do
 
-    if (transport) then
-
-      ! Calculate flux-limited transport cross section
-      do i = 1, M
-        do j = 1, N
-          idx = N*(i-1) + j
-          if (fluxG(idx) == ZERO) then
-            transFL_res(1:2,idx) = ZERO
-          else
-            transFL_res(1,idx) = tot(idx) - delta(i,j)/fluxG(idx)
-            transFL_res(2,idx) = sqrt(totStd(idx)**2 + ((deltaStd(i,j)/delta(i,j))**2 + &
-                                      (fluxGstd(idx)/fluxG(idx))**2) * (delta(i,j)/fluxG(idx))**2)
-          end if
-        end do
+    ! Calculate flux-limited transport cross section
+    do i = 1, M
+      do j = 1, N
+        idx = N*(i-1) + j
+        if (fluxG(idx) == ZERO) then
+          transFL_res(1:2,idx) = ZERO
+        else
+          transFL_res(1,idx) = tot(idx) - delta(i,j)/fluxG(idx)
+          transFL_res(2,idx) = sqrt(totStd(idx)**2 + ((deltaStd(i,j)/delta(i,j))**2 + &
+                                    (fluxGstd(idx)/fluxG(idx))**2) * (delta(i,j)/fluxG(idx))**2)
+        end if
       end do
+    end do
 
-    end if
-
-  end subroutine processScatt
+  end subroutine processRes
 
   !!
   !! Final processing to calculate the high order scattering matrices, P2 to P7
@@ -738,13 +628,9 @@ contains
   !! Errors:
   !!   none
   !!
-  pure subroutine processPN(self, mem, XS_idx, EVENT_idx, LAST_idx, &
-                            P2_res, P3_res, P4_res, P5_res, P6_res, P7_res)
+  pure subroutine processPN(self, mem, P2_res, P3_res, P4_res, P5_res, P6_res, P7_res)
     class(mgXsClerk), intent(in)     :: self
     type(scoreMemory), intent(in)    :: mem
-    integer(longInt), intent(in)   :: XS_idx
-    integer(longInt), intent(in)   :: EVENT_idx
-    integer(longInt), intent(in)   :: LAST_idx
     real(defReal), dimension(:,:), allocatable, intent(out) :: P2_res
     real(defReal), dimension(:,:), allocatable, intent(out) :: P3_res
     real(defReal), dimension(:,:), allocatable, intent(out) :: P4_res
@@ -770,9 +656,9 @@ contains
 
       ! Retrieve reaction rates and flux from memory
       addr = self % getMemAddress() + self % width * (i - 1) - 1
-      call mem % getResult(scatt, scattStd, addr + XS_idx)
+      call mem % getResult(scatt, scattStd, addr + SCATT_idx)
       call mem % getResult(flux,  fluxStd,  addr + FLUX_idx)
-      call mem % getResult(scattProb, scattProbStd, addr + EVENT_idx)
+      call mem % getResult(scattProb, scattProbStd, addr + SCATT_EV_idx)
 
       ! Calculate MG constants, being careful to avoid division by zero
       ! If flux is zero all cross sections must be set to zero
@@ -788,13 +674,13 @@ contains
       do j = 1, N
 
         ! Retrieve results from memory
-        call mem % getResult(P0, P0std, addr + LAST_idx + j)
-        call mem % getResult(P2, P2std, addr + LAST_idx + 3*N + j)
-        call mem % getResult(P3, P3std, addr + LAST_idx + 4*N + j)
-        call mem % getResult(P4, P4std, addr + LAST_idx + 5*N + j)
-        call mem % getResult(P5, P5std, addr + LAST_idx + 6*N + j)
-        call mem % getResult(P6, P6std, addr + LAST_idx + 7*N + j)
-        call mem % getResult(P7, P7std, addr + LAST_idx + 8*N + j)
+        call mem % getResult(P0, P0std, addr + SCATT_EV_idx + j)
+        call mem % getResult(P2, P2std, addr + SCATT_EV_idx + 3*N + j)
+        call mem % getResult(P3, P3std, addr + SCATT_EV_idx + 4*N + j)
+        call mem % getResult(P4, P4std, addr + SCATT_EV_idx + 5*N + j)
+        call mem % getResult(P5, P5std, addr + SCATT_EV_idx + 6*N + j)
+        call mem % getResult(P6, P6std, addr + SCATT_EV_idx + 7*N + j)
+        call mem % getResult(P7, P7std, addr + SCATT_EV_idx + 8*N + j)
 
         ! Calculate scattering matrices and uncertainties
         idx = N*(i-1) + j
@@ -841,7 +727,6 @@ contains
                                                   P5, P6, P7, prod
     character(nameLen)                         :: name
     integer(shortInt)                          :: i
-    integer(longInt)                           :: XS_idx, EVENT_idx, LAST_idx
 
     ! Begin block
     call outFile % startBlock(self % getName())
@@ -863,8 +748,8 @@ contains
       resArrayShape(2:(self % spaceMap % dimensions() + 1)) = self % spaceMap % binArrayShape()
     end if
 
-    ! Process and get cross section results
-    call self % processRes(mem, capt, fiss, nu, chi)
+    ! Process and get results
+    call self % processRes(mem, capt, fiss, transFL, transOS, nu, chi, P0, P1, prod)
 
     ! Print results
     name = 'capture'
@@ -881,27 +766,6 @@ contains
     end do
     call outFile % endArray()
 
-    name = 'nu'
-    call outFile % startArray(name, resArrayShape)
-    do i=1,product(resArrayShape)
-      call outFile % addResult(nu(1,i),nu(2,i))
-    end do
-    call outFile % endArray()
-
-    name = 'chi'
-    call outFile % startArray(name, resArrayShape)
-    do i=1,product(resArrayShape)
-      call outFile % addResult(chi(1,i),chi(2,i))
-    end do
-    call outFile % endArray()
-
-    ! Process and get TOTAL SCATTERING and transport cross section results
-    XS_idx    = SCATT_idx
-    EVENT_idx = SCATT_EV_idx
-    LAST_idx  = SCATT_EV_INEL_idx + self % matrixN * self % energyN * TOTAL
-    call self % processScatt(mem, .true., XS_idx, EVENT_idx, LAST_idx, &
-                                 transFL, transOS, P0, P1, prod)
-
     name = 'transportFluxLimited'
     call outFile % startArray(name, resArrayShape)
     do i=1,product(resArrayShape)
@@ -913,6 +777,20 @@ contains
     call outFile % startArray(name, resArrayShape)
     do i=1,product(resArrayShape)
       call outFile % addResult(transOS(1,i),transOS(2,i))
+    end do
+    call outFile % endArray()
+
+    name = 'nu'
+    call outFile % startArray(name, resArrayShape)
+    do i=1,product(resArrayShape)
+      call outFile % addResult(nu(1,i),nu(2,i))
+    end do
+    call outFile % endArray()
+
+    name = 'chi'
+    call outFile % startArray(name, resArrayShape)
+    do i=1,product(resArrayShape)
+      call outFile % addResult(chi(1,i),chi(2,i))
     end do
     call outFile % endArray()
 
@@ -945,7 +823,7 @@ contains
     ! If high order scattering is requested, print the other matrices
     if (self % PN) then
 
-      call self % processPN(mem, XS_idx, EVENT_idx, LAST_idx, P2, P3, P4, P5, P6, P7)
+      call self % processPN(mem, P2, P3, P4, P5, P6, P7)
 
       name = 'P2'
       call outFile % startArray(name, resArrayShape)
@@ -983,174 +861,6 @@ contains
       call outFile % endArray()
 
       name = 'P7'
-      call outFile % startArray(name, resArrayShape)
-      do i = 1,product(resArrayShape)
-        call outFile % addResult(P7(1,i),P7(2,i))
-      end do
-      call outFile % endArray()
-
-      ! Deallocate to limit memory consumption when writing to the output file
-      deallocate(P2, P3, P4, P5, P6, P7)
-
-    end if
-
-    ! Process and get ELASTIC SCATTERING and transport cross section results
-    XS_idx    = SCATT_EL_idx
-    EVENT_idx = SCATT_EV_EL_idx
-    LAST_idx  = SCATT_EV_INEL_idx + self % matrixN * self % energyN * ELASTIC
-    call self % processScatt(mem, .false., XS_idx, EVENT_idx, LAST_idx, &
-                                 transFL, transOS, P0, P1, prod)
-
-    ! Modify the shape of the result array to print matrices
-    name = 'P0_elastic'
-    call outFile % startArray(name, resArrayShape)
-    do i=1,product(resArrayShape)
-      call outFile % addResult(P0(1,i),P0(2,i))
-    end do
-    call outFile % endArray()
-
-    name = 'P1_elastic'
-    call outFile % startArray(name, resArrayShape)
-    do i=1,product(resArrayShape)
-      call outFile % addResult(P1(1,i),P1(2,i))
-    end do
-    call outFile % endArray()
-
-    name = 'prod_elastic'
-    call outFile % startArray(name, resArrayShape)
-    do i=1,product(resArrayShape)
-      call outFile % addResult(prod(1,i),prod(2,i))
-    end do
-    call outFile % endArray()
-
-    ! Deallocate to limit memory consumption when writing to the output file
-    deallocate(transFL, transOS, P0, P1, prod)
-
-    ! If high order scattering is requested, print the other matrices
-    if (self % PN) then
-
-      call self % processPN(mem, XS_idx, EVENT_idx, LAST_idx, P2, P3, P4, P5, P6, P7)
-
-      name = 'P2_elastic'
-      call outFile % startArray(name, resArrayShape)
-      do i = 1,product(resArrayShape)
-        call outFile % addResult(P2(1,i),P2(2,i))
-      end do
-      call outFile % endArray()
-
-      name = 'P3_elastic'
-      call outFile % startArray(name, resArrayShape)
-      do i = 1,product(resArrayShape)
-        call outFile % addResult(P3(1,i),P3(2,i))
-      end do
-      call outFile % endArray()
-
-      name = 'P4_elastic'
-      call outFile % startArray(name, resArrayShape)
-      do i = 1,product(resArrayShape)
-        call outFile % addResult(P4(1,i),P4(2,i))
-      end do
-      call outFile % endArray()
-
-      name = 'P5_elastic'
-      call outFile % startArray(name, resArrayShape)
-      do i = 1,product(resArrayShape)
-        call outFile % addResult(P5(1,i),P5(2,i))
-      end do
-      call outFile % endArray()
-
-      name = 'P6_elastic'
-      call outFile % startArray(name, resArrayShape)
-      do i = 1,product(resArrayShape)
-        call outFile % addResult(P6(1,i),P6(2,i))
-      end do
-      call outFile % endArray()
-
-      name = 'P7nelastic'
-      call outFile % startArray(name, resArrayShape)
-      do i = 1,product(resArrayShape)
-        call outFile % addResult(P7(1,i),P7(2,i))
-      end do
-      call outFile % endArray()
-
-      ! Deallocate to limit memory consumption when writing to the output file
-      deallocate(P2, P3, P4, P5, P6, P7)
-
-    end if
-
-    ! Process and get INELASTIC SCATTERING and transport cross section results
-    XS_idx    = SCATT_INEL_idx
-    EVENT_idx = SCATT_EV_INEL_idx
-    LAST_idx  = SCATT_EV_INEL_idx + self % matrixN * self % energyN * INELASTIC
-    call self % processScatt(mem, .false., XS_idx, EVENT_idx, LAST_idx, &
-                                 transFL, transOS, P0, P1, prod)
-
-    ! Modify the shape of the result array to print matrices
-    name = 'P0_inelastic'
-    call outFile % startArray(name, resArrayShape)
-    do i=1,product(resArrayShape)
-      call outFile % addResult(P0(1,i),P0(2,i))
-    end do
-    call outFile % endArray()
-
-    name = 'P1_inelastic'
-    call outFile % startArray(name, resArrayShape)
-    do i=1,product(resArrayShape)
-      call outFile % addResult(P1(1,i),P1(2,i))
-    end do
-    call outFile % endArray()
-
-    name = 'prod_inelastic'
-    call outFile % startArray(name, resArrayShape)
-    do i=1,product(resArrayShape)
-      call outFile % addResult(prod(1,i),prod(2,i))
-    end do
-    call outFile % endArray()
-
-    ! Deallocate to limit memory consumption when writing to the output file
-    deallocate(transFL, transOS, P0, P1, prod)
-
-    ! If high order scattering is requested, print the other matrices
-    if (self % PN) then
-
-      call self % processPN(mem, XS_idx, EVENT_idx, LAST_idx, P2, P3, P4, P5, P6, P7)
-
-      name = 'P2_inelastic'
-      call outFile % startArray(name, resArrayShape)
-      do i = 1,product(resArrayShape)
-        call outFile % addResult(P2(1,i),P2(2,i))
-      end do
-      call outFile % endArray()
-
-      name = 'P3_inelastic'
-      call outFile % startArray(name, resArrayShape)
-      do i = 1,product(resArrayShape)
-        call outFile % addResult(P3(1,i),P3(2,i))
-      end do
-      call outFile % endArray()
-
-      name = 'P4_inelastic'
-      call outFile % startArray(name, resArrayShape)
-      do i = 1,product(resArrayShape)
-        call outFile % addResult(P4(1,i),P4(2,i))
-      end do
-      call outFile % endArray()
-
-      name = 'P5_inelastic'
-      call outFile % startArray(name, resArrayShape)
-      do i = 1,product(resArrayShape)
-        call outFile % addResult(P5(1,i),P5(2,i))
-      end do
-      call outFile % endArray()
-
-      name = 'P6_inelastic'
-      call outFile % startArray(name, resArrayShape)
-      do i = 1,product(resArrayShape)
-        call outFile % addResult(P6(1,i),P6(2,i))
-      end do
-      call outFile % endArray()
-
-      name = 'P7_inelastic'
       call outFile % startArray(name, resArrayShape)
       do i = 1,product(resArrayShape)
         call outFile % addResult(P7(1,i),P7(2,i))

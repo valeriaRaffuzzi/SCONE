@@ -93,21 +93,27 @@ contains
   !! Errors:
   !!   FatalError if size of P1 scattering matrix does not match numer of group
   !!
-  subroutine buildFromDict(self, dict)
+  subroutine buildFromDict(self, dict, MT)
     class(multiScatterP1MG), intent(inout)  :: self
     class(dictionary), intent(in)           :: dict
+    integer(shortInt), intent(in)           :: MT
     real(defReal),dimension(:),allocatable  :: temp
     integer(shortInt)                       :: nG
     character(100),parameter :: Here = 'buildFromDict (multiScatterMG_class.f90)'
 
     ! Call superclass procedure
-    call buildFromDict_super(self, dict)
+    call buildFromDict_super(self, dict, MT)
 
     ! Re-read number of groups
     call dict % get(nG,'numberOfGroups')
 
     ! Read P1 scattering matrix
-    call dict % get(temp, 'P1')
+    if (MT == macroEscatter) then
+      call dict % get(temp, 'P1_elastic')
+    else
+      call dict % get(temp, 'P1')
+    end if
+
     if( size(temp) /= nG*nG) then
       call fatalError(Here,'Invalid size of P1. Expected: '//numToChar(nG**2)//&
                            ' got: '//numToChar(size(temp)))

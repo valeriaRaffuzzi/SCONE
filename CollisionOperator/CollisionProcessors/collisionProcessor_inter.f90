@@ -118,7 +118,7 @@ contains
 
     ! Report in-collision & save pre-collison state
     ! Note: the ordering must not be changed between feeding the particle to the tally
-    ! and updating the particle's preCollision state, otherwise this may cause certain 
+    ! and updating the particle's preCollision state, otherwise this may cause certain
     ! tallies (e.g., collisionProbability) to return dubious results
     call tally % reportInColl(p)
     call p % savePreCollision()
@@ -131,7 +131,7 @@ contains
 
     ! Select physics to be processed based on MT number
     select case(collDat % MT)
-      case(N_N_elastic, macroAllScatter)
+    case(N_N_elastic, macroAllScatter, macroEScatter)
         call self % elastic(p, collDat, thisCycle, nextCycle)
 
       case(N_N_inelastic, macroIEScatter)
