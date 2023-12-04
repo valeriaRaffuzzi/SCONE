@@ -88,6 +88,8 @@ module scoreMemory_class
       integer(shortInt)                            :: cycles = 0        !! Cycles counter
       integer(shortInt)                            :: batchSize = 1     !! Batch interval size (in cycles)
       integer(shortInt), dimension(:), allocatable :: batchSizes
+      real(defReal), dimension(:), allocatable :: penetrationRatios
+     
   contains
     ! Interface procedures
     procedure :: init
@@ -142,6 +144,9 @@ contains
 
     ! Assign memory id
     self % id = id
+
+    allocate( self % penetrationRatios(N-1))
+    self % penetrationRatios = ZERO
 
     ! Set batchN, cycles and batchSize to default values
     self % batchN    = 0
@@ -290,7 +295,7 @@ contains
         ! Normalise scores
         self % parallelBins(binIdx,:) = self % parallelBins(binIdx,:) * normFactor
         res = sum(self % parallelBins(binIdx,:))
-        print *, 'res', res
+        !print *, 'res', res
 
         ! Zero all score bins
         self % parallelBins(binIdx,:) = ZERO
@@ -380,12 +385,16 @@ contains
 
   end function getBatchSize
 
-  subroutine resetBatchN(self, binIdx)
+  subroutine resetBatchN(self, binIdx, penetrationRatio)
     class(scoreMemory), intent(inout) :: self
     integer(shortInt), intent(in)     :: binIdx
+    real(defReal), optional, intent(in)     :: penetrationRatio
 
     self % batchSizes(binIdx) = self % batchN
     self % batchN = 0
+    if (present(penetrationRatio)) then
+      self % penetrationRatios(binIdx-1) = penetrationRatio
+    end if
   end subroutine resetBatchN
 
   !!
@@ -399,8 +408,8 @@ contains
     real(defReal),intent(out)              :: STD
     integer(longInt), intent(in)           :: idx
     integer(shortInt), intent(in),optional :: samples
-    integer(shortInt)                      :: N
-    real(defReal)                          :: inv_N, inv_Nm1
+    integer(shortInt)                      :: N, i
+    real(defReal)                          :: inv_N, inv_Nm1, factor
 
     !! Verify index. Return 0 if not present
     if( idx < 0_longInt .or. idx > self % N) then
@@ -417,7 +426,17 @@ contains
     end if
 
     ! Calculate mean
-    mean = self % bins(idx, CSUM) / N
+    if (idx > 1) then
+      factor = 1
+      !N = 1000000 * 1
+      do i = 2, idx
+        factor = factor *  self % penetrationRatios(i-1)
+      end do
+      mean = (self % bins(idx, CSUM) / N) !* factor !need to change mean AND factor?
+    else
+      !N = 1000000 * 1
+      mean = (self % bins(idx, CSUM) / N)
+    end if
 
     ! Calculate STD
     inv_N   = ONE / N

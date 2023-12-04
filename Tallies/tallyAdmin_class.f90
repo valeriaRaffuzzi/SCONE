@@ -431,11 +431,17 @@ contains
 
   end subroutine print
 
-  subroutine resetBatchN(self, binIdx)
+  subroutine resetBatchN(self, binIdx, penetrationRatio)
     class(tallyAdmin), intent(inout) :: self
     integer(shortInt), intent(in)    :: binIdx
+    real(defReal), optional, intent(in)     :: penetrationRatio
 
-    call self % mem % resetBatchN(binIdx)
+
+    if (present(penetrationRatio)) then
+      call self % mem % resetBatchN(binIdx, penetrationRatio)
+    else
+      call self % mem % resetBatchN(binIdx)
+    end if
   end subroutine resetBatchN
 
   !!
