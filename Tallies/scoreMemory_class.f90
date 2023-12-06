@@ -88,8 +88,11 @@ module scoreMemory_class
       integer(shortInt)                            :: cycles = 0        !! Cycles counter
       integer(shortInt)                            :: batchSize = 1     !! Batch interval size (in cycles)
       integer(shortInt), dimension(:), allocatable :: batchSizes
-      real(defReal), dimension(:), allocatable :: penetrationRatios
-     
+
+      real(defReal), dimension(:,:), allocatable     :: bootstrapBins
+      integer(shortInt)                            :: Nbootstraps = 0
+
+
   contains
     ! Interface procedures
     procedure :: init
@@ -103,6 +106,9 @@ module scoreMemory_class
     procedure :: lastCycle
     procedure :: getBatchSize
     procedure :: resetBatchN
+    procedure :: closeBootstrap
+    procedure :: resetBootstrapN
+    procedure :: getNbootstraps
 
     ! Private procedures
     procedure, private :: score_defReal
@@ -122,11 +128,11 @@ contains
   !! Allocate space for the bins given number of bins N
   !! Optionaly change batchSize from 1 to any +ve number
   !!
-  subroutine init(self, N, id, batchSize)
+  subroutine init(self, N, id, batchSize, bootstrap)
     class(scoreMemory),intent(inout)      :: self
     integer(longInt),intent(in)           :: N
     integer(shortInt),intent(in)          :: id
-    integer(shortInt),optional,intent(in) :: batchSize
+    integer(shortInt),optional,intent(in) :: batchSize, bootstrap
     character(100), parameter :: Here= 'init (scoreMemory_class.f90)'
 
     ! Allocate space and zero all bins
@@ -139,14 +145,18 @@ contains
     allocate( self % parallelBins(N + array_pad, self % nThreads))
     self % parallelBins = ZERO
 
+    if (present(bootstrap)) then
+      self % Nbootstraps = bootstrap
+
+      allocate(self % bootstrapBins(N, DIM2))
+      self % bootstrapBins = ZERO
+    end if
+
     ! Save size of memory
     self % N = N
 
     ! Assign memory id
     self % id = id
-
-    allocate( self % penetrationRatios(N-1))
-    self % penetrationRatios = ZERO
 
     ! Set batchN, cycles and batchSize to default values
     self % batchN    = 0
@@ -326,11 +336,59 @@ contains
 
         ! Increment batch counter
         self % batchN = self % batchN + 1
-        self % batchSizes = self % batchSizes + 1
+        self % batchSize = self % batchSize + 1
       end if
     end if
 
   end subroutine closeCycle
+
+
+subroutine closeBootstrap(self, binIdx)
+  class(scoreMemory), intent(inout)       :: self
+  integer(shortInt), intent(in)          :: binIdx
+  integer(shortInt)                     :: Nsamples  
+  real(defReal)                          :: bootstrapRes  
+
+  Nsamples = self % batchN
+  bootstrapRes = self % bins(binIdx,CSUM) / Nsamples
+
+  self % bins(binIdx,CSUM) = ZERO
+  self % batchN = 0
+
+  self % bootstrapBins(binIdx,CSUM) = self % bootstrapBins(binIdx,CSUM) + bootstrapRes
+  self % bootstrapBins(binIdx,CSUM2) = self % bootstrapBins(binIdx,CSUM2) + bootstrapRes * bootstrapRes
+
+end subroutine closeBootstrap
+
+subroutine resetBootstrapN(self, binIdx)
+  class(scoreMemory), intent(inout) :: self
+  integer(shortInt), intent(in)     :: binIdx
+  integer(shortInt)                 :: i
+  real(defReal)                     :: mean, std
+
+  !mean of bootstraps
+  !self % bootstrapMeans(binIdx) = sum(self % bootstrapBins) / self % Nbootstraps
+  !mean = self % bootstrapMeans(binIdx)
+
+  !std = 0
+  !do i = 1, size(self % bootstrapBins)
+  !  std = std + (self % bootstrapBins(i) - mean) * (self % bootstrapBins(i) - mean)
+  !end do
+  !std = std / (size(self % bootstrapBins) - 1)
+  !self % bootstrapSTD(binIdx) = sqrt(std)
+
+  !self % bootstrapBins = ZERO
+end subroutine resetBootstrapN
+
+
+subroutine resetBatchN(self, binIdx)
+  class(scoreMemory), intent(inout) :: self
+  integer(shortInt), intent(in)     :: binIdx
+
+  self % batchSizes(binIdx) = self % batchN
+  self % batchN = 0
+end subroutine resetBatchN
+
 
   !!
   !! Close Cycle
@@ -385,18 +443,6 @@ contains
 
   end function getBatchSize
 
-  subroutine resetBatchN(self, binIdx, penetrationRatio)
-    class(scoreMemory), intent(inout) :: self
-    integer(shortInt), intent(in)     :: binIdx
-    real(defReal), optional, intent(in)     :: penetrationRatio
-
-    self % batchSizes(binIdx) = self % batchN
-    self % batchN = 0
-    if (present(penetrationRatio)) then
-      self % penetrationRatios(binIdx-1) = penetrationRatio
-    end if
-  end subroutine resetBatchN
-
   !!
   !! Load mean result and Standard deviation into provided arguments
   !! Load from bin indicated by idx
@@ -409,45 +455,52 @@ contains
     integer(longInt), intent(in)           :: idx
     integer(shortInt), intent(in),optional :: samples
     integer(shortInt)                      :: N, i
-    real(defReal)                          :: inv_N, inv_Nm1, factor
+    real(defReal)                          :: inv_N, inv_Nm1
 
-    !! Verify index. Return 0 if not present
-    if( idx < 0_longInt .or. idx > self % N) then
-      mean = ZERO
-      STD = ZERO
-      return
-    end if
+    !bootstrap
+    if (self % Nbootstraps > 0) then
 
-    ! Check if # of samples is provided
-    if( present(samples)) then
-      N = samples
+      N = self % Nbootstraps
+
+      mean = (self % bootstrapBins(idx,CSUM) / N)
+
+      if (N /= 1) then
+        inv_Nm1 = ONE / (N - 1)
+      else
+        inv_Nm1 = ONE
+      end if
+
+      STD = self % bootstrapBins(idx, CSUM2) * inv_Nm1 - mean * mean * inv_Nm1 * N
+      !bias
     else
-      N = self % batchSizes(idx)
-    end if
 
-    ! Calculate mean
-    if (idx > 1) then
-      factor = 1
-      !N = 1000000 * 1
-      do i = 2, idx
-        factor = factor *  self % penetrationRatios(i-1)
-      end do
-      mean = (self % bins(idx, CSUM) / N) !* factor !need to change mean AND factor?
-    else
-      !N = 1000000 * 1
+      !! Verify index. Return 0 if not present
+      if( idx < 0_longInt .or. idx > self % N) then
+        mean = ZERO
+        STD = ZERO
+        return
+      end if
+
+      ! Check if # of samples is provided
+      if( present(samples)) then
+        N = samples
+      else
+        N = self % batchSizes(idx)
+      end if
+
+      ! Calculate mean
       mean = (self % bins(idx, CSUM) / N)
+      !
+      !! Calculate STD
+      inv_N   = ONE / N
+      if( N /= 1) then
+        inv_Nm1 = ONE / (N - 1)
+      else
+        inv_Nm1 = ONE
+      end if
+      STD = self % bins(idx, CSUM2) *inv_N * inv_Nm1 - mean * mean * inv_Nm1
+      STD = sqrt(STD)
     end if
-
-    ! Calculate STD
-    inv_N   = ONE / N
-    if( N /= 1) then
-      inv_Nm1 = ONE / (N - 1)
-    else
-      inv_Nm1 = ONE
-    end if
-    STD = self % bins(idx, CSUM2) *inv_N * inv_Nm1 - mean * mean * inv_Nm1
-    STD = sqrt(STD)
-
   end subroutine getResult_withSTD
 
   !!
@@ -497,4 +550,10 @@ contains
 
   end function getScore
 
+  function getNbootstraps(self) result(nBootstraps)
+  class(scoreMemory),intent(in) :: self
+  integer(shortInt)               :: nBootstraps
+
+  nBootstraps = self % Nbootstraps
+  end function getNbootstraps
 end module scoreMemory_class

@@ -151,6 +151,13 @@ module tallyAdmin_class
 
     procedure,private :: addToReports
 
+    procedure :: closeBootstrap
+
+    procedure :: resetBootstrapN
+
+    procedure :: getNbootstraps
+
+
   end type tallyAdmin
 
 contains
@@ -168,7 +175,7 @@ contains
     class(tallyAdmin), intent(inout)            :: self
     class(dictionary), intent(in)               :: dict
     character(nameLen),dimension(:),allocatable :: names
-    integer(shortInt)                           :: i, j, cyclesPerBatch
+    integer(shortInt)                           :: i, j, cyclesPerBatch, bootstrap
     integer(longInt)                            :: memSize, memLoc
     character(100), parameter :: Here ='init (tallyAdmin_class.f90)'
 
@@ -211,10 +218,16 @@ contains
     ! Read batching size
     call dict % getOrDefault(cyclesPerBatch,'batchSize',1)
 
+    call dict % getOrDefault(bootstrap,'bootstrap', 0)
+
     ! Initialise score memory
     ! Calculate required size.
     memSize = sum( self % tallyClerks % getSize() )
-    call self % mem % init(memSize, 1, batchSize = cyclesPerBatch)
+    if (bootstrap == 0) then
+      call self % mem % init(memSize, 1, batchSize = cyclesPerBatch)
+    else
+      call self % mem % init(memSize, 1, batchSize = cyclesPerBatch, bootstrap = bootstrap)
+    end if
     ! Assign memory locations to the clerks
     memLoc = 1
     do i=1,size(self % tallyClerks)
@@ -431,17 +444,11 @@ contains
 
   end subroutine print
 
-  subroutine resetBatchN(self, binIdx, penetrationRatio)
+  subroutine resetBatchN(self, binIdx)
     class(tallyAdmin), intent(inout) :: self
     integer(shortInt), intent(in)    :: binIdx
-    real(defReal), optional, intent(in)     :: penetrationRatio
 
-
-    if (present(penetrationRatio)) then
-      call self % mem % resetBatchN(binIdx, penetrationRatio)
-    else
-      call self % mem % resetBatchN(binIdx)
-    end if
+    call self % mem % resetBatchN(binIdx)
   end subroutine resetBatchN
 
   !!
@@ -817,5 +824,28 @@ contains
     end select
 
   end subroutine addToReports
+
+
+subroutine closeBootstrap(self, binIdx)
+  class(tallyAdmin),intent(inout) :: self
+  integer(shortInt), intent(in)          :: binIdx
+
+  call self % mem % closeBootstrap(binIdx) 
+
+end subroutine closeBootstrap
+
+subroutine resetBootstrapN(self, binIdx)
+  class(tallyAdmin),intent(inout) :: self
+  integer(shortInt), intent(in)     :: binIdx
+
+  call self % mem % resetBootstrapN(binIdx)
+end subroutine resetBootstrapN
+
+
+function getNbootstraps(self) result(nBootstraps)
+  class(tallyAdmin),intent(inout) :: self
+  integer(shortInt)               :: nBootstraps
+  nBootstraps = self % mem % getNbootstraps()
+end function getNbootstraps
 
 end module tallyAdmin_class

@@ -118,7 +118,6 @@ module timeDependentPhysicsPackage_class
     procedure :: run
     procedure :: kill
     procedure :: russianRoulette
-    procedure :: non_param_bootstrap
 
   end type timeDependentPhysicsPackage
 
@@ -532,15 +531,14 @@ contains
     class(timeDependentPhysicsPackage), intent(inout) :: self
     type(tallyAdmin), pointer,intent(inout)         :: tally
     integer(shortInt), intent(in)                   :: N_timeBins, N_cycles
-    integer(shortInt)                               :: i, t, n, nParticles, batchPop, m, nBootstraps
-    real(defReal), dimension(:), allocatable    :: penetrationRatioSamples
+    integer(shortInt)                               :: i, t, n, nParticles, batchPop, m, nBootstraps, idx
     integer(shortInt), save                         :: j
     type(particle), save                            :: p
     type(particleDungeon), save                     :: buffer
     type(collisionOperator), save                   :: collOp
     class(transportOperator), allocatable, save     :: transOp
     type(RNG), target, save                         :: pRNG
-    real(defReal)                                   :: elapsed_T, end_T, T_toEnd, penetrationRatio, penetrationRatioNext
+    real(defReal)                                   :: elapsed_T, end_T, T_toEnd
     real(defReal)                                   :: newTotalWeight
     real(defReal), intent(in)                       :: timeIncrement
     character(100),parameter :: Here ='cycles (timeDependentPhysicsPackage_class.f90)'
@@ -549,12 +547,12 @@ contains
     ! Size particle dungeon
     allocate(self % currentTimeInterval)
     allocate(self % nextTimeInterval)
-    allocate(self % bootstrapTimeInterval)
+    !allocate(self % bootstrapTimeInterval)
     allocate(self % batchPopulations(N_cycles))
 
     call self % currentTimeInterval % init(self % pop)
     call self % nextTimeInterval % init(self % pop)
-    call self % bootstrapTimeInterval % init(self % pop)
+    !call self % bootstrapTimeInterval % init(self % pop)
     !$omp parallel
 
     ! Initialise neutron
@@ -568,9 +566,7 @@ contains
 
     ! Number of particles in each batch
     nParticles = self % pop
-    nBootstraps = 3
-    allocate(penetrationRatioSamples(nBootstraps))
-    penetrationRatioSamples = ZERO
+    nBootstraps = tally % getNbootstraps() !mem % Nbootstraps 
 
     ! Reset and start timer
     call timerReset(self % timerMain)
@@ -584,7 +580,6 @@ contains
 
     do i = 1, nBootstraps
       print *, 'bootstrap nr', i
-      penetrationRatio = ZERO
       !$omp parallel do schedule(dynamic)
       gen_t0: do n = 1, nParticles
         call tally % reportCycleStart(self % currentTimeInterval)
@@ -592,7 +587,16 @@ contains
         p % pRNG => pRNG
         call p % pRNG % stride(n)
 
-        call self % currentTimeInterval % copy(p, n)
+        if (i == 1) then
+          call self % currentTimeInterval % copy(p, n)
+        else
+          idx = int(self % currentTimeInterval % popSize() * pRNG % get()) + 1
+          if (idx <= self % currentTimeInterval % popSize()) then
+            call self % currentTimeInterval % copy(p, idx)
+          else
+            call self % currentTimeInterval % copy(p, n)
+          end if
+        end if
 
         p % fate = 0
         call self % geom % placeCoord(p % coords)
@@ -602,7 +606,6 @@ contains
           call transOp % transport(p, tally, self % currentTimeInterval, self % currentTimeInterval)
           if(p % isDead) exit history_t0
           if(p % fate == AGED_FATE) then
-            penetrationRatio = penetrationRatio + 1
             if (i == 1) call self % nextTimeInterval % detain(p)
 
             exit history_t0
@@ -616,15 +619,14 @@ contains
       end do gen_t0
       !$omp end parallel do
 
+      call tally % closeBootstrap(1)
       !make closecycle for bootstrap for bootstrap mean and variance estinmators
 
-      self % tempTimeInterval  => self % currentTimeInterval
-      self % currentTimeInterval  => self % bootstrapTimeInterval
-      self % bootstrapTimeInterval => self % tempTimeInterval
-      call self % non_param_bootstrap(self % bootstrapTimeInterval, self % currentTimeInterval, pRNG)
+      !self % tempTimeInterval  => self % currentTimeInterval
+      !self % currentTimeInterval  => self % bootstrapTimeInterval
+      !self % bootstrapTimeInterval => self % tempTimeInterval
+      !call self % non_param_bootstrap(self % bootstrapTimeInterval, self % currentTimeInterval, pRNG)
 
-      penetrationRatio = penetrationRatio / nParticles
-      penetrationRatioSamples(i) = penetrationRatio
       call self % pRNG % stride(nParticles)
     end do
 
@@ -634,7 +636,7 @@ contains
     self % currentTimeInterval => self % tempTimeInterval
 
     call tally % resetBatchN(1)
-    penetrationRatio = sum(penetrationRatioSamples) / size(penetrationRatioSamples)
+    !call tally % resetBootstrapN(1)
 
     ! Predict time to end
     call timerStop(self % timerMain)
@@ -668,7 +670,6 @@ contains
       end if
 
       do i = 1, nBootstraps
-        penetrationRatioNext = ZERO
         nParticles = self % currentTimeInterval % popSize()
         print *, 'nParticles', nParticles
         !$omp parallel do schedule(dynamic)
@@ -677,7 +678,18 @@ contains
           pRNG = self % pRNG
           p % pRNG => pRNG
           call p % pRNG % stride(n)
-          call self % currentTimeInterval % copy(p, n)
+
+
+          if (i == 1) then
+            call self % currentTimeInterval % copy(p, n)
+          else
+            idx = int(self % currentTimeInterval % popSize() * pRNG % get()) + 1
+            if (idx <= self % currentTimeInterval % popSize()) then
+              call self % currentTimeInterval % copy(p, idx)
+            else
+              call self % currentTimeInterval % copy(p, n)
+            end if
+          end if
 
           !p % w = p % w * penetrationRatio
           p % fate = 0
@@ -689,8 +701,6 @@ contains
             call transOp % transport(p, tally, self % currentTimeInterval, self % currentTimeInterval)
             if(p % isDead) exit history
             if(p % fate == AGED_FATE) then
-              penetrationRatioNext = penetrationRatioNext + 1
-              !batchPop = batchPop + 1 
               if (i == 1) call self % nextTimeInterval % detain(p)
 
               exit history
@@ -703,15 +713,14 @@ contains
         end do gen
         !$omp end parallel do
 
-        !make closecycle for bootstrap for bootstrap mean and variance estimators
-        self % tempTimeInterval  => self % currentTimeInterval
-        self % currentTimeInterval  => self % bootstrapTimeInterval
-        self % bootstrapTimeInterval => self % tempTimeInterval
-        call self % non_param_bootstrap(self % bootstrapTimeInterval, self % currentTimeInterval, pRNG)
-        call self % pRNG % stride(nParticles)
+        call tally % closeBootstrap(t)
 
-        penetrationRatioNext = penetrationRatioNext / nParticles
-        penetrationRatioSamples(i) = penetrationRatioNext
+        !make closecycle for bootstrap for bootstrap mean and variance estimators
+        !self % tempTimeInterval  => self % currentTimeInterval
+        !self % currentTimeInterval  => self % bootstrapTimeInterval
+        !self % bootstrapTimeInterval => self % tempTimeInterval
+        !call self % non_param_bootstrap(self % bootstrapTimeInterval, self % currentTimeInterval, pRNG)
+        call self % pRNG % stride(nParticles)
       end do
 
       call self % currentTimeInterval % cleanPop()
@@ -719,11 +728,8 @@ contains
       self % nextTimeInterval  => self % currentTimeInterval
       self % currentTimeInterval => self % tempTimeInterval
 
-      call tally % resetBatchN(t, penetrationRatio)
-
-      penetrationRatio = sum(penetrationRatioSamples) / size(penetrationRatioSamples)
-
-
+      call tally % resetBatchN(t)
+      !call tally % resetBootstrapN(t)
       ! Calculate times
       call timerStop(self % timerMain)
       elapsed_T = timerTime(self % timerMain)
@@ -744,9 +750,6 @@ contains
 
   end subroutine cycles_efficient
 
-
-
-
   subroutine russianRoulette(self, p, avWgt)
     class(timeDependentPhysicsPackage), intent(inout) :: self
     class(particle), intent(inout)     :: p
@@ -759,30 +762,5 @@ contains
     end if
 
   end subroutine russianRoulette
-
-
-  subroutine non_param_bootstrap(self, dungeon, bootstrapDungeon, rand)
-    class(timeDependentPhysicsPackage), intent(inout) :: self
-    type(particleDungeon), pointer, intent(inout)              :: dungeon
-    type(particleDungeon), pointer, intent(inout)           :: bootstrapDungeon
-    class(RNG), intent(inout)                       :: rand
-    type(particle)                                 :: p
-    integer(shortInt)                              :: idx, i
-
-    !loop through dungeon and sample replacement
-    !choose random idx number between 1,popsize()
-    call bootstrapDungeon % cleanPop()
-    do i = 1, dungeon % popSize()
-      !sample idx
-      idx = int(dungeon % popSize() * rand % get()) + 1
-      if (idx <= dungeon % popSize()) then
-        call dungeon % copy(p, idx)
-        call bootstrapDungeon % detain(p)
-      end if
-    end do
-
-  end subroutine non_param_bootstrap
-
-
 
 end module timeDependentPhysicsPackage_class
