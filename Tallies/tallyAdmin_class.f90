@@ -18,6 +18,8 @@ module tallyAdmin_class
   use nuclearDataReg_mod,     only : ndReg_get => get
   use nuclearDatabase_inter,  only : nuclearDatabase
 
+  use RNG_class,                      only : RNG
+
   implicit none
   private
 
@@ -155,6 +157,13 @@ module tallyAdmin_class
 
     procedure :: getNbootstraps
 
+    procedure :: initScoreBootstrap
+
+    procedure :: closePlugInCycle
+
+    procedure :: bootstrapPlugIn
+
+    procedure :: setBootstrapScore
 
   end type tallyAdmin
 
@@ -837,5 +846,34 @@ function getNbootstraps(self) result(nBootstraps)
   integer(shortInt)               :: nBootstraps
   nBootstraps = self % mem % getNbootstraps()
 end function getNbootstraps
+
+
+subroutine initScoreBootstrap(self, nParticles)
+  class(tallyAdmin),intent(inout) :: self
+  integer(shortInt), intent(in) :: nParticles
+
+  call self % mem % initScoreBootstrap(nParticles)
+end subroutine initScoreBootstrap
+
+subroutine closePlugInCycle(self, binIdx)
+  class(tallyAdmin),intent(inout) :: self
+  integer(shortInt), intent(in) :: binIdx
+
+  call self % mem % closePlugInCycle(binIdx)
+end subroutine closePlugInCycle
+
+subroutine bootstrapPlugIn(self, nBootstraps, pRNG, binIdx)
+  class(tallyAdmin),intent(inout) :: self
+  integer(shortInt), intent(in) :: nBootstraps, binIdx
+  type(RNG), intent(inout)    :: pRNG
+
+  call self % mem % bootstrapPlugIn(nBootstraps, pRNG, binIdx)
+end subroutine bootstrapPlugIn
+
+subroutine setBootstrapScore(self)
+  class(tallyAdmin),intent(inout) :: self
+
+  call self % mem % setBootstrapScore()
+end subroutine setBootstrapScore
 
 end module tallyAdmin_class

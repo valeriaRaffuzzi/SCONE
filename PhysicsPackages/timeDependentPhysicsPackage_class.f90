@@ -114,6 +114,7 @@ module timeDependentPhysicsPackage_class
     procedure :: printSettings
     procedure :: cycles
     procedure :: cycles_efficient
+    procedure :: cycles_efficient_2
     procedure :: collectResults
     procedure :: run
     procedure :: kill
@@ -129,7 +130,8 @@ contains
     print *, repeat("<>",50)
     print *, "/\/\ TIME DEPENDENT CALCULATION /\/\"
 
-    call self % cycles_efficient(self % tally, self % N_cycles, self % N_timeBins, self % timeIncrement)
+    call self % cycles_efficient_2(self % tally, self % N_cycles, self % N_timeBins, self % timeIncrement)
+    !call self % cycles_efficient(self % tally, self % N_cycles, self % N_timeBins, self % timeIncrement)
     !call self % cycles(self % tally, self % N_cycles, self % N_timeBins, self % timeIncrement)
     call self % collectResults()
 
@@ -715,11 +717,6 @@ contains
 
         call tally % closeBootstrap(t, i)
 
-        !make closecycle for bootstrap for bootstrap mean and variance estimators
-        !self % tempTimeInterval  => self % currentTimeInterval
-        !self % currentTimeInterval  => self % bootstrapTimeInterval
-        !self % bootstrapTimeInterval => self % tempTimeInterval
-        !call self % non_param_bootstrap(self % bootstrapTimeInterval, self % currentTimeInterval, pRNG)
         call self % pRNG % stride(nParticles)
       end do
 
@@ -749,6 +746,203 @@ contains
     end do
 
   end subroutine cycles_efficient
+
+
+  !!
+  !! bootstrap scores instead of particles
+  !!
+  subroutine cycles_efficient_2(self, tally, N_cycles, N_timeBins, timeIncrement)
+    class(timeDependentPhysicsPackage), intent(inout) :: self
+    type(tallyAdmin), pointer,intent(inout)         :: tally
+    integer(shortInt), intent(in)                   :: N_timeBins, N_cycles
+    integer(shortInt)                               :: i, t, n, nParticles, batchPop, m, nBootstraps, idx
+    integer(shortInt), save                         :: j
+    type(particle), save                            :: p
+    type(particleDungeon), save                     :: buffer
+    type(collisionOperator), save                   :: collOp
+    class(transportOperator), allocatable, save     :: transOp
+    type(RNG), target, save                         :: pRNG
+    real(defReal)                                   :: elapsed_T, end_T, T_toEnd
+    real(defReal)                                   :: newTotalWeight
+    real(defReal), intent(in)                       :: timeIncrement
+    character(100),parameter :: Here ='cycles (timeDependentPhysicsPackage_class.f90)'
+    !$omp threadprivate(p, buffer, collOp, transOp, pRNG)
+
+    ! Size particle dungeon
+    allocate(self % currentTimeInterval)
+    allocate(self % nextTimeInterval)
+    !allocate(self % bootstrapTimeInterval)
+    allocate(self % batchPopulations(N_cycles))
+
+    call self % currentTimeInterval % init(self % pop)
+    call self % nextTimeInterval % init(self % pop)
+    !call self % bootstrapTimeInterval % init(self % pop)
+    !$omp parallel
+
+    ! Initialise neutron
+    p % geomIdx = self % geomIdx
+    p % k_eff = ONE
+
+    ! Create a collision + transport operator which can be made thread private
+    collOp = self % collOp
+    transOp = self % transOp
+    !$omp end parallel
+
+    ! Number of particles in each batch
+    nParticles = self % pop
+    nBootstraps = tally % getNbootstraps() !mem % Nbootstraps 
+    call tally % setBootstrapScore()
+
+    ! Reset and start timer
+    call timerReset(self % timerMain)
+    call timerStart(self % timerMain)
+
+
+    print *, 'TIME = 1'
+    ! First time iteration, fixed source treatment
+    ! TODO: add treatment of converged stationary initial source
+    call self % fixedSource % generate(self % currentTimeInterval, nParticles, self % pRNG)
+
+    call tally % initScoreBootstrap(nParticles)
+    !$omp parallel do schedule(dynamic)
+    gen_t0: do n = 1, nParticles
+      call tally % reportCycleStart(self % currentTimeInterval)
+
+      pRNG = self % pRNG
+      p % pRNG => pRNG
+      call p % pRNG % stride(n)
+
+      call self % currentTimeInterval % copy(p, n)
+
+      p % fate = 0
+      call self % geom % placeCoord(p % coords)
+      p % timeMax = timeIncrement
+      call p % savePreHistory()
+      history_t0: do
+        call transOp % transport(p, tally, self % currentTimeInterval, self % currentTimeInterval)
+        if(p % isDead) exit history_t0
+        if(p % fate == AGED_FATE) then
+          call self % nextTimeInterval % detain(p)
+
+          exit history_t0
+        endif
+        call collOp % collide(p, tally, self % currentTimeInterval, self % currentTimeInterval)!self % precursorDungeons(i))
+        if(p % isDead) exit history_t0
+      end do history_t0
+      !call tally % reportCycleEnd(self % currentTimeInterval,1)
+
+      call tally % closePlugInCycle(1)
+
+    end do gen_t0
+    !$omp end parallel do
+
+    print *, 'OK'
+    call tally % bootstrapPlugIn(nBootstraps, pRNG,1)
+    print *, 'OK2'
+
+    call self % pRNG % stride(nParticles)
+
+    call self % currentTimeInterval % cleanPop()
+    self % tempTimeInterval  => self % nextTimeInterval
+    self % nextTimeInterval  => self % currentTimeInterval
+    self % currentTimeInterval => self % tempTimeInterval
+
+    call tally % resetBatchN(1)
+
+    ! Predict time to end
+    call timerStop(self % timerMain)
+    elapsed_T = timerTime(self % timerMain)
+    end_T = real(N_timeBins,defReal) * elapsed_T / 1
+    T_toEnd = max(ZERO, end_T - elapsed_T)
+
+    ! Display progress
+    call printFishLineR(1)
+    print *
+    print *, 'Time step: ', numToChar(1), ' of ', numToChar(N_timeBins)
+    print *, 'Pop:          ', numToChar(self % pop)
+    print *, 'Elapsed time: ', trim(secToChar(elapsed_T))
+    print *, 'End time:     ', trim(secToChar(end_T))
+    print *, 'Time to end:  ', trim(secToChar(T_toEnd))
+    call tally % display()
+
+    ! Process Remaining time iterations
+
+    do t = 2, N_timeBins
+      print *, 'time', t
+
+      if (self % useCombing) then
+        call self % currentTimeInterval % normCombing(self % pop, pRNG)
+      end if
+
+      !if no combing need to modify p weight
+      if (self % currentTimeInterval % popSize() == 0) then
+        print *, 'EMPTY TIME SOURCE'
+        cycle
+      end if
+
+      nParticles = self % currentTimeInterval % popSize()
+      print *, 'nParticles', nParticles
+      call tally % initScoreBootstrap(nParticles)
+      !$omp parallel do schedule(dynamic)
+      gen: do n = 1, nParticles
+        call tally % reportCycleStart(self % currentTimeInterval)
+        pRNG = self % pRNG
+        p % pRNG => pRNG
+        call p % pRNG % stride(n)
+
+        call self % currentTimeInterval % copy(p, n)
+
+        p % fate = 0
+        call self % geom % placeCoord(p % coords)
+        p % timeMax = t * timeIncrement
+        call p % savePreHistory()
+        ! Transport particle untill its death
+        history: do
+          call transOp % transport(p, tally, self % currentTimeInterval, self % currentTimeInterval)
+          if(p % isDead) exit history
+          if(p % fate == AGED_FATE) then
+            call self % nextTimeInterval % detain(p)
+            exit history
+          endif
+          call collOp % collide(p, tally, self % currentTimeInterval, self % currentTimeInterval)!self % precursorDungeons(i))
+          if(p % isDead) exit history
+        end do history
+        !call tally % reportCycleEnd(self % currentTimeInterval, t)
+        call tally % closePlugInCycle(t)
+
+      end do gen
+      !$omp end parallel do
+      call tally % bootstrapPlugIn(nBootstraps, pRNG, t)
+
+      call self % pRNG % stride(nParticles)
+
+
+      call self % currentTimeInterval % cleanPop()
+      self % tempTimeInterval  => self % nextTimeInterval
+      self % nextTimeInterval  => self % currentTimeInterval
+      self % currentTimeInterval => self % tempTimeInterval
+
+      call tally % resetBatchN(t)
+
+      ! Calculate times
+      call timerStop(self % timerMain)
+      elapsed_T = timerTime(self % timerMain)
+
+      ! Predict time to end
+      end_T = real(N_timeBins,defReal) * elapsed_T / t
+      T_toEnd = max(ZERO, end_T - elapsed_T)
+
+      ! Display progress
+      call printFishLineR(t)
+      print *
+      print *, 'Time step: ', numToChar(t), ' of ', numToChar(N_timeBins)
+      print *, 'Elapsed time: ', trim(secToChar(elapsed_T))
+      print *, 'End time:     ', trim(secToChar(end_T))
+      print *, 'Time to end:  ', trim(secToChar(T_toEnd))
+      call tally % display()
+    end do
+
+  end subroutine cycles_efficient_2
 
   subroutine russianRoulette(self, p, avWgt)
     class(timeDependentPhysicsPackage), intent(inout) :: self

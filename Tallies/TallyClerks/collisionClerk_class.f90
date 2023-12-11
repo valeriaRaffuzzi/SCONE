@@ -290,8 +290,8 @@ contains
       print *, 'plugin var', mem % plugInVar(i)
 
       ! overwrite bias adjusted
-      val = TWO * mem % plugInMean(i) - val
-      std = sqrt(TWO * TWO * mem % plugInVar(i) + std ** 2)
+      !val = TWO * mem % plugInMean(i) - val
+      !std = sqrt(TWO * TWO * mem % plugInVar(i) + std ** 2)
       call outFile % addResult(val, std)
     end do
 
