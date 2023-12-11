@@ -153,8 +153,6 @@ module tallyAdmin_class
 
     procedure :: closeBootstrap
 
-    procedure :: resetBootstrapN
-
     procedure :: getNbootstraps
 
 
@@ -826,21 +824,13 @@ contains
   end subroutine addToReports
 
 
-subroutine closeBootstrap(self, binIdx)
+subroutine closeBootstrap(self, binIdx, bootstrapIdx)
   class(tallyAdmin),intent(inout) :: self
-  integer(shortInt), intent(in)          :: binIdx
+  integer(shortInt), intent(in)   :: binIdx, bootstrapIdx
 
-  call self % mem % closeBootstrap(binIdx) 
+  call self % mem % closeBootstrap(binIdx, bootstrapIdx) 
 
 end subroutine closeBootstrap
-
-subroutine resetBootstrapN(self, binIdx)
-  class(tallyAdmin),intent(inout) :: self
-  integer(shortInt), intent(in)     :: binIdx
-
-  call self % mem % resetBootstrapN(binIdx)
-end subroutine resetBootstrapN
-
 
 function getNbootstraps(self) result(nBootstraps)
   class(tallyAdmin),intent(inout) :: self

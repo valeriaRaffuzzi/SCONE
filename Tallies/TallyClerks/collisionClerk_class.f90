@@ -282,7 +282,17 @@ contains
     ! Print results to the file
     do i=1,product(resArrayShape)
       call mem % getResult(val, std, self % getMemAddress() - 1 + i)
-      call outFile % addResult(val,std)
+      print *, 'time ', i
+      print *, 'bias', val - mem % plugInMean(i), 'std', TWO * TWO * std 
+      print *, 'bias adjustment',  TWO * mem % plugInMean(i) - val, 'val', val
+
+      print *, 'upper bound bias adjustment std', TWO * TWO * sqrt(TWO * TWO * mem % plugInVar(i) + std ** 2)
+      print *, 'plugin var', mem % plugInVar(i)
+
+      ! overwrite bias adjusted
+      val = TWO * mem % plugInMean(i) - val
+      std = sqrt(TWO * TWO * mem % plugInVar(i) + std ** 2)
+      call outFile % addResult(val, std)
     end do
 
     call outFile % endArray()

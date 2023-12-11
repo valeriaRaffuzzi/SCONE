@@ -619,7 +619,7 @@ contains
       end do gen_t0
       !$omp end parallel do
 
-      call tally % closeBootstrap(1)
+      call tally % closeBootstrap(1, i)
       !make closecycle for bootstrap for bootstrap mean and variance estinmators
 
       !self % tempTimeInterval  => self % currentTimeInterval
@@ -713,7 +713,7 @@ contains
         end do gen
         !$omp end parallel do
 
-        call tally % closeBootstrap(t)
+        call tally % closeBootstrap(t, i)
 
         !make closecycle for bootstrap for bootstrap mean and variance estimators
         !self % tempTimeInterval  => self % currentTimeInterval

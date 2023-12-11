@@ -89,7 +89,9 @@ module scoreMemory_class
       integer(shortInt)                            :: batchSize = 1     !! Batch interval size (in cycles)
       integer(shortInt), dimension(:), allocatable :: batchSizes
 
-      real(defReal), dimension(:,:), allocatable     :: bootstrapBins
+      real(defReal), dimension(:,:), allocatable   :: bootstrapBins
+      real(defReal), dimension(:), allocatable     :: plugInMean
+      real(defReal), dimension(:), allocatable     :: plugInVar
       integer(shortInt)                            :: Nbootstraps = 0
 
 
@@ -107,7 +109,6 @@ module scoreMemory_class
     procedure :: getBatchSize
     procedure :: resetBatchN
     procedure :: closeBootstrap
-    procedure :: resetBootstrapN
     procedure :: getNbootstraps
 
     ! Private procedures
@@ -150,6 +151,12 @@ contains
 
       allocate(self % bootstrapBins(N, DIM2))
       self % bootstrapBins = ZERO
+
+      allocate(self % plugInMean(N))
+      self % plugInMean = ZERO
+
+      allocate(self % plugInVar(N))
+      self % plugInVar = ZERO
     end if
 
     ! Save size of memory
@@ -316,7 +323,7 @@ contains
 
         ! Increment batch counter
         self % batchN = self % batchN + 1
-      else 
+      else
         !$omp parallel do
         do i = 1, self % N
 
@@ -343,14 +350,26 @@ contains
   end subroutine closeCycle
 
 
-subroutine closeBootstrap(self, binIdx)
+subroutine closeBootstrap(self, binIdx, bootstrapIdx)
   class(scoreMemory), intent(inout)       :: self
-  integer(shortInt), intent(in)          :: binIdx
-  integer(shortInt)                     :: Nsamples  
-  real(defReal)                          :: bootstrapRes  
+  integer(shortInt), intent(in)          :: binIdx, bootstrapIdx
+  integer(shortInt)                     :: Nsamples
+  real(defReal)                          :: bootstrapRes, inv_Nm1, inv_N
 
   Nsamples = self % batchN
   bootstrapRes = self % bins(binIdx,CSUM) / Nsamples
+
+  if (bootstrapIdx == 1) then
+    self % plugInMean(binIdx) = bootstrapRes
+
+    inv_N = ONE / Nsamples
+    if( Nsamples /= 1) then
+      inv_Nm1 = ONE / (Nsamples - 1)
+    else
+      inv_Nm1 = ONE
+    end if
+    self % plugInVar(binIdx) = self % bins(binIdx,CSUM2) * inv_N * inv_Nm1 - bootstrapRes * bootstrapRes * inv_Nm1
+  end if
 
   self % bins(binIdx,CSUM) = ZERO
   self % batchN = 0
@@ -359,26 +378,6 @@ subroutine closeBootstrap(self, binIdx)
   self % bootstrapBins(binIdx,CSUM2) = self % bootstrapBins(binIdx,CSUM2) + bootstrapRes * bootstrapRes
 
 end subroutine closeBootstrap
-
-subroutine resetBootstrapN(self, binIdx)
-  class(scoreMemory), intent(inout) :: self
-  integer(shortInt), intent(in)     :: binIdx
-  integer(shortInt)                 :: i
-  real(defReal)                     :: mean, std
-
-  !mean of bootstraps
-  !self % bootstrapMeans(binIdx) = sum(self % bootstrapBins) / self % Nbootstraps
-  !mean = self % bootstrapMeans(binIdx)
-
-  !std = 0
-  !do i = 1, size(self % bootstrapBins)
-  !  std = std + (self % bootstrapBins(i) - mean) * (self % bootstrapBins(i) - mean)
-  !end do
-  !std = std / (size(self % bootstrapBins) - 1)
-  !self % bootstrapSTD(binIdx) = sqrt(std)
-
-  !self % bootstrapBins = ZERO
-end subroutine resetBootstrapN
 
 
 subroutine resetBatchN(self, binIdx)
@@ -471,7 +470,7 @@ end subroutine resetBatchN
       end if
 
       STD = self % bootstrapBins(idx, CSUM2) * inv_Nm1 - mean * mean * inv_Nm1 * N
-      !bias
+
     else
 
       !! Verify index. Return 0 if not present
