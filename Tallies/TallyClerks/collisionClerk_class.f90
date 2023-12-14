@@ -258,6 +258,7 @@ contains
     integer(shortInt)                          :: i, Nsamples
     integer(shortInt),dimension(:),allocatable :: resArrayShape
     character(nameLen)                         :: name
+    real(defReal)                              :: FoM
 
     ! Begin block
     call outFile % startBlock(self % getName())
@@ -282,17 +283,20 @@ contains
     ! Print results to the file
     do i=1,product(resArrayShape)
       call mem % getResult(val, std, self % getMemAddress() - 1 + i)
-      print *, 'time ', i
-      print *, 'bias', val - mem % plugInMean(i), 'std', TWO * TWO * std 
-      print *, 'bias adjustment',  TWO * mem % plugInMean(i) - val, 'val', val
-
-      print *, 'upper bound bias adjustment std', TWO * TWO * sqrt(TWO * TWO * mem % plugInVar(i) + std ** 2)
-      print *, 'plugin var', mem % plugInVar(i)
-
-      ! overwrite bias adjusted
-      !val = TWO * mem % plugInMean(i) - val
-      !std = sqrt(TWO * TWO * mem % plugInVar(i) + std ** 2)
       call outFile % addResult(val, std)
+    end do
+
+    call outFile % endArray()
+
+
+    ! FoM
+    name = 'FoM'
+    call outFile % startArray(name, resArrayShape)
+    do i=1,product(resArrayShape)
+      call mem % getResult(val, std, self % getMemAddress() - 1 + i)
+      print *, std**2 / val,  mem % getSimTime()
+      FoM = ONE / ((std**2 / val) * mem % getSimTime())
+      call outFile % addValue(FoM)
     end do
 
     call outFile % endArray()

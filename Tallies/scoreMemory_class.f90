@@ -95,9 +95,11 @@ module scoreMemory_class
       real(defReal), dimension(:), allocatable     :: plugInVar
       integer(shortInt)                            :: Nbootstraps = 0
 
-      real(defReal), dimension(:), allocatable     :: plugInSamples, unbiasedMeans
+      real(defReal), dimension(:), allocatable     :: plugInSamples, unbiasedMeans, unbiasedVars, plugInSamplesVar
+
       integer(shortInt)                            :: plugInIdx = 1
       logical(defBool)                             :: bootstrapScore = .false.
+      real(defReal)                                :: simTime = ONE
 
 
   contains
@@ -119,6 +121,8 @@ module scoreMemory_class
     procedure :: closePlugInCycle
     procedure :: bootstrapPlugIn
     procedure :: setBootstrapScore
+    procedure :: setSimTime
+    procedure :: getSimTime
 
     ! Private procedures
     procedure, private :: score_defReal
@@ -169,6 +173,9 @@ contains
 
       allocate(self % unbiasedMeans(N))
       self % unbiasedMeans = ZERO
+
+      allocate(self % unbiasedVars(N))
+      self % unbiasedVars = ZERO
     end if
 
     ! Save size of memory
@@ -397,6 +404,7 @@ subroutine resetBatchN(self, binIdx)
   integer(shortInt), intent(in)     :: binIdx
 
   self % batchSizes(binIdx) = self % batchN
+  print *, 'BATCH N', self % batchN
   self % batchN = 0
 end subroutine resetBatchN
 
@@ -472,7 +480,7 @@ end subroutine resetBatchN
     if (self % Nbootstraps > 0) then
       if (self % bootstrapScore) then
         mean = self % unbiasedMeans(idx)
-        STD = ZERO
+        STD = sqrt(self % unbiasedVars(idx))
       else
 
         N = self % Nbootstraps
@@ -486,6 +494,13 @@ end subroutine resetBatchN
         end if
 
         STD = self % bootstrapBins(idx, CSUM2) * inv_Nm1 - mean * mean * inv_Nm1 * N
+
+
+        !bias adjusted when bootstrapping particles
+        mean = TWO * self % plugInMean(idx) - mean
+
+        STD = sqrt(TWO * TWO * self % plugInVar(idx) + STD)
+
       end if
     else
 
@@ -513,7 +528,7 @@ end subroutine resetBatchN
       else
         inv_Nm1 = ONE
       end if
-      STD = self % bins(idx, CSUM2) *inv_N * inv_Nm1 - mean * mean * inv_Nm1
+      STD = self % bins(idx, CSUM2) * inv_N * inv_Nm1 - mean * mean * inv_Nm1
       STD = sqrt(STD)
     end if
   end subroutine getResult_withSTD
@@ -580,6 +595,10 @@ end subroutine resetBatchN
     if (allocated(self % plugInSamples)) deallocate(self % plugInSamples)
     allocate(self % plugInSamples(nParticles))
     self % plugInSamples = ZERO
+
+    if (allocated(self % plugInSamplesVar)) deallocate(self % plugInSamplesVar)
+    allocate(self % plugInSamplesVar(nParticles))
+    self % plugInSamplesVar = ZERO
     self % plugInIdx = 1
   end subroutine initScoreBootstrap
 
@@ -607,6 +626,7 @@ end subroutine resetBatchN
       self % bins(binIdx,CSUM2) = self % bins(binIdx,CSUM2) + res * res
 
       self % plugInSamples(self % plugInIdx) = res
+      self % plugInSamplesVar(self % plugInIdx) = res * res
 
       ! Increment batch counter
       self % batchN = self % batchN + 1
@@ -622,13 +642,25 @@ end subroutine resetBatchN
     integer(shortInt), intent(in) :: nBootstraps, binIdx
     type(RNG), intent(inout)    :: pRNG
     integer(shortInt)         :: i, j, N, idx
-    real(defReal)             :: biasedMean, biasAdjustedMean, plugInMean, bootstrapMean
+    real(defReal)             :: biasedMean, biasedVar, biasAdjustedMean, plugInMean, plugInVar, bootstrapMean, VAR, inv_Nm1, inv_N
+    real(defReal)             :: res
 
     N = size(self % plugInSamples)
-    plugInMean = sum(self % plugInSamples) / N
+    res = sum(self % plugInSamples)
+    plugInMean = res / N
+
+    inv_N   = ONE / N
+    if( N /= 1) then
+      inv_Nm1 = ONE / (N - 1)
+    else
+      inv_Nm1 = ONE
+    end if
+
+    plugInVar = sum(self % plugInSamplesVar) * inv_N * inv_Nm1 - plugInMean * plugInMean * inv_Nm1
 
     biasedMean = plugInMean
-    print *, 'here'
+    biasedVar = plugInMean * plugInMean
+
     do i = 1, nBootstraps - 1
 
       bootstrapMean = 0
@@ -640,7 +672,6 @@ end subroutine resetBatchN
             bootstrapMean = bootstrapMean + self % plugInSamples(idx)
             exit gen
           else
-            print *, 'NOO'
             cycle gen
           end if
         end do gen
@@ -648,12 +679,25 @@ end subroutine resetBatchN
       end do
       !$omp end parallel do
       biasedMean = biasedMean + bootstrapMean / N
-    end do
-    print *, 'here2'
-    biasedMean = biasedMean / nBootstraps
 
+      biasedVar = biasedVar + (bootstrapMean / N) * (bootstrapMean / N)
+    end do
+
+    biasedMean = biasedMean / nBootstraps
     biasAdjustedMean = TWO * plugInMean - biasedMean
     self % unbiasedMeans(binIdx) = biasAdjustedMean
+
+
+    N = nBootstraps
+    if (N /= 1) then
+      inv_Nm1 = ONE / (N - 1)
+    else
+      inv_Nm1 = ONE
+    end if
+    VAR = biasedVar * inv_Nm1 - biasedMean * biasedMean * inv_Nm1 * N
+
+    print *, plugInVar, VAR
+    self % unbiasedVars(binIdx) = TWO * TWO * plugInVar + VAR !(STD bootstrap)
 
 
   end subroutine bootstrapPlugIn
@@ -665,5 +709,18 @@ end subroutine resetBatchN
     self % bootstrapScore = .true.
   end subroutine setBootstrapScore
 
+  subroutine setSimTime(self, simTime)
+    class(scoreMemory), intent(inout)       :: self
+    real(defReal), intent(in)   :: simTime
+
+    self % simTime = simTime
+  end subroutine setSimTime
+
+  function getSimTime(self) result(simTime)
+    class(scoreMemory), intent(in)       :: self
+    real(defReal)   :: simTime
+
+    simTime = self % simTime
+  end function getSimTime
 
 end module scoreMemory_class

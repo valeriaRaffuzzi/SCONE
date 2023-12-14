@@ -165,6 +165,8 @@ module tallyAdmin_class
 
     procedure :: setBootstrapScore
 
+    procedure :: setSimTime
+
   end type tallyAdmin
 
 contains
@@ -875,5 +877,12 @@ subroutine setBootstrapScore(self)
 
   call self % mem % setBootstrapScore()
 end subroutine setBootstrapScore
+
+subroutine setSimTime(self, simTime)
+  class(tallyAdmin),intent(inout) :: self
+  real(defReal), intent(in) :: simTime
+
+  call self % mem % setSimTime(simTime)
+end subroutine setSimTime
 
 end module tallyAdmin_class

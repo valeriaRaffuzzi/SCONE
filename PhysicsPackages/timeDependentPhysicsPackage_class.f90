@@ -126,13 +126,15 @@ contains
 
   subroutine run(self)
     class(timeDependentPhysicsPackage), intent(inout) :: self
+    real(defReal) :: simTime
 
     print *, repeat("<>",50)
     print *, "/\/\ TIME DEPENDENT CALCULATION /\/\"
 
-    call self % cycles_efficient_2(self % tally, self % N_cycles, self % N_timeBins, self % timeIncrement)
-    !call self % cycles_efficient(self % tally, self % N_cycles, self % N_timeBins, self % timeIncrement)
-    !call self % cycles(self % tally, self % N_cycles, self % N_timeBins, self % timeIncrement)
+    !call self % cycles_efficient_2(self % tally, self % N_cycles, self % N_timeBins, self % timeIncrement, simTime)
+    !call self % cycles_efficient(self % tally, self % N_cycles, self % N_timeBins, self % timeIncrement, simTime)
+    call self % cycles(self % tally, self % N_cycles, self % N_timeBins, self % timeIncrement, simTime)
+    call self % tally % setSimTime(simTime)
     call self % collectResults()
 
     print *
@@ -143,9 +145,10 @@ contains
   !!
   !!
   !! Only use on decay problems. Inefficient algorithm
-  subroutine cycles(self, tally, N_cycles, N_timeBins, timeIncrement)
+  subroutine cycles(self, tally, N_cycles, N_timeBins, timeIncrement, simTime)
     class(timeDependentPhysicsPackage), intent(inout) :: self
     type(tallyAdmin), pointer,intent(inout)         :: tally
+    real(defReal), intent(inout)                    :: simTime
     integer(shortInt), intent(in)                   :: N_timeBins, N_cycles
     integer(shortInt)                               :: i, t, n, nParticles
     integer(shortInt), save                         :: j
@@ -338,6 +341,8 @@ contains
       call tally % display()
     end do
 
+    simTime = end_T
+
   end subroutine cycles
 
   !!
@@ -529,9 +534,10 @@ contains
   !! Men rarere å implementere med kombing uten å gjøre dum for loop
   !! Heller optimalisere denne og sammenligne med forrige konsept
   !!
-  subroutine cycles_efficient(self, tally, N_cycles, N_timeBins, timeIncrement)
+  subroutine cycles_efficient(self, tally, N_cycles, N_timeBins, timeIncrement, simTime)
     class(timeDependentPhysicsPackage), intent(inout) :: self
     type(tallyAdmin), pointer,intent(inout)         :: tally
+    real(defReal), intent(inout)                      :: simTime
     integer(shortInt), intent(in)                   :: N_timeBins, N_cycles
     integer(shortInt)                               :: i, t, n, nParticles, batchPop, m, nBootstraps, idx
     integer(shortInt), save                         :: j
@@ -623,11 +629,6 @@ contains
 
       call tally % closeBootstrap(1, i)
       !make closecycle for bootstrap for bootstrap mean and variance estinmators
-
-      !self % tempTimeInterval  => self % currentTimeInterval
-      !self % currentTimeInterval  => self % bootstrapTimeInterval
-      !self % bootstrapTimeInterval => self % tempTimeInterval
-      !call self % non_param_bootstrap(self % bootstrapTimeInterval, self % currentTimeInterval, pRNG)
 
       call self % pRNG % stride(nParticles)
     end do
@@ -745,15 +746,19 @@ contains
       call tally % display()
     end do
 
+
+    simTime = end_T
+
   end subroutine cycles_efficient
 
 
   !!
   !! bootstrap scores instead of particles
   !!
-  subroutine cycles_efficient_2(self, tally, N_cycles, N_timeBins, timeIncrement)
+  subroutine cycles_efficient_2(self, tally, N_cycles, N_timeBins, timeIncrement, simTime)
     class(timeDependentPhysicsPackage), intent(inout) :: self
     type(tallyAdmin), pointer,intent(inout)         :: tally
+    real(defReal), intent(inout)                    :: simTime
     integer(shortInt), intent(in)                   :: N_timeBins, N_cycles
     integer(shortInt)                               :: i, t, n, nParticles, batchPop, m, nBootstraps, idx
     integer(shortInt), save                         :: j
@@ -836,9 +841,7 @@ contains
     end do gen_t0
     !$omp end parallel do
 
-    print *, 'OK'
     call tally % bootstrapPlugIn(nBootstraps, pRNG,1)
-    print *, 'OK2'
 
     call self % pRNG % stride(nParticles)
 
@@ -941,6 +944,8 @@ contains
       print *, 'Time to end:  ', trim(secToChar(T_toEnd))
       call tally % display()
     end do
+
+    simTime = end_T
 
   end subroutine cycles_efficient_2
 
