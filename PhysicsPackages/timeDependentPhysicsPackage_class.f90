@@ -131,9 +131,9 @@ contains
     print *, repeat("<>",50)
     print *, "/\/\ TIME DEPENDENT CALCULATION /\/\"
 
-    !call self % cycles_efficient_2(self % tally, self % N_cycles, self % N_timeBins, self % timeIncrement, simTime)
+    call self % cycles_efficient_2(self % tally, self % N_cycles, self % N_timeBins, self % timeIncrement, simTime)
     !call self % cycles_efficient(self % tally, self % N_cycles, self % N_timeBins, self % timeIncrement, simTime)
-    call self % cycles(self % tally, self % N_cycles, self % N_timeBins, self % timeIncrement, simTime)
+    !call self % cycles(self % tally, self % N_cycles, self % N_timeBins, self % timeIncrement, simTime)
     call self % tally % setSimTime(simTime)
     call self % collectResults()
 
@@ -776,13 +776,14 @@ contains
     ! Size particle dungeon
     allocate(self % currentTimeInterval)
     allocate(self % nextTimeInterval)
-    !allocate(self % bootstrapTimeInterval)
     allocate(self % batchPopulations(N_cycles))
 
     call self % currentTimeInterval % init(self % pop)
     call self % nextTimeInterval % init(self % pop)
-    !call self % bootstrapTimeInterval % init(self % pop)
+
     !$omp parallel
+    ! Create particle buffer
+    call buffer % init(self % bufferSize)
 
     ! Initialise neutron
     p % geomIdx = self % geomIdx
@@ -795,7 +796,7 @@ contains
 
     ! Number of particles in each batch
     nParticles = self % pop
-    nBootstraps = tally % getNbootstraps() !mem % Nbootstraps 
+    nBootstraps = tally % getNbootstraps()
     call tally % setBootstrapScore()
 
     ! Reset and start timer
@@ -807,8 +808,8 @@ contains
     ! First time iteration, fixed source treatment
     ! TODO: add treatment of converged stationary initial source
     call self % fixedSource % generate(self % currentTimeInterval, nParticles, self % pRNG)
-
     call tally % initScoreBootstrap(nParticles)
+
     !$omp parallel do schedule(dynamic)
     gen_t0: do n = 1, nParticles
       call tally % reportCycleStart(self % currentTimeInterval)
@@ -819,24 +820,33 @@ contains
 
       call self % currentTimeInterval % copy(p, n)
 
-      p % fate = 0
-      call self % geom % placeCoord(p % coords)
-      p % timeMax = timeIncrement
-      call p % savePreHistory()
-      history_t0: do
-        call transOp % transport(p, tally, self % currentTimeInterval, self % currentTimeInterval)
-        if(p % isDead) exit history_t0
-        if(p % fate == AGED_FATE) then
-          call self % nextTimeInterval % detain(p)
+      bufferLoop_t0: do
+        p % fate = 0
+        call self % geom % placeCoord(p % coords)
+        p % timeMax = timeIncrement
+        call p % savePreHistory()
+        history_t0: do
+          call transOp % transport(p, tally, buffer, buffer)
+          if(p % isDead) exit history_t0
+          if(p % fate == AGED_FATE) then
+            call self % nextTimeInterval % detain(p)
 
-          exit history_t0
-        endif
-        call collOp % collide(p, tally, self % currentTimeInterval, self % currentTimeInterval)!self % precursorDungeons(i))
-        if(p % isDead) exit history_t0
-      end do history_t0
-      !call tally % reportCycleEnd(self % currentTimeInterval,1)
+            exit history_t0
+          endif
+          call collOp % collide(p, tally, buffer, buffer)
+          if(p % isDead) exit history_t0
+        end do history_t0
 
-      call tally % closePlugInCycle(1)
+        ! Clear out buffer
+        if (buffer % isEmpty()) then
+          exit bufferLoop_t0
+        else
+          call buffer % release(p)
+        end if
+
+      end do bufferLoop_t0
+
+      call tally % closePlugInCycle(1, n)
 
     end do gen_t0
     !$omp end parallel do
@@ -895,23 +905,33 @@ contains
 
         call self % currentTimeInterval % copy(p, n)
 
-        p % fate = 0
-        call self % geom % placeCoord(p % coords)
-        p % timeMax = t * timeIncrement
-        call p % savePreHistory()
-        ! Transport particle untill its death
-        history: do
-          call transOp % transport(p, tally, self % currentTimeInterval, self % currentTimeInterval)
-          if(p % isDead) exit history
-          if(p % fate == AGED_FATE) then
-            call self % nextTimeInterval % detain(p)
-            exit history
-          endif
-          call collOp % collide(p, tally, self % currentTimeInterval, self % currentTimeInterval)!self % precursorDungeons(i))
-          if(p % isDead) exit history
-        end do history
-        !call tally % reportCycleEnd(self % currentTimeInterval, t)
-        call tally % closePlugInCycle(t)
+        bufferLoop: do
+          p % fate = 0
+          call self % geom % placeCoord(p % coords)
+          p % timeMax = t * timeIncrement
+          call p % savePreHistory()
+          ! Transport particle untill its death
+          history: do
+            call transOp % transport(p, tally, buffer, buffer)
+            if(p % isDead) exit history
+            if(p % fate == AGED_FATE) then
+              call self % nextTimeInterval % detain(p)
+              exit history
+            endif
+            call collOp % collide(p, tally, buffer, buffer)
+            if(p % isDead) exit history
+          end do history
+
+          ! Clear out buffer
+          if (buffer % isEmpty()) then
+            exit bufferLoop
+          else
+            call buffer % release(p)
+          end if
+
+        end do bufferLoop
+
+        call tally % closePlugInCycle(t, n)
 
       end do gen
       !$omp end parallel do

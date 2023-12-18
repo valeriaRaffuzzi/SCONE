@@ -5,14 +5,13 @@ timeSteps   70; //70
 XSdata   ce;
 dataType ce;
 timeIncrement 1.E-05;
-cycles 3; //10 worked well, try 25
-buffer 1000000;
+cycles 5; //10 worked well, try 25
 combing 1; //toggle on or off
 //precursors 0; //toggle on or off
 // need to implement number of batches!! and compute statistics thereof, look at fixed source
 
 outputFormat asciiJSON;
-collisionOperator { neutronCE {type neutronCEtime; precursors 0;} }
+collisionOperator {neutronCE {type neutronCEstd;}}
 
 transportOperator { type transportOperatorDT; //currently will only support this
                   }
@@ -26,6 +25,7 @@ source {
 }
 
 tally  {
+  bootstrap 100;
   flux_time { type collisionClerk; //collisionClerk_class, energyMap_class, scoreMemory_class
     //map { type timeMap; grid lin; min 0.0; max 7E-04; N 70;}
     map { type timeMap; grid lin; min 0.0; max 7E-04; N 70;} //    map { type timeMap; grid lin; min 0.0; max 7E-04; N 70;}

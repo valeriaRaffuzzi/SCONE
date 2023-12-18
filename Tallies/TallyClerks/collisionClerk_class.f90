@@ -300,6 +300,12 @@ contains
     end do
 
     call outFile % endArray()
+
+    name = 'SimTime'
+    call outFile % startArray(name, [1])
+    call outFile % addValue(mem % getSimTime())
+    call outFile % endArray()
+
     call outFile % endBlock()
 
   end subroutine print

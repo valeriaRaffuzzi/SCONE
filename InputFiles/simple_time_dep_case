@@ -26,6 +26,7 @@ source {
 }
 
 tally  {
+  bootstrap 100;
   flux_time { type collisionClerk; //collisionClerk_class, energyMap_class, scoreMemory_class
     //map { type timeMap; grid lin; min 0.0; max 7E-04; N 70;}
     map { type timeMap; grid lin; min 0.0; max 7E-04; N 70;}

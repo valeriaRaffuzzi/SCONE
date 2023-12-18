@@ -602,37 +602,39 @@ end subroutine resetBatchN
     self % plugInIdx = 1
   end subroutine initScoreBootstrap
 
-  subroutine closePlugInCycle(self, binIdx)
+  subroutine closePlugInCycle(self, binIdx, n)
     class(scoreMemory), intent(inout)       :: self
-    integer(shortInt), intent(in) :: binIdx
+    integer(shortInt), intent(in) :: binIdx, n
     integer(longInt)                        :: i
     real(defReal), save                     :: res
+    integer(shortInt) :: threadIdx
     !$omp threadprivate(res)
 
+    threadIdx = ompGetThreadNum() + 1
     ! Increment Cycle Counter
     self % cycles = self % cycles + 1
 
-    if(mod(self % cycles, self % batchSize) == 0) then ! Close Batch
+    !if(mod(self % cycles, self % batchSize) == 0) then ! Close Batch
 
-      ! Normalise scores
-      res = sum(self % parallelBins(binIdx,:))
-      !print *, 'res', res
+    ! Normalise scores
+    res = self % parallelBins(binIdx,threadIdx)
+    !print *, 'res', res
 
-      ! Zero all score bins
-      self % parallelBins(binIdx,:) = ZERO
+    ! Zero all score bins
+    self % parallelBins(binIdx,threadIdx) = ZERO
 
-      ! Increment cumulative sums
-      self % bins(binIdx,CSUM)  = self % bins(binIdx,CSUM) + res
-      self % bins(binIdx,CSUM2) = self % bins(binIdx,CSUM2) + res * res
+    ! Increment cumulative sums
+    self % bins(binIdx,CSUM)  = self % bins(binIdx,CSUM) + res
+    self % bins(binIdx,CSUM2) = self % bins(binIdx,CSUM2) + res * res
 
-      self % plugInSamples(self % plugInIdx) = res
-      self % plugInSamplesVar(self % plugInIdx) = res * res
+    self % plugInSamples(n) = res
+    self % plugInSamplesVar(n) = res * res
 
-      ! Increment batch counter
-      self % batchN = self % batchN + 1
-      self % plugInIdx = self % plugInIdx + 1
+    ! Increment batch counter
+    self % batchN = self % batchN + 1
+    self % plugInIdx = self % plugInIdx + 1
 
-    end if
+    !end if
 
   end subroutine closePlugInCycle
   
@@ -641,11 +643,24 @@ end subroutine resetBatchN
     class(scoreMemory), intent(inout)       :: self
     integer(shortInt), intent(in) :: nBootstraps, binIdx
     type(RNG), intent(inout)    :: pRNG
-    integer(shortInt)         :: i, j, N, idx
+    integer(shortInt)         :: i, j, N
+    integer(shortInt), save        :: idx, idd
     real(defReal)             :: biasedMean, biasedVar, biasAdjustedMean, plugInMean, plugInVar, bootstrapMean, VAR, inv_Nm1, inv_N
     real(defReal)             :: res
+    real(defReal), save             :: ok
+    integer(shortInt), save         :: threadIdx
+    real(defReal) , DIMENSION(:), allocatable :: test
+    type(RNG), target, save     :: pRNG1
+    !$omp threadprivate(pRNG1)
+
+    !$omp parallel
+    pRNG1 = pRNG
+    !$omp end parallel   
 
     N = size(self % plugInSamples)
+
+    if (allocated(test)) deallocate(test)
+    allocate(test(self % nThreads))
     res = sum(self % plugInSamples)
     plugInMean = res / N
 
@@ -661,28 +676,38 @@ end subroutine resetBatchN
     biasedMean = plugInMean
     biasedVar = plugInMean * plugInMean
 
+    print *, 'biases', biasedMean, biasedVar
+
     do i = 1, nBootstraps - 1
 
       bootstrapMean = 0
-      !$omp parallel do
+      test = ZERO
+      !$omp parallel do private(ok, idx, idd)
       do j = 1, N
-        gen: do
-          idx = int(N * pRNG % get()) + 1
-          if (idx <= N) then
-            bootstrapMean = bootstrapMean + self % plugInSamples(idx)
-            exit gen
-          else
-            cycle gen
-          end if
-        end do gen
+        call pRNG1 % stride(j)
+        !gen: do
+        idx = int(N * pRNG1 % get()) + 1
+        threadIdx = ompGetThreadNum()+1
+          !if (idx <= N) then
+        ok = self % plugInSamples(idx)
+        !accum(j) = accum(j) + ok
+        test(threadIdx) = test(threadIdx) +  ok
+          !  exit gen
+          !else
+          !  cycle gen
+          !end if
+        !end do gen
 
       end do
       !$omp end parallel do
+
+      bootstrapMean = sum(test)
       biasedMean = biasedMean + bootstrapMean / N
 
       biasedVar = biasedVar + (bootstrapMean / N) * (bootstrapMean / N)
     end do
 
+    !deallocate(accum)
     biasedMean = biasedMean / nBootstraps
     biasAdjustedMean = TWO * plugInMean - biasedMean
     self % unbiasedMeans(binIdx) = biasAdjustedMean

@@ -857,11 +857,11 @@ subroutine initScoreBootstrap(self, nParticles)
   call self % mem % initScoreBootstrap(nParticles)
 end subroutine initScoreBootstrap
 
-subroutine closePlugInCycle(self, binIdx)
+subroutine closePlugInCycle(self, binIdx, n)
   class(tallyAdmin),intent(inout) :: self
-  integer(shortInt), intent(in) :: binIdx
+  integer(shortInt), intent(in) :: binIdx, n
 
-  call self % mem % closePlugInCycle(binIdx)
+  call self % mem % closePlugInCycle(binIdx, n)
 end subroutine closePlugInCycle
 
 subroutine bootstrapPlugIn(self, nBootstraps, pRNG, binIdx)
