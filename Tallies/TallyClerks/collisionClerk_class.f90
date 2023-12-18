@@ -306,6 +306,35 @@ contains
     call outFile % addValue(mem % getSimTime())
     call outFile % endArray()
 
+
+
+    ! Start array
+    name ='biasedRes'
+    call outFile % startArray(name, resArrayShape)
+
+    ! Print results to the file
+    do i=1,product(resArrayShape)
+      val = mem % getBiasedMean(i)
+      std = mem % getBiasedVar(i)
+      std = sqrt(std)
+      call outFile % addResult(val, std)
+    end do
+
+    call outFile % endArray()
+
+
+
+    name = 'normBias'
+    call outFile % startArray(name, resArrayShape)
+    do i=1,product(resArrayShape)
+      val = mem % getNormBias(i)
+      call outFile % addValue(val)
+    end do
+
+    call outFile % endArray()
+
+
+
     call outFile % endBlock()
 
   end subroutine print

@@ -805,8 +805,7 @@ contains
 
 
     print *, 'TIME = 1'
-    ! First time iteration, fixed source treatment
-    ! TODO: add treatment of converged stationary initial source
+    ! First time iteration, fixed source treatment. TODO: add treatment of converged stationary initial source
     call self % fixedSource % generate(self % currentTimeInterval, nParticles, self % pRNG)
     call tally % initScoreBootstrap(nParticles)
 
@@ -859,8 +858,6 @@ contains
     self % tempTimeInterval  => self % nextTimeInterval
     self % nextTimeInterval  => self % currentTimeInterval
     self % currentTimeInterval => self % tempTimeInterval
-
-    call tally % resetBatchN(1)
 
     ! Predict time to end
     call timerStop(self % timerMain)
@@ -944,8 +941,6 @@ contains
       self % tempTimeInterval  => self % nextTimeInterval
       self % nextTimeInterval  => self % currentTimeInterval
       self % currentTimeInterval => self % tempTimeInterval
-
-      call tally % resetBatchN(t)
 
       ! Calculate times
       call timerStop(self % timerMain)
