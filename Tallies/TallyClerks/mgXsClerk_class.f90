@@ -721,10 +721,11 @@ contains
   !!
   !! See tallyClerk_inter for details
   !!
-  subroutine print(self, outFile, mem)
+  subroutine print(self, outFile, mem, NtimeBins)
     class(mgXsClerk), intent(in)               :: self
     class(outputFile), intent(inout)           :: outFile
     type(scoreMemory), intent(in)              :: mem
+    integer(shortInt), optional, intent(in)    :: NtimeBins
     integer(shortInt),dimension(:),allocatable :: resArrayShape
     real(defReal), dimension(:,:), allocatable :: fiss, capt, transFL, transOS, &
                                                   nu, chi, P0, P1, P2, P3, P4,  &

@@ -131,9 +131,9 @@ contains
     print *, repeat("<>",50)
     print *, "/\/\ TIME DEPENDENT CALCULATION /\/\"
 
-    call self % cycles_efficient_2(self % tally, self % N_cycles, self % N_timeBins, self % timeIncrement, simTime)
+    !call self % cycles_efficient_2(self % tally, self % N_cycles, self % N_timeBins, self % timeIncrement, simTime)
     !call self % cycles_efficient(self % tally, self % N_cycles, self % N_timeBins, self % timeIncrement, simTime)
-    !call self % cycles(self % tally, self % N_cycles, self % N_timeBins, self % timeIncrement, simTime)
+    call self % cycles(self % tally, self % N_cycles, self % N_timeBins, self % timeIncrement, simTime)
     call self % tally % setSimTime(simTime)
     call self % collectResults()
 
@@ -233,7 +233,7 @@ contains
       end do gen_t0
       !$omp end parallel do
 
-      call tally % reportCycleEnd(self % nextTime(i), 1)
+      call tally % reportCycleEnd(self % nextTime(i))
       call self % currentTime(i) % cleanPop()
       call self % pRNG % stride(nParticles)
     end do
@@ -241,8 +241,6 @@ contains
     self % tempTime  => self % nextTime
     self % nextTime  => self % currentTime
     self % currentTime => self % tempTime
-
-    call tally % resetBatchN(1)
 
     ! Predict time to end
     call timerStop(self % timerMain)
@@ -265,7 +263,7 @@ contains
       print *, 'time', t
       do i = 1, N_cycles
         if (self % currentTime(i) % popSize() == 0) then
-          print *, 'EMPTY BATCH SOURCE'
+          call fatalError(Here,"EMPTY TIME SOURCE")
           cycle
         end if
 
@@ -312,7 +310,7 @@ contains
         end do gen
         !$omp end parallel do
 
-        call tally % reportCycleEnd(self % currentTime(i),t)
+        call tally % reportCycleEnd(self % currentTime(i))
         call self % pRNG % stride(nParticles)
         call self % currentTime(i) % cleanPop()
       end do
@@ -320,8 +318,6 @@ contains
       self % tempTime  => self % nextTime
       self % nextTime  => self % currentTime
       self % currentTime => self % tempTime
-
-      call tally % resetBatchN(t)
 
       ! Calculate times
       call timerStop(self % timerMain)
@@ -379,7 +375,7 @@ contains
     call out % printValue(timerTime(self % timerMain),name)
 
     ! Print tally
-    call self % tally % print(out)
+    call self % tally % print(out, self % N_timeBins)
 
     call out % writeToFile(self % outputFile)
 
@@ -622,7 +618,7 @@ contains
           if(p % isDead) exit history_t0
         end do history_t0
 
-        call tally % reportCycleEnd(self % currentTimeInterval,1)
+        call tally % reportCycleEnd(self % currentTimeInterval)
 
       end do gen_t0
       !$omp end parallel do
@@ -638,7 +634,6 @@ contains
     self % nextTimeInterval  => self % currentTimeInterval
     self % currentTimeInterval => self % tempTimeInterval
 
-    call tally % resetBatchN(1)
     !call tally % resetBootstrapN(1)
 
     ! Predict time to end
@@ -668,7 +663,7 @@ contains
 
       !if no combing need to modify p weight
       if (self % currentTimeInterval % popSize() == 0) then
-        print *, 'EMPTY TIME SOURCE'
+        call fatalError(Here,"EMPTY TIME SOURCE")
         cycle
       end if
 
@@ -711,7 +706,7 @@ contains
             call collOp % collide(p, tally, self % currentTimeInterval, self % currentTimeInterval)!self % precursorDungeons(i))
             if(p % isDead) exit history
           end do history
-          call tally % reportCycleEnd(self % currentTimeInterval, t)
+          call tally % reportCycleEnd(self % currentTimeInterval)
 
         end do gen
         !$omp end parallel do
@@ -726,7 +721,6 @@ contains
       self % nextTimeInterval  => self % currentTimeInterval
       self % currentTimeInterval => self % tempTimeInterval
 
-      call tally % resetBatchN(t)
       !call tally % resetBootstrapN(t)
       ! Calculate times
       call timerStop(self % timerMain)
@@ -886,7 +880,7 @@ contains
 
       !if no combing need to modify p weight
       if (self % currentTimeInterval % popSize() == 0) then
-        print *, 'EMPTY TIME SOURCE'
+        call fatalError(Here,"EMPTY TIME SOURCE")
         cycle
       end if
 

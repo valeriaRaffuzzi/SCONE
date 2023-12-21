@@ -250,12 +250,13 @@ contains
   !!
   !! See tallyClerk_inter for details
   !!
-  subroutine print(self, outFile, mem)
+  subroutine print(self, outFile, mem, NtimeBins)
     class(collisionClerk), intent(in)          :: self
     class(outputFile), intent(inout)           :: outFile
     type(scoreMemory), intent(in)              :: mem
+    integer(shortInt), optional, intent(in)    :: NtimeBins
     real(defReal)                              :: val, std
-    integer(shortInt)                          :: i, Nsamples
+    integer(shortInt)                          :: i, Nsamples, numBatchesPerTimeBin
     integer(shortInt),dimension(:),allocatable :: resArrayShape
     character(nameLen)                         :: name
     real(defReal)                              :: FoM
@@ -282,7 +283,13 @@ contains
 
     ! Print results to the file
     do i=1,product(resArrayShape)
-      call mem % getResult(val, std, self % getMemAddress() - 1 + i)
+      if (present(NtimeBins)) then
+        numBatchesPerTimeBin = mem % batchN / NtimeBins
+        print *, numBatchesPerTimeBin
+        call mem % getResult(val, std, self % getMemAddress() - 1 + i, numBatchesPerTimeBin)
+      else
+        call mem % getResult(val, std, self % getMemAddress() - 1 + i)
+      end if
       call outFile % addResult(val, std)
     end do
 
@@ -308,30 +315,30 @@ contains
 
 
 
-    ! Start array
-    name ='biasedRes'
-    call outFile % startArray(name, resArrayShape)
-
-    ! Print results to the file
-    do i=1,product(resArrayShape)
-      val = mem % getBiasedMean(i)
-      std = mem % getBiasedVar(i)
-      std = sqrt(std)
-      call outFile % addResult(val, std)
-    end do
-
-    call outFile % endArray()
-
-
-
-    name = 'normBias'
-    call outFile % startArray(name, resArrayShape)
-    do i=1,product(resArrayShape)
-      val = mem % getNormBias(i)
-      call outFile % addValue(val)
-    end do
-
-    call outFile % endArray()
+!    ! Start array
+!    name ='biasedRes'
+!    call outFile % startArray(name, resArrayShape)
+!
+!    ! Print results to the file
+!    do i=1,product(resArrayShape)
+!      val = mem % getBiasedMean(i)
+!      std = mem % getBiasedVar(i)
+!      std = sqrt(std)
+!      call outFile % addResult(val, std)
+!    end do
+!
+!    call outFile % endArray()
+!
+!
+!
+!    name = 'normBias'
+!    call outFile % startArray(name, resArrayShape)
+!    do i=1,product(resArrayShape)
+!      val = mem % getNormBias(i)
+!      call outFile % addValue(val)
+!    end do
+!
+!    call outFile % endArray()
 
 
 

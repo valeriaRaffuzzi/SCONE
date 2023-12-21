@@ -342,10 +342,11 @@ contains
   !!
   !! See tallyClerk_inter for details
   !!
-  subroutine print(self, outFile, mem)
+  subroutine print(self, outFile, mem, NtimeBins)
     class(simpleFMClerk), intent(in) :: self
     class(outputFile), intent(inout) :: outFile
     type(scoreMemory), intent(in)    :: mem
+    integer(shortInt), optional, intent(in)    :: NtimeBins
     integer(shortInt)                :: i
     integer(longInt)                 :: addr
     real(defReal)                    :: val, std

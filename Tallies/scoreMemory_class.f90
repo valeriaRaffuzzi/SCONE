@@ -88,7 +88,6 @@ module scoreMemory_class
       integer(shortInt)                            :: batchN = 0        !! Number of Batches
       integer(shortInt)                            :: cycles = 0        !! Cycles counter
       integer(shortInt)                            :: batchSize = 1     !! Batch interval size (in cycles)
-      integer(shortInt), dimension(:), allocatable :: batchSizes
 
       real(defReal), dimension(:,:), allocatable   :: bootstrapBins
       real(defReal), dimension(:), allocatable     :: plugInMean
@@ -114,7 +113,6 @@ module scoreMemory_class
     procedure :: closeBin
     procedure :: lastCycle
     procedure :: getBatchSize
-    procedure :: resetBatchN
     procedure :: closeBootstrap
     procedure :: getNbootstraps
     procedure :: initScoreBootstrap
@@ -206,8 +204,6 @@ contains
       self % batchN    = 0
       self % cycles    = 0
       self % batchSize = 1
-      allocate(self % batchSizes(self % N))
-      self % batchSizes = 0
 
       if(present(batchSize)) then
         if(batchSize > 0) then
@@ -229,7 +225,6 @@ contains
 
    if(allocated(self % bins)) deallocate(self % bins)
    if(allocated(self % parallelBins)) deallocate(self % parallelBins)
-   if(allocated(self % batchSizes)) deallocate(self % batchSizes)
    self % N = 0
    self % nThreads = 0
    self % batchN = 0
@@ -333,10 +328,9 @@ contains
   !! Increments cycle counter and detects end-of-batch
   !! When batch finishes it normalises all scores by the factor and moves them to CSUMs
   !!
-  subroutine closeCycle(self, normFactor, binIdx)
+  subroutine closeCycle(self, normFactor)
     class(scoreMemory), intent(inout)       :: self
     real(defReal),intent(in)                :: normFactor
-    integer(shortInt), optional, intent(in) :: binIdx
     integer(longInt)                        :: i
     real(defReal), save                     :: res
     !$omp threadprivate(res)
@@ -346,44 +340,27 @@ contains
 
     if(mod(self % cycles, self % batchSize) == 0) then ! Close Batch
 
-      if (present(binIdx)) then
+      !$omp parallel do
+      do i = 1, self % N
 
         ! Normalise scores
-        self % parallelBins(binIdx,:) = self % parallelBins(binIdx,:) * normFactor
-        res = sum(self % parallelBins(binIdx,:))
-        !print *, 'res', res
+        self % parallelBins(i,:) = self % parallelBins(i,:) * normFactor
+        res = sum(self % parallelBins(i,:))
 
         ! Zero all score bins
-        self % parallelBins(binIdx,:) = ZERO
+        self % parallelBins(i,:) = ZERO
 
         ! Increment cumulative sums
-        self % bins(binIdx,CSUM)  = self % bins(binIdx,CSUM) + res
-        self % bins(binIdx,CSUM2) = self % bins(binIdx,CSUM2) + res * res
+        self % bins(i,CSUM)  = self % bins(i,CSUM) + res
+        self % bins(i,CSUM2) = self % bins(i,CSUM2) + res * res
 
-        ! Increment batch counter
-        self % batchN = self % batchN + 1
-      else
-        !$omp parallel do
-        do i = 1, self % N
+      end do
+      !$omp end parallel do
 
-          ! Normalise scores
-          self % parallelBins(i,:) = self % parallelBins(i,:) * normFactor
-          res = sum(self % parallelBins(i,:))
+      ! Increment batch counter
+      self % batchN = self % batchN + 1
+      self % batchSize = self % batchSize + 1
 
-          ! Zero all score bins
-          self % parallelBins(i,:) = ZERO
-
-          ! Increment cumulative sums
-          self % bins(i,CSUM)  = self % bins(i,CSUM) + res
-          self % bins(i,CSUM2) = self % bins(i,CSUM2) + res * res
-
-        end do
-        !$omp end parallel do
-
-        ! Increment batch counter
-        self % batchN = self % batchN + 1
-        self % batchSize = self % batchSize + 1
-      end if
     end if
 
   end subroutine closeCycle
@@ -417,17 +394,6 @@ subroutine closeBootstrap(self, binIdx, bootstrapIdx)
   self % bootstrapBins(binIdx,CSUM2) = self % bootstrapBins(binIdx,CSUM2) + bootstrapRes * bootstrapRes
 
 end subroutine closeBootstrap
-
-
-subroutine resetBatchN(self, binIdx)
-  class(scoreMemory), intent(inout) :: self
-  integer(shortInt), intent(in)     :: binIdx
-
-  self % batchSizes(binIdx) = self % batchN
-  print *, 'BATCH N', self % batchN
-  self % batchN = 0
-end subroutine resetBatchN
-
 
   !!
   !! Close Cycle
@@ -535,7 +501,7 @@ end subroutine resetBatchN
       if( present(samples)) then
         N = samples
       else
-        N = self % batchSizes(idx)
+        N = self % batchN
       end if
 
       ! Calculate mean
@@ -575,7 +541,7 @@ end subroutine resetBatchN
     if( present(samples)) then
       N = samples
     else
-      N = self % batchSizes(idx)
+      N = self % batchN
     end if
 
     ! Calculate mean

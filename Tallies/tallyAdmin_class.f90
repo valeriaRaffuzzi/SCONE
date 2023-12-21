@@ -149,8 +149,6 @@ module tallyAdmin_class
     ! File writing procedures
     procedure :: print
 
-    procedure :: resetBatchN
-
     procedure,private :: addToReports
 
     procedure :: closeBootstrap
@@ -436,9 +434,10 @@ contains
   !! Errors:
   !!   None
   !!
-  subroutine print(self,output)
+  subroutine print(self,output, NtimeBins)
     class(tallyAdmin), intent(in)    :: self
     class(outputFile), intent(inout) :: output
+    integer(shortInt), optional, intent(in) :: NtimeBins
     integer(shortInt)                :: i
     character(nameLen)               :: name
 
@@ -448,17 +447,14 @@ contains
 
     ! Print Clerk results
     do i=1,size(self % tallyClerks)
-      call self % tallyClerks(i) % print(output, self % mem)
+      if (present(NtimeBins)) then
+        call self % tallyClerks(i) % print(output, self % mem, NtimeBins)
+      else
+        call self % tallyClerks(i) % print(output, self % mem)
+      end if
     end do
 
   end subroutine print
-
-  subroutine resetBatchN(self, binIdx)
-    class(tallyAdmin), intent(inout) :: self
-    integer(shortInt), intent(in)    :: binIdx
-
-    call self % mem % resetBatchN(binIdx)
-  end subroutine resetBatchN
 
   !!
   !! Process pre-collision report
@@ -702,10 +698,9 @@ contains
   !! Errors:
   !!   None
   !!
-  recursive subroutine reportCycleEnd(self, end, binIdx)
+  recursive subroutine reportCycleEnd(self, end)
     class(tallyAdmin), intent(inout)        :: self
     class(particleDungeon), intent(in)      :: end
-    integer(shortInt), optional, intent(in) :: binIdx
     integer(shortInt)                       :: i
     integer(shortInt), save                 :: idx
     real(defReal)                           :: normFactor, normScore
@@ -714,11 +709,7 @@ contains
 
     ! Call attachment
     if(associated(self % atch)) then
-      if (present(binIdx)) then
-        call reportCycleEnd(self % atch, end, binIdx)
-      else
-        call reportCycleEnd(self % atch, end)
-      end if
+      call reportCycleEnd(self % atch, end)
     end if
 
     ! Go through all clerks that request the report
@@ -743,11 +734,7 @@ contains
     end if
 
     ! Close cycle multipling all scores by multiplication factor
-    if(present(binIdx)) then
-      call self % mem % closeCycle(normFactor, binIdx)
-    else
-      call self % mem % closeCycle(normFactor)
-    end if
+    call self % mem % closeCycle(normFactor)
 
   end subroutine reportCycleEnd
 

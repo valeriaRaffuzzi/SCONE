@@ -265,10 +265,11 @@ contains
   !!
   !! See tallyClerk_inter for details
   !!
-  subroutine print(self, outFile, mem)
+  subroutine print(self, outFile, mem, NtimeBins)
     class(dancoffBellClerk), intent(in) :: self
     class(outputFile), intent(inout)    :: outFile
     type(scoreMemory), intent(in)       :: mem
+    integer(shortInt), optional, intent(in) :: NtimeBins
     real(defReal)                       :: mean, STD
     character(nameLen)                  :: name
 
