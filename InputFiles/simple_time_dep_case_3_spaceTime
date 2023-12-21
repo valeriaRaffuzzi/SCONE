@@ -1,18 +1,17 @@
 type timeDependentPhysicsPackage;
 
 pop      1000000; //1000000
-timeSteps  70; //70
+timeSteps   5; //70
 XSdata   ce;
 dataType ce;
 timeIncrement 1.E-05;
 cycles 5; //10 worked well, try 25
-//buffer 1000000;
 combing 1; //toggle on or off
 //precursors 0; //toggle on or off
 // need to implement number of batches!! and compute statistics thereof, look at fixed source
 
 outputFormat asciiJSON;
-collisionOperator { neutronCE {type neutronCEstd;}}
+collisionOperator {neutronCE {type neutronCEstd;}}
 
 transportOperator { type transportOperatorDT; //currently will only support this
                   }
@@ -26,13 +25,15 @@ source {
 }
 
 tally  {
-  //bootstrap 100;
-  //timeSteps  70; 
+  bootstrap 100;
+  timeSteps  5; 
   flux_time { type collisionClerk; //collisionClerk_class, energyMap_class, scoreMemory_class
-    map { type multiMap; maps (map1 map2);
+    map { type multiMap; maps (map1 map2 map3 map4);
     //NB REQUIRE TIMEMAP FIRST TO WORK FOR NOW
-    map1 { type timeMap; grid lin; min 0.0; max 7E-04; N 70;}
+    map1 { type timeMap; grid lin; min 0.0; max 5E-05; N 5;}
     map2 {type spaceMap;  axis x;  grid lin; min -25; max 25; N 3;}
+    map3 {type spaceMap;  axis y;  grid lin; min -25; max 25; N 3;}
+    map4 {type spaceMap;  axis z;  grid lin; min -25; max 25; N 3;}
     }
 
     //map { type timeMap; grid lin; min 0.0; max 7E-04; N 70;}
@@ -76,7 +77,10 @@ nuclearData {
     m1 {
       temp 12345;
       composition {
-        13027.03   0.05803;}
+        1001.03   0.06639;
+        8016.03   0.03347;
+        //1001.03  0.06639;
+        }
     }
 }
 }
