@@ -182,7 +182,7 @@ contains
     class(tallyAdmin), intent(inout)            :: self
     class(dictionary), intent(in)               :: dict
     character(nameLen),dimension(:),allocatable :: names
-    integer(shortInt)                           :: i, j, cyclesPerBatch, bootstrap
+    integer(shortInt)                           :: i, j, cyclesPerBatch, bootstrap, timeSteps
     integer(longInt)                            :: memSize, memLoc
     character(100), parameter :: Here ='init (tallyAdmin_class.f90)'
 
@@ -226,14 +226,17 @@ contains
     call dict % getOrDefault(cyclesPerBatch,'batchSize',1)
 
     call dict % getOrDefault(bootstrap,'bootstrap', 0)
+    call dict % getOrDefault(timeSteps,'timeSteps', 0)
 
     ! Initialise score memory
     ! Calculate required size.
     memSize = sum( self % tallyClerks % getSize() )
-    if (bootstrap == 0) then
+    if ((bootstrap == 0) .and. (timeSteps == 0)) then
       call self % mem % init(memSize, 1, batchSize = cyclesPerBatch)
+    else if ((bootstrap /= 0) .and. (timeSteps /= 0)) then
+      call self % mem % init(memSize, 1, batchSize = cyclesPerBatch, bootstrap = bootstrap, timeSteps = timeSteps)
     else
-      call self % mem % init(memSize, 1, batchSize = cyclesPerBatch, bootstrap = bootstrap)
+      call fatalError(Here, 'Need to set both bootstrap and timeSteps')
     end if
     ! Assign memory locations to the clerks
     memLoc = 1
@@ -844,19 +847,19 @@ subroutine initScoreBootstrap(self, nParticles)
   call self % mem % initScoreBootstrap(nParticles)
 end subroutine initScoreBootstrap
 
-subroutine closePlugInCycle(self, binIdx, n)
+subroutine closePlugInCycle(self, n, binIdx)
   class(tallyAdmin),intent(inout) :: self
-  integer(shortInt), intent(in) :: binIdx, n
+  integer(shortInt), intent(in) :: n, binIdx
 
-  call self % mem % closePlugInCycle(binIdx, n)
+  call self % mem % closePlugInCycle(n, binIdx)
 end subroutine closePlugInCycle
 
-subroutine bootstrapPlugIn(self, nBootstraps, pRNG, binIdx)
+subroutine bootstrapPlugIn(self, nBootstraps, pRNG, N_timeBins, binIdx)
   class(tallyAdmin),intent(inout) :: self
-  integer(shortInt), intent(in) :: nBootstraps, binIdx
+  integer(shortInt), intent(in) :: nBootstraps, N_timeBins, binIdx
   type(RNG), intent(inout)    :: pRNG
 
-  call self % mem % bootstrapPlugIn(nBootstraps, pRNG, binIdx)
+  call self % mem % bootstrapPlugIn(nBootstraps, pRNG, N_timeBins, binIdx)
 end subroutine bootstrapPlugIn
 
 subroutine setBootstrapScore(self)

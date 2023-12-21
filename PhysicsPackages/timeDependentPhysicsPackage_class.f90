@@ -131,9 +131,9 @@ contains
     print *, repeat("<>",50)
     print *, "/\/\ TIME DEPENDENT CALCULATION /\/\"
 
-    !call self % cycles_efficient_2(self % tally, self % N_cycles, self % N_timeBins, self % timeIncrement, simTime)
+    call self % cycles_efficient_2(self % tally, self % N_cycles, self % N_timeBins, self % timeIncrement, simTime)
     !call self % cycles_efficient(self % tally, self % N_cycles, self % N_timeBins, self % timeIncrement, simTime)
-    call self % cycles(self % tally, self % N_cycles, self % N_timeBins, self % timeIncrement, simTime)
+    !call self % cycles(self % tally, self % N_cycles, self % N_timeBins, self % timeIncrement, simTime)
     call self % tally % setSimTime(simTime)
     call self % collectResults()
 
@@ -839,12 +839,12 @@ contains
 
       end do bufferLoop_t0
 
-      call tally % closePlugInCycle(1, n)
+      call tally % closePlugInCycle(n,1)
 
     end do gen_t0
     !$omp end parallel do
 
-    call tally % bootstrapPlugIn(nBootstraps, pRNG,1)
+    call tally % bootstrapPlugIn(nBootstraps, pRNG, N_timeBins,1)
 
     call self % pRNG % stride(nParticles)
 
@@ -922,11 +922,11 @@ contains
 
         end do bufferLoop
 
-        call tally % closePlugInCycle(t, n)
+        call tally % closePlugInCycle(n,t)
 
       end do gen
       !$omp end parallel do
-      call tally % bootstrapPlugIn(nBootstraps, pRNG, t)
+      call tally % bootstrapPlugIn(nBootstraps, pRNG, N_timeBins,t)
 
       call self % pRNG % stride(nParticles)
 

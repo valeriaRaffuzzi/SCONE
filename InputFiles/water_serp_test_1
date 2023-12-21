@@ -29,6 +29,7 @@ source {
 
 tally  {
   bootstrap 100;
+  timeSteps  70; 
   flux_time { type collisionClerk;
     //map { type multiMap; maps (map1 map2); // this supported properly in current implementation?
     //map1 { type cellMap; cells (8); }
