@@ -557,7 +557,10 @@ contains
     call self % currentTimeInterval % init(self % pop)
     call self % nextTimeInterval % init(self % pop)
     !call self % bootstrapTimeInterval % init(self % pop)
+
     !$omp parallel
+    ! Create particle buffer
+    call buffer % init(self % bufferSize)
 
     ! Initialise neutron
     p % geomIdx = self % geomIdx
@@ -602,21 +605,33 @@ contains
           end if
         end if
 
-        p % fate = 0
-        call self % geom % placeCoord(p % coords)
-        p % timeMax = timeIncrement
-        call p % savePreHistory()
-        history_t0: do
-          call transOp % transport(p, tally, self % currentTimeInterval, self % currentTimeInterval)
-          if(p % isDead) exit history_t0
-          if(p % fate == AGED_FATE) then
-            if (i == 1) call self % nextTimeInterval % detain(p)
 
-            exit history_t0
-          endif
-          call collOp % collide(p, tally, self % currentTimeInterval, self % currentTimeInterval)!self % precursorDungeons(i))
-          if(p % isDead) exit history_t0
-        end do history_t0
+        bufferLoop_t0: do
+
+          p % fate = 0
+          call self % geom % placeCoord(p % coords)
+          p % timeMax = timeIncrement
+          call p % savePreHistory()
+          history_t0: do
+            call transOp % transport(p, tally, self % currentTimeInterval, self % currentTimeInterval)
+            if(p % isDead) exit history_t0
+            if(p % fate == AGED_FATE) then
+              if (i == 1) call self % nextTimeInterval % detain(p)
+
+              exit history_t0
+            endif
+            call collOp % collide(p, tally, self % currentTimeInterval, self % currentTimeInterval)!self % precursorDungeons(i))
+            if(p % isDead) exit history_t0
+          end do history_t0
+
+          ! Clear out buffer
+          if (buffer % isEmpty()) then
+            exit bufferLoop_t0
+          else
+            call buffer % release(p)
+          end if
+
+        end do bufferLoop_t0
 
         call tally % reportCycleEnd(self % currentTimeInterval)
 
@@ -689,23 +704,35 @@ contains
             end if
           end if
 
-          !p % w = p % w * penetrationRatio
-          p % fate = 0
-          call self % geom % placeCoord(p % coords)
-          p % timeMax = t * timeIncrement
-          call p % savePreHistory()
-          ! Transport particle untill its death
-          history: do
-            call transOp % transport(p, tally, self % currentTimeInterval, self % currentTimeInterval)
-            if(p % isDead) exit history
-            if(p % fate == AGED_FATE) then
-              if (i == 1) call self % nextTimeInterval % detain(p)
+          bufferLoop: do
+            !p % w = p % w * penetrationRatio
+            p % fate = 0
+            call self % geom % placeCoord(p % coords)
+            p % timeMax = t * timeIncrement
+            call p % savePreHistory()
+            ! Transport particle untill its death
+            history: do
+              call transOp % transport(p, tally, self % currentTimeInterval, self % currentTimeInterval)
+              if(p % isDead) exit history
+              if(p % fate == AGED_FATE) then
+                if (i == 1) call self % nextTimeInterval % detain(p)
 
-              exit history
-            endif
-            call collOp % collide(p, tally, self % currentTimeInterval, self % currentTimeInterval)!self % precursorDungeons(i))
-            if(p % isDead) exit history
-          end do history
+                exit history
+              endif
+              call collOp % collide(p, tally, self % currentTimeInterval, self % currentTimeInterval)!self % precursorDungeons(i))
+              if(p % isDead) exit history
+            end do history
+
+
+            ! Clear out buffer
+            if (buffer % isEmpty()) then
+              exit bufferLoop
+            else
+              call buffer % release(p)
+            end if
+
+          end do bufferLoop
+
           call tally % reportCycleEnd(self % currentTimeInterval)
 
         end do gen

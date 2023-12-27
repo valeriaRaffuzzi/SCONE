@@ -123,6 +123,7 @@ module scoreMemory_class
     procedure :: closePlugInCycle
     procedure :: bootstrapPlugIn
     procedure :: setBootstrapScore
+    procedure :: getBootstrapScore
     procedure :: setSimTime
     procedure :: getSimTime
 
@@ -166,7 +167,7 @@ contains
     ! Assign memory id
     self % id = id
 
-    if (present(bootstrap) .and. present(timeSteps)) then
+    if (present(bootstrap) .and. present(timeSteps)) then !bootstrap score
       self % Nbootstraps = bootstrap
       self % nTimeBins = timeSteps
 
@@ -182,7 +183,6 @@ contains
       allocate(self % unbiasedVars(N))
       self % unbiasedVars = ZERO
 
-
       self % Ntallies = N / self % nTimeBins
 
       allocate(self % plugInSamplesMean(self % Ntallies, self % nThreads))
@@ -195,16 +195,46 @@ contains
       self % bootstrapAccumulator = ZERO
 
       allocate(self % biasedMeans(N))
-      self % unbiasedMeans = ZERO
+      self % biasedMeans = ZERO
 
       allocate(self % biasedVars(N))
-      self % unbiasedVars = ZERO
+      self % biasedVars = ZERO
 
       allocate(self % normBias(N))
       self % normBias = ZERO
 
       allocate(self % scoreBinTracker(self % nThreads))
- 
+      self % scoreBinTracker = ZERO
+
+    else if (present(bootstrap) .and. (.not. present(timeSteps))) then !bootstrap particle
+      self % Nbootstraps = bootstrap
+
+      allocate(self % plugInMean(N))
+      self % plugInMean = ZERO
+
+      allocate(self % plugInVar(N))
+      self % plugInVar = ZERO
+
+      allocate(self % bootstrapBins(N, DIM2))
+      self % bootstrapBins = ZERO
+
+      ! Allocate space and zero all bins
+      allocate(self % bins(N, DIM2))
+      self % bins = ZERO
+
+      ! Set batchN, cycles and batchSize to default values
+      self % batchN    = 0
+      self % cycles    = 0
+      self % batchSize = 1
+
+      if(present(batchSize)) then
+        if(batchSize > 0) then
+          self % batchSize = batchSize
+        else
+          call fatalError(Here,'Batch Size of: '// numToChar(batchSize) //' is invalid')
+        end if
+      end if
+
     else
       ! Allocate space and zero all bins
       allocate(self % bins(N, DIM2))
@@ -251,7 +281,7 @@ contains
     integer(shortInt),save                 :: thread_idx
     real(defReal), save                     :: ratio
     character(100),parameter :: Here = 'score_defReal (scoreMemory_class.f90)'
-    !$omp threadprivate(ratio, thread_idx)
+    !$omp threadprivate(ratio)
 
     ! Verify bounds for the index
     if( idx < 0_longInt .or. idx > self % N) then
@@ -267,6 +297,7 @@ contains
     
     if (self % bootstrapScore) then !think it is time0, time0, time0, time1, time1, time1 ...
       ratio = real(idx) / self % nTimeBins
+      !print *, 'setting here', ratio, thread_idx, int(ceiling(ratio))
       self % scoreBinTracker(thread_idx) = int(ceiling(ratio)) !either mod or int((idx / self % nTimeBins) + 0.5). depends on bin distribution. 
     end if
 
@@ -608,24 +639,31 @@ end subroutine closeBootstrap
     class(scoreMemory), intent(inout)       :: self
     integer(shortInt), intent(in)  :: n, binIdx
     real(defReal), save                     :: res
-    integer(shortInt), save :: thread_idx, scoreBinIdx
+    integer(shortInt), save :: scoreBinIdx
     integer(longInt), save :: scoreLoc
-    !$omp threadprivate(res, thread_idx, scoreBinIdx, scoreLoc)
+    integer(shortInt) :: thread_idx
+    !$omp threadprivate(res, scoreBinIdx, scoreLoc)
 
     thread_idx = ompGetThreadNum() + 1
 
     scoreBinIdx = self % scoreBinTracker(thread_idx)
 
-    ! Retrieve score
-    scoreLoc = (scoreBinIdx-1)*self % nTimeBins + binIdx
-    res = self % parallelBins(scoreLoc,thread_idx)
-    !print *, binIdx, res, scoreLoc, scoreBinIdx
-    ! Zero thread bin
-    self % parallelBins(scoreLoc,thread_idx) = ZERO
+    if (scoreBinIdx == 0) then
+      return
 
-    self % plugInSamples(n, scoreBinIdx) = res
-    self % plugInSamplesMean(scoreBinIdx, thread_idx) = self % plugInSamplesMean(scoreBinIdx, thread_idx) + res
-    self % plugInSamplesVar(scoreBinIdx, thread_idx)  = self % plugInSamplesVar(scoreBinIdx, thread_idx) + res * res
+    else
+      ! Retrieve score
+      scoreLoc = (scoreBinIdx-1)*self % nTimeBins + binIdx
+      !print *, binIdx, scoreLoc, scoreBinIdx, thread_idx
+      res = self % parallelBins(scoreLoc,thread_idx)
+      ! Zero thread bin
+      self % parallelBins(scoreLoc,thread_idx) = ZERO
+
+      !print *, 'HERE', size(self % plugInSamples), n, scoreBinIdx
+      self % plugInSamples(n, scoreBinIdx) = res
+      self % plugInSamplesMean(scoreBinIdx, thread_idx) = self % plugInSamplesMean(scoreBinIdx, thread_idx) + res
+      self % plugInSamplesVar(scoreBinIdx, thread_idx)  = self % plugInSamplesVar(scoreBinIdx, thread_idx) + res * res
+    end if
 
   end subroutine closePlugInCycle
   
@@ -711,9 +749,9 @@ end subroutine closeBootstrap
       self % biasedMeans(scoreLoc) = biasedMean
       self % biasedVars(scoreLoc) = VAR
       self % normBias(scoreLoc) = (biasedMean - plugInMean) / (sqrt(VAR))
-      print *, plugInVar, VAR
-      print *, 'bias', biasedMean - plugInMean
-      print *, 'bias / std error', (biasedMean - plugInMean) / (sqrt(VAR))
+      !print *, plugInVar, VAR
+      !print *, 'bias', biasedMean - plugInMean
+      !print *, 'bias / std error', (biasedMean - plugInMean) / (sqrt(VAR))
     
     end do
 
@@ -725,6 +763,13 @@ end subroutine closeBootstrap
 
     self % bootstrapScore = .true.
   end subroutine setBootstrapScore
+
+  function getBootstrapScore(self) result(bootstrapScore)
+    class(scoreMemory), intent(in)       :: self
+    logical(defBool) :: bootstrapScore
+
+    bootstrapScore = self % bootstrapScore
+  end function getBootstrapScore
 
   subroutine setSimTime(self, simTime)
     class(scoreMemory), intent(inout)       :: self

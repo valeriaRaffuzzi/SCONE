@@ -235,8 +235,8 @@ contains
       call self % mem % init(memSize, 1, batchSize = cyclesPerBatch)
     else if ((bootstrap /= 0) .and. (timeSteps /= 0)) then
       call self % mem % init(memSize, 1, batchSize = cyclesPerBatch, bootstrap = bootstrap, timeSteps = timeSteps)
-    else
-      call fatalError(Here, 'Need to set both bootstrap and timeSteps')
+    else if ((bootstrap > 0) .and. (timeSteps == 0)) then
+      call self % mem % init(memSize, 1, batchSize = cyclesPerBatch, bootstrap = bootstrap)
     end if
     ! Assign memory locations to the clerks
     memLoc = 1

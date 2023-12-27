@@ -260,6 +260,7 @@ contains
     integer(shortInt),dimension(:),allocatable :: resArrayShape
     character(nameLen)                         :: name
     real(defReal)                              :: FoM
+    logical(defBool)                           :: bootstrapScore
 
     ! Begin block
     call outFile % startBlock(self % getName())
@@ -285,7 +286,6 @@ contains
     do i=1,product(resArrayShape)
       if (present(NtimeBins)) then
         numBatchesPerTimeBin = mem % batchN / NtimeBins
-        print *, numBatchesPerTimeBin
         call mem % getResult(val, std, self % getMemAddress() - 1 + i, numBatchesPerTimeBin)
       else
         call mem % getResult(val, std, self % getMemAddress() - 1 + i)
@@ -313,32 +313,33 @@ contains
     call outFile % addValue(mem % getSimTime())
     call outFile % endArray()
 
+    bootstrapScore = mem % getBootstrapScore()
+    if (bootstrapScore) then
+    ! Start array
+    name ='biasedRes'
+    call outFile % startArray(name, resArrayShape)
+
+    ! Print results to the file
+    do i=1,product(resArrayShape)
+      val = mem % getBiasedMean(i)
+      std = mem % getBiasedVar(i)
+      std = sqrt(std)
+      call outFile % addResult(val, std)
+    end do
+
+    call outFile % endArray()
 
 
-!    ! Start array
-!    name ='biasedRes'
-!    call outFile % startArray(name, resArrayShape)
-!
-!    ! Print results to the file
-!    do i=1,product(resArrayShape)
-!      val = mem % getBiasedMean(i)
-!      std = mem % getBiasedVar(i)
-!      std = sqrt(std)
-!      call outFile % addResult(val, std)
-!    end do
-!
-!    call outFile % endArray()
-!
-!
-!
-!    name = 'normBias'
-!    call outFile % startArray(name, resArrayShape)
-!    do i=1,product(resArrayShape)
-!      val = mem % getNormBias(i)
-!      call outFile % addValue(val)
-!    end do
-!
-!    call outFile % endArray()
+
+    name = 'normBias'
+    call outFile % startArray(name, resArrayShape)
+    do i=1,product(resArrayShape)
+      val = mem % getNormBias(i)
+      call outFile % addValue(val)
+    end do
+
+    call outFile % endArray()
+    end if
 
 
 
