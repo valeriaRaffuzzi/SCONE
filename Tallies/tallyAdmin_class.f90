@@ -159,6 +159,8 @@ module tallyAdmin_class
 
     procedure :: closePlugInCycle
 
+    procedure :: closePlugInCycleModified
+
     procedure :: bootstrapPlugIn
 
     procedure :: setBootstrapScore
@@ -182,7 +184,7 @@ contains
     class(tallyAdmin), intent(inout)            :: self
     class(dictionary), intent(in)               :: dict
     character(nameLen),dimension(:),allocatable :: names
-    integer(shortInt)                           :: i, j, cyclesPerBatch, bootstrap, timeSteps
+    integer(shortInt)                           :: i, j, cyclesPerBatch, bootstrap, timeSteps, m
     integer(longInt)                            :: memSize, memLoc
     character(100), parameter :: Here ='init (tallyAdmin_class.f90)'
 
@@ -227,16 +229,17 @@ contains
 
     call dict % getOrDefault(bootstrap,'bootstrap', 0)
     call dict % getOrDefault(timeSteps,'timeSteps', 0)
+    call dict % getOrDefault(m,'modified', 0)
 
     ! Initialise score memory
     ! Calculate required size.
     memSize = sum( self % tallyClerks % getSize() )
     if ((bootstrap == 0) .and. (timeSteps == 0)) then
       call self % mem % init(memSize, 1, batchSize = cyclesPerBatch)
-    else if ((bootstrap /= 0) .and. (timeSteps /= 0)) then
+    else if ((bootstrap /= 0) .and. (timeSteps /= 0) .and. (m == 0)) then
       call self % mem % init(memSize, 1, batchSize = cyclesPerBatch, bootstrap = bootstrap, timeSteps = timeSteps)
-    else if ((bootstrap > 0) .and. (timeSteps == 0)) then
-      call self % mem % init(memSize, 1, batchSize = cyclesPerBatch, bootstrap = bootstrap)
+    else if ((bootstrap /= 0) .and. (timeSteps /= 0) .and. (m /= 0))  then
+      call self % mem % init(memSize, 1, batchSize = cyclesPerBatch, bootstrap = bootstrap, timeSteps = timeSteps, modified = m)
     end if
     ! Assign memory locations to the clerks
     memLoc = 1
@@ -853,6 +856,13 @@ subroutine closePlugInCycle(self, n, binIdx)
 
   call self % mem % closePlugInCycle(n, binIdx)
 end subroutine closePlugInCycle
+
+subroutine closePlugInCycleModified(self, k, binIdx)
+  class(tallyAdmin),intent(inout) :: self
+  integer(shortInt), intent(in) :: k, binIdx
+
+  call self % mem % closePlugInCycleModified(k, binIdx)
+end subroutine closePlugInCycleModified
 
 subroutine bootstrapPlugIn(self, nBootstraps, pRNG, N_timeBins, binIdx)
   class(tallyAdmin),intent(inout) :: self

@@ -1,6 +1,6 @@
 type timeDependentPhysicsPackage;
 
-pop      3000000;
+pop      4000000;
 timeSteps   70;
 XSdata   ce;
 dataType ce;
@@ -28,6 +28,7 @@ source {
 tally  {
   bootstrap 5;
   timeSteps  70;
+  //modified 1;
   flux_time { type collisionClerk;
     map { type multiMap; maps (map1 map2); // this supported properly in current implementation?
     map1 { type timeMap; grid lin; min 0.0; max 7E-04; N 70;}

@@ -131,8 +131,8 @@ contains
     print *, repeat("<>",50)
     print *, "/\/\ TIME DEPENDENT CALCULATION /\/\"
 
-    call self % cycles_efficient_2(self % tally, self % N_cycles, self % N_timeBins, self % timeIncrement, simTime)
-    !call self % cycles_efficient(self % tally, self % N_cycles, self % N_timeBins, self % timeIncrement, simTime)
+    !call self % cycles_efficient_2(self % tally, self % N_cycles, self % N_timeBins, self % timeIncrement, simTime)
+    call self % cycles_efficient(self % tally, self % N_cycles, self % N_timeBins, self % timeIncrement, simTime)
     !call self % cycles(self % tally, self % N_cycles, self % N_timeBins, self % timeIncrement, simTime)
     call self % tally % setSimTime(simTime)
     call self % collectResults()
@@ -526,16 +526,15 @@ contains
 
 
   !!
-  !! Forventer ikke egentlig at denne er særlig bedre. Samme konsept
-  !! Men rarere å implementere med kombing uten å gjøre dum for loop
-  !! Heller optimalisere denne og sammenligne med forrige konsept
+  !! bootstrap scores instead of particles
   !!
   subroutine cycles_efficient(self, tally, N_cycles, N_timeBins, timeIncrement, simTime)
     class(timeDependentPhysicsPackage), intent(inout) :: self
     type(tallyAdmin), pointer,intent(inout)         :: tally
-    real(defReal), intent(inout)                      :: simTime
+    real(defReal), intent(inout)                    :: simTime
     integer(shortInt), intent(in)                   :: N_timeBins, N_cycles
     integer(shortInt)                               :: i, t, n, nParticles, batchPop, m, nBootstraps, idx
+    integer(shortInt)                               :: particleBatchTracker, numParticlesPerBatch, numBatches, k
     integer(shortInt), save                         :: j
     type(particle), save                            :: p
     type(particleDungeon), save                     :: buffer
@@ -551,12 +550,10 @@ contains
     ! Size particle dungeon
     allocate(self % currentTimeInterval)
     allocate(self % nextTimeInterval)
-    !allocate(self % bootstrapTimeInterval)
     allocate(self % batchPopulations(N_cycles))
 
     call self % currentTimeInterval % init(self % pop)
     call self % nextTimeInterval % init(self % pop)
-    !call self % bootstrapTimeInterval % init(self % pop)
 
     !$omp parallel
     ! Create particle buffer
@@ -573,54 +570,51 @@ contains
 
     ! Number of particles in each batch
     nParticles = self % pop
-    nBootstraps = tally % getNbootstraps() !mem % Nbootstraps 
+    nBootstraps = tally % getNbootstraps()
+    !call tally % setBootstrapScore()
 
     ! Reset and start timer
     call timerReset(self % timerMain)
     call timerStart(self % timerMain)
 
-
     print *, 'TIME = 1'
-    ! First time iteration, fixed source treatment
-    ! TODO: add treatment of converged stationary initial source
+    ! First time iteration, fixed source treatment. TODO: add treatment of converged stationary initial source
     call self % fixedSource % generate(self % currentTimeInterval, nParticles, self % pRNG)
 
-    do i = 1, nBootstraps
-      print *, 'bootstrap nr', i
+    particleBatchTracker = 1
+
+    numParticlesPerBatch = nParticles / 10000
+    numBatches = nParticles / numParticlesPerBatch !tune this hyperparameter
+
+
+    call tally % initScoreBootstrap(numBatches)
+
+    do k = 1, numBatches
+
       !$omp parallel do schedule(dynamic)
-      gen_t0: do n = 1, nParticles
+      gen_t0: do n = particleBatchTracker, particleBatchTracker - 1 + numParticlesPerBatch
         call tally % reportCycleStart(self % currentTimeInterval)
+
         pRNG = self % pRNG
         p % pRNG => pRNG
         call p % pRNG % stride(n)
 
-        if (i == 1) then
-          call self % currentTimeInterval % copy(p, n)
-        else
-          idx = int(self % currentTimeInterval % popSize() * pRNG % get()) + 1
-          if (idx <= self % currentTimeInterval % popSize()) then
-            call self % currentTimeInterval % copy(p, idx)
-          else
-            call self % currentTimeInterval % copy(p, n)
-          end if
-        end if
-
+        call self % currentTimeInterval % copy(p, n)
 
         bufferLoop_t0: do
-
           p % fate = 0
           call self % geom % placeCoord(p % coords)
           p % timeMax = timeIncrement
           call p % savePreHistory()
           history_t0: do
-            call transOp % transport(p, tally, self % currentTimeInterval, self % currentTimeInterval)
+            call transOp % transport(p, tally, buffer, buffer)
             if(p % isDead) exit history_t0
             if(p % fate == AGED_FATE) then
-              if (i == 1) call self % nextTimeInterval % detain(p)
+              call self % nextTimeInterval % detain(p)
 
               exit history_t0
             endif
-            call collOp % collide(p, tally, self % currentTimeInterval, self % currentTimeInterval)!self % precursorDungeons(i))
+            call collOp % collide(p, tally, buffer, buffer)
             if(p % isDead) exit history_t0
           end do history_t0
 
@@ -633,23 +627,21 @@ contains
 
         end do bufferLoop_t0
 
-        call tally % reportCycleEnd(self % currentTimeInterval)
-
       end do gen_t0
       !$omp end parallel do
 
-      call tally % closeBootstrap(1, i)
-      !make closecycle for bootstrap for bootstrap mean and variance estinmators
-
-      call self % pRNG % stride(nParticles)
+      particleBatchTracker = particleBatchTracker + numParticlesPerBatch
+      call tally % closePlugInCycleModified(k,1)
     end do
+
+    call tally % bootstrapPlugIn(nBootstraps, pRNG, N_timeBins,1)
+
+    call self % pRNG % stride(nParticles)
 
     call self % currentTimeInterval % cleanPop()
     self % tempTimeInterval  => self % nextTimeInterval
     self % nextTimeInterval  => self % currentTimeInterval
     self % currentTimeInterval => self % tempTimeInterval
-
-    !call tally % resetBootstrapN(1)
 
     ! Predict time to end
     call timerStop(self % timerMain)
@@ -682,47 +674,40 @@ contains
         cycle
       end if
 
-      do i = 1, nBootstraps
-        nParticles = self % currentTimeInterval % popSize()
-        print *, 'nParticles', nParticles
+      nParticles = self % currentTimeInterval % popSize()
+      print *, 'nParticles', nParticles
+
+      particleBatchTracker = 1
+
+      call tally % initScoreBootstrap(numBatches)
+
+      do k = 1, numBatches
+
         !$omp parallel do schedule(dynamic)
-        gen: do n = 1, nParticles
+        gen: do n = particleBatchTracker, particleBatchTracker - 1 + numParticlesPerBatch
           call tally % reportCycleStart(self % currentTimeInterval)
           pRNG = self % pRNG
           p % pRNG => pRNG
           call p % pRNG % stride(n)
 
-
-          if (i == 1) then
-            call self % currentTimeInterval % copy(p, n)
-          else
-            idx = int(self % currentTimeInterval % popSize() * pRNG % get()) + 1
-            if (idx <= self % currentTimeInterval % popSize()) then
-              call self % currentTimeInterval % copy(p, idx)
-            else
-              call self % currentTimeInterval % copy(p, n)
-            end if
-          end if
+          call self % currentTimeInterval % copy(p, n)
 
           bufferLoop: do
-            !p % w = p % w * penetrationRatio
             p % fate = 0
             call self % geom % placeCoord(p % coords)
             p % timeMax = t * timeIncrement
             call p % savePreHistory()
             ! Transport particle untill its death
             history: do
-              call transOp % transport(p, tally, self % currentTimeInterval, self % currentTimeInterval)
+              call transOp % transport(p, tally, buffer, buffer)
               if(p % isDead) exit history
               if(p % fate == AGED_FATE) then
-                if (i == 1) call self % nextTimeInterval % detain(p)
-
+                call self % nextTimeInterval % detain(p)
                 exit history
               endif
-              call collOp % collide(p, tally, self % currentTimeInterval, self % currentTimeInterval)!self % precursorDungeons(i))
+              call collOp % collide(p, tally, buffer, buffer)
               if(p % isDead) exit history
             end do history
-
 
             ! Clear out buffer
             if (buffer % isEmpty()) then
@@ -733,22 +718,22 @@ contains
 
           end do bufferLoop
 
-          call tally % reportCycleEnd(self % currentTimeInterval)
-
         end do gen
         !$omp end parallel do
 
-        call tally % closeBootstrap(t, i)
-
-        call self % pRNG % stride(nParticles)
+        particleBatchTracker = particleBatchTracker + numParticlesPerBatch
+        call tally % closePlugInCycleModified(k,t)
       end do
+      call tally % bootstrapPlugIn(nBootstraps, pRNG, N_timeBins,t)
+
+      call self % pRNG % stride(nParticles)
+
 
       call self % currentTimeInterval % cleanPop()
       self % tempTimeInterval  => self % nextTimeInterval
       self % nextTimeInterval  => self % currentTimeInterval
       self % currentTimeInterval => self % tempTimeInterval
 
-      !call tally % resetBootstrapN(t)
       ! Calculate times
       call timerStop(self % timerMain)
       elapsed_T = timerTime(self % timerMain)
@@ -766,7 +751,6 @@ contains
       print *, 'Time to end:  ', trim(secToChar(T_toEnd))
       call tally % display()
     end do
-
 
     simTime = end_T
 

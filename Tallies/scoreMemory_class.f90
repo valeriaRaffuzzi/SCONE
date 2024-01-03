@@ -121,6 +121,7 @@ module scoreMemory_class
     procedure :: getNbootstraps
     procedure :: initScoreBootstrap
     procedure :: closePlugInCycle
+    procedure :: closePlugInCycleModified
     procedure :: bootstrapPlugIn
     procedure :: setBootstrapScore
     procedure :: getBootstrapScore
@@ -148,11 +149,11 @@ contains
   !! Allocate space for the bins given number of bins N
   !! Optionaly change batchSize from 1 to any +ve number
   !!
-  subroutine init(self, N, id, batchSize, bootstrap, timeSteps)
+  subroutine init(self, N, id, batchSize, bootstrap, timeSteps, modified)
     class(scoreMemory),intent(inout)      :: self
     integer(longInt),intent(in)           :: N
     integer(shortInt),intent(in)          :: id
-    integer(shortInt),optional,intent(in) :: batchSize, bootstrap, timeSteps
+    integer(shortInt),optional,intent(in) :: batchSize, bootstrap, timeSteps, modified
     character(100), parameter :: Here= 'init (scoreMemory_class.f90)'
 
     self % nThreads = ompGetMaxThreads()
@@ -167,7 +168,7 @@ contains
     ! Assign memory id
     self % id = id
 
-    if (present(bootstrap) .and. present(timeSteps)) then !bootstrap score
+    if (present(bootstrap) .and. present(timeSteps) .and. (.not. present(modified))) then !bootstrap score
       self % Nbootstraps = bootstrap
       self % nTimeBins = timeSteps
 
@@ -206,8 +207,10 @@ contains
       allocate(self % scoreBinTracker(self % nThreads))
       self % scoreBinTracker = ZERO
 
-    else if (present(bootstrap) .and. (.not. present(timeSteps))) then !bootstrap particle
+    else if (present(bootstrap) .and. present(timeSteps) .and. present(modified)) then !bootstrap particle
+
       self % Nbootstraps = bootstrap
+      self % nTimeBins = timeSteps
 
       allocate(self % plugInMean(N))
       self % plugInMean = ZERO
@@ -215,25 +218,31 @@ contains
       allocate(self % plugInVar(N))
       self % plugInVar = ZERO
 
-      allocate(self % bootstrapBins(N, DIM2))
-      self % bootstrapBins = ZERO
+      allocate(self % unbiasedMeans(N))
+      self % unbiasedMeans = ZERO
 
-      ! Allocate space and zero all bins
-      allocate(self % bins(N, DIM2))
-      self % bins = ZERO
+      allocate(self % unbiasedVars(N))
+      self % unbiasedVars = ZERO
 
-      ! Set batchN, cycles and batchSize to default values
-      self % batchN    = 0
-      self % cycles    = 0
-      self % batchSize = 1
+      self % Ntallies = N / self % nTimeBins
 
-      if(present(batchSize)) then
-        if(batchSize > 0) then
-          self % batchSize = batchSize
-        else
-          call fatalError(Here,'Batch Size of: '// numToChar(batchSize) //' is invalid')
-        end if
-      end if
+      allocate(self % plugInSamplesMean(self % Ntallies,1))
+      self % plugInSamplesMean = ZERO
+
+      allocate(self % plugInSamplesVar(self % Ntallies,1))
+      self % plugInSamplesVar = ZERO
+
+      allocate(self % bootstrapAccumulator(self % nThreads))
+      self % bootstrapAccumulator = ZERO
+
+      allocate(self % biasedMeans(N))
+      self % biasedMeans = ZERO
+
+      allocate(self % biasedVars(N))
+      self % biasedVars = ZERO
+
+      allocate(self % normBias(N))
+      self % normBias = ZERO
 
     else
       ! Allocate space and zero all bins
@@ -517,25 +526,8 @@ end subroutine closeBootstrap
         mean = self % unbiasedMeans(idx)
         STD = sqrt(self % unbiasedVars(idx))
       else
-
-        N = self % Nbootstraps
-
-        mean = (self % bootstrapBins(idx,CSUM) / N)
-
-        if (N /= 1) then
-          inv_Nm1 = ONE / (N - 1)
-        else
-          inv_Nm1 = ONE
-        end if
-
-        STD = self % bootstrapBins(idx, CSUM2) * inv_Nm1 - mean * mean * inv_Nm1 * N
-
-
-        !bias adjusted when bootstrapping particles
-        mean = TWO * self % plugInMean(idx) - mean
-
-        STD = sqrt(TWO * TWO * self % plugInVar(idx) + STD)
-
+        mean = self % unbiasedMeans(idx)
+        STD = sqrt(self % unbiasedVars(idx))
       end if
     else
 
@@ -667,6 +659,33 @@ end subroutine closeBootstrap
 
   end subroutine closePlugInCycle
   
+    subroutine closePlugInCycleModified(self, k, binIdx)
+    class(scoreMemory), intent(inout)       :: self
+    integer(shortInt), intent(in)  :: k, binIdx
+    integer(longInt)                        :: i
+    real(defReal), save                     :: res
+    integer(longInt), save :: scoreLoc
+    !$omp threadprivate(res, scoreLoc)
+
+    !$omp parallel do
+    do i = 1, self % Ntallies
+      scoreLoc = (i-1)*self % nTimeBins + binIdx
+      res = sum(self % parallelBins(scoreLoc,:))
+
+
+      ! Zero all score bins
+      self % parallelBins(scoreLoc,:) = ZERO
+
+
+      self % plugInSamples(k, i) = res
+      ! Increment cumulative sums
+      self % plugInSamplesMean(i,1)  = self % plugInSamplesMean(i,1) + res
+      self % plugInSamplesVar(i,1) = self % plugInSamplesVar(i,1) + res * res
+
+    end do
+    !$omp end parallel do
+
+  end subroutine closePlugInCycleModified
 
   subroutine bootstrapPlugIn(self, nBootstraps, pRNG, N_timeBins, binIdx)
     class(scoreMemory), intent(inout)       :: self
