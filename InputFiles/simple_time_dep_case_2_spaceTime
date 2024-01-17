@@ -1,6 +1,6 @@
 type timeDependentPhysicsPackage;
 
-pop      100000; //1000000
+pop      1000000; //100000
 timeSteps   70; //70
 XSdata   ce;
 dataType ce;
@@ -25,12 +25,19 @@ source {
 }
 
 tally  {
-  //bootstrap 100;
-  //timeSteps  70;
-  //modified 1;
+  bootstrap 3;  //100 (3,3,3) 20 (6,6,6)
+  timeSteps  70; //70
+  modified 1;
   flux_time { type collisionClerk; //collisionClerk_class, energyMap_class, scoreMemory_class
+    map { type multiMap; maps (map1 map2 map3 map4);
+
+    map1 { type timeMap; grid lin; min 0.0; max 7E-04; N 70;} //70
+    map2 {type spaceMap;  axis x;  grid lin; min -25; max 25; N 6;} //3
+    map3 {type spaceMap;  axis y;  grid lin; min -25; max 25; N 6;}
+    map4 {type spaceMap;  axis z;  grid lin; min -25; max 25; N 6;}
+    }
+
     //map { type timeMap; grid lin; min 0.0; max 7E-04; N 70;}
-    map { type timeMap; grid lin; min 0.0; max 7E-04; N 70;} //    map { type timeMap; grid lin; min 0.0; max 7E-04; N 70;}
     response (flux); flux {type fluxResponse;}
     handleVirtual 1;
   }
@@ -71,9 +78,8 @@ nuclearData {
     m1 {
       temp 12345;
       composition {
-        1001.03   0.06639;
+        //1001.03    0.06639;
         8016.03   0.03347;
-        //1001.03  0.06639;
         }
     }
 }

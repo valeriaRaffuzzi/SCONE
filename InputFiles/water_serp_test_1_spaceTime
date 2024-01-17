@@ -28,15 +28,16 @@ source {
 }
 
 tally  {
-  bootstrap 5;
-  timeSteps  70;
+  //bootstrap 3; //100
+  //timeSteps  70;
+  //modified 1;
   flux_time { type collisionClerk; //collisionClerk_class, energyMap_class, scoreMemory_class
     map { type multiMap; maps (map1 map2 map3 map4);
     //NB REQUIRE TIMEMAP FIRST TO WORK FOR NOW
     map1 { type timeMap; grid lin; min 0.0; max 7E-04; N 70;}
-    map2 {type spaceMap;  axis x;  grid lin; min -33.02; max 33.02; N 10;}
-    map3 {type spaceMap;  axis y;  grid lin; min -33.02; max 33.02; N 10;}
-    map4 {type spaceMap;  axis z;  grid lin; min -33.02; max 33.02; N 10;}
+    map2 {type spaceMap;  axis x;  grid lin; min -33.02; max 33.02; N 3;}
+    map3 {type spaceMap;  axis y;  grid lin; min -33.02; max 33.02; N 3;}
+    map4 {type spaceMap;  axis z;  grid lin; min -33.02; max 33.02; N 3;}
     }
 
     //map { type timeMap; grid lin; min 0.0; max 7E-04; N 70;}

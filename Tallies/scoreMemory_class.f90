@@ -722,6 +722,8 @@ end subroutine closeBootstrap
       biasedMean = plugInMean
       biasedVar = plugInMean * plugInMean
 
+      !print *, 'nBootstraps', nBootstraps
+
       do i = 1, nBootstraps - 1
 
         self % bootstrapAccumulator = ZERO
@@ -762,13 +764,20 @@ end subroutine closeBootstrap
       else
         inv_Nm1 = ONE
       end if
+
+      !print *, 'accum var', biasedVar, inv_Nm1, N
       VAR = biasedVar * inv_Nm1 - biasedMean * biasedMean * inv_Nm1 * N
       self % unbiasedVars(scoreLoc) = TWO * TWO * plugInVar + VAR !-4cov(pluginmean, bootstrapmean)
 
       self % biasedMeans(scoreLoc) = biasedMean
       self % biasedVars(scoreLoc) = VAR
       self % normBias(scoreLoc) = (biasedMean - plugInMean) / (sqrt(VAR))
-      !print *, plugInVar, VAR
+
+      !print *, binIdx
+      !print *, 'std/mean', sqrt(VAR) / biasedMean
+      !print *, 'biasedSTD', sqrt(VAR)
+      !print *, 'unbiasedSTD', sqrt(TWO * TWO * plugInVar + VAR)
+      !print *, 'terms', TWO * TWO * plugInVar, VAR
       !print *, 'bias', biasedMean - plugInMean
       !print *, 'bias / std error', (biasedMean - plugInMean) / (sqrt(VAR))
     

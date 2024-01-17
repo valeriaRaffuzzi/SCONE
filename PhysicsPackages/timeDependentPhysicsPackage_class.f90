@@ -136,6 +136,7 @@ contains
     !call self % cycles(self % tally, self % N_cycles, self % N_timeBins, self % timeIncrement, simTime)
     call self % tally % setSimTime(simTime)
     call self % collectResults()
+    !call self % collectResults(self % N_timeBins)
 
     print *
     print *, "\/\/ END OF TIME DEPENDENT CALCULATION \/\/"
@@ -344,8 +345,9 @@ contains
   !!
   !! Print calculation results to file
   !!
-  subroutine collectResults(self)
+  subroutine collectResults(self, NtimeBins)
     class(timeDependentPhysicsPackage), intent(inout) :: self
+    integer(shortInt), optional, intent(in)           :: NtimeBins !only for cycles
     type(outputFile)                                :: out
     character(nameLen)                              :: name
     integer(shortInt)                               :: i
@@ -375,7 +377,11 @@ contains
     call out % printValue(timerTime(self % timerMain),name)
 
     ! Print tally
-    call self % tally % print(out, self % N_timeBins)
+    if (present(NtimeBins)) then
+      call self % tally % print(out, NtimeBins)
+    else
+      call self % tally % print(out)
+    end if
 
     call out % writeToFile(self % outputFile)
 
@@ -583,7 +589,7 @@ contains
 
     particleBatchTracker = 1
 
-    numParticlesPerBatch = nParticles / 10000
+    numParticlesPerBatch = nParticles / 10 ! /10000
     numBatches = nParticles / numParticlesPerBatch !tune this hyperparameter
 
 

@@ -5,13 +5,14 @@ timeSteps   70;
 XSdata   ce;
 dataType ce;
 timeIncrement 1.E-05;
+//buffer 500000;
 combing 1; //toggle on or off
-cycles 3;
+//precursors 0; //toggle on or off
+//batches 100; // not implemented!!
+cycles 5;
 
 outputFormat asciiJSON;
-collisionOperator { neutronCE {type neutronCEkin; minEnergy 1E-11;}
-
-}
+collisionOperator { neutronCE {type neutronCEkin;}}
 
 transportOperator { type transportOperatorDT;
                   }
@@ -26,7 +27,8 @@ source {
 
 tally  {
   bootstrap 100;
-  timeSteps  70; 
+  timeSteps  70;
+  //modified 1;
   flux_time { type collisionClerk;
     map { type timeMap; grid lin; min 0.0; max 7E-04; N 70;}
     response (flux); flux {type fluxResponse;}
@@ -63,15 +65,16 @@ geometry {
       detectorSheathOne { id 7; type simpleCell; surfaces (-8  9 10); filltype mat; material m5 ; }
       detectorSheathTwo { id 8; type simpleCell; surfaces (-8  9 -11); filltype mat; material m5 ;}
       HeDetector { id 9; type simpleCell; surfaces (-10 11); filltype mat; material m6;} 
-      cellTwenty { id 20; type simpleCell; surfaces (-3 8 5); filltype mat; material void;}
+      cellTwenty { id 20; type simpleCell; surfaces (-3  8 5); filltype mat; material void;}
       cellTwentyOne { id 21; type simpleCell; surfaces (-3 -9 5); filltype mat; material void;} 
+      //cellThirty { id 30; type simpleCell; surfaces (1); filltype outside;} 
       }
 
 
     universes
     {
       root{id 1; type rootUniverse; border 1; fill u<2>;}
-      geom { id 2; type cellUniverse; cells (1 2 3 4 5 6 7 8 9 20 21);}
+      geom { id 2; type cellUniverse; cells ( 1 2 3 4 5 6 7 8 9 20 21);}
     }
 }
 
@@ -86,7 +89,7 @@ nuclearData {
       composition {
         1001.03    0.06639;
         8016.03   0.03347;}
-      //moder { 1001.00 h-h2o-293; }
+      moder { 1001.00 h-h2o-293; }
     }
 
     //poly box
@@ -161,4 +164,8 @@ nuclearData {
       }
     }
 }
+
 }
+
+
+

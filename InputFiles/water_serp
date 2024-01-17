@@ -1,6 +1,6 @@
 type timeDependentPhysicsPackage;
 
-pop      4000000;
+pop      1000000;
 timeSteps   70;
 XSdata   ce;
 dataType ce;
@@ -9,7 +9,7 @@ timeIncrement 1.E-05;
 combing 1; //toggle on or off
 //precursors 0; //toggle on or off
 //batches 100; // not implemented!!
-cycles 7;
+cycles 5;
 
 outputFormat asciiJSON;
 collisionOperator { neutronCE {type neutronCEkin;}}
@@ -28,11 +28,11 @@ source {
 tally  {
   bootstrap 5;
   timeSteps  70;
-  //modified 1;
+  modified 1;
   flux_time { type collisionClerk;
     map { type multiMap; maps (map1 map2); // this supported properly in current implementation?
     map1 { type timeMap; grid lin; min 0.0; max 7E-04; N 70;}
-    map2 { type cellMap; cells (1 2 3 4 5 6 7 8 9 20 21); }
+    map2 { type cellMap; cells (1 2 3 4 5 6 7 8 9 20 21); }   //cells (1 2 3 4 5 6 7 8 9 20 21)
     } //make this work on averaged accross all cells, then fix multimap on time dependent
     response (flux); flux {type fluxResponse;}
     handleVirtual 1;
