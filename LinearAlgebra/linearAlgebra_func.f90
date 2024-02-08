@@ -16,8 +16,11 @@ module linearAlgebra_func
 !! Public Module interface
 !!<><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><>
   public :: eig
-  public :: solve
+  public :: solveReal
+  public :: solveComplex
   public :: solveAdjointProblem
+  public :: identityMatrix
+  public :: cram
   public :: kill_linearAlgebra
 
 
@@ -125,6 +128,7 @@ module linearAlgebra_func
   !! the definition is identical.
   !!
   interface lapack_gesv
+
     !!
     !! Double precision. 64-bit float
     !!
@@ -156,6 +160,39 @@ module linearAlgebra_func
       real(real32),dimension(LDB,NRHS), intent(inout) :: B
       integer(int32), intent(out)                     :: INFO
     end subroutine sgesv
+
+    !!
+    !! For complex matrices, single precision. 32-bit float
+    !!
+    subroutine cgesv(N, NRHS, A, LDA, IPIV, B, LDB, INFO)
+      use iso_fortran_env, only : int32, real32
+      implicit none
+      integer(int32), intent(in)                         :: N
+      integer(int32), intent(in)                         :: NRHS
+      integer(int32), intent(in)                         :: LDA
+      complex(real32),dimension(LDA,N), intent(inout)    :: A
+      integer(int32),dimension(:), intent(out)           :: IPIV
+      integer(int32), intent(in)                         :: LDB
+      complex(real32),dimension(LDB,NRHS), intent(inout) :: B
+      integer(int32), intent(out)                        :: INFO
+    end subroutine cgesv
+
+    !!
+    !! For complex matrices, double precision. 64-bit float
+    !!
+    subroutine zgesv(N, NRHS, A, LDA, IPIV, B, LDB, INFO)
+      use iso_fortran_env, only : real64, int32
+      implicit none
+      integer(int32), intent(in)                         :: N
+      integer(int32), intent(in)                         :: NRHS
+      integer(int32), intent(in)                         :: LDA
+      complex(real64),dimension(LDA,N), intent(inout)    :: A
+      integer(int32),dimension(:), intent(out)           :: IPIV
+      integer(int32), intent(in)                         :: LDB
+      complex(real64),dimension(LDB,NRHS), intent(inout) :: B
+      integer(int32), intent(out)                        :: INFO
+    end subroutine zgesv
+
   end interface lapack_gesv
 
 !!<><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><>
@@ -386,12 +423,13 @@ module linearAlgebra_func
 !!<><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><>
 
   !! This variable must be private to each OpenMP thread
-  real(defReal),dimension(:),allocatable,target :: workspace
+  real(defReal),dimension(:),allocatable,target    :: workspace
+  complex(defReal),dimension(:),allocatable,target :: complexWorkspace
 
 contains
 
   !!
-  !! Solves linear system of equations of the form Ax=b
+  !! Solves linear system of equations of the form Ax = b
   !!
   !! A - any NxN square real matrix
   !! b - real vector of RHS of size N
@@ -399,24 +437,24 @@ contains
   !!
   !! Gives fatalError if input is invalid or solution A is singular
   !!
-  subroutine solve(A, x, b)
+  subroutine solveReal(A, x, b)
     real(defReal),dimension(:,:),intent(in) :: A
-    real(defReal),dimension(:), intent(out) :: x
-    real(defReal),dimension(:), intent(in)  :: b
+    real(defReal),dimension(:),intent(out)  :: x
+    real(defReal),dimension(:),intent(in)   :: b
     real(defReal),dimension(:,:),pointer    :: A_t, B_t
     integer(shortInt),dimension(size(x))    :: pivot
     integer(shortInt)                       :: N, mem, info
-    character(100),parameter :: Here='solve ( linearAlgebra_func.f90)'
+    character(100),parameter :: Here = 'solveReal ( linearAlgebra_func.f90)'
 
     ! Verify size of the inputs
     N = size(A,1)
-    if(size(b) /= N) then
+    if (size(b) /= N) then
       call fatalError(Here,'Invalid size of RHS vector b. It is not size N')
 
-    else if(size(x) /=N) then
+    else if (size(x) /=N) then
       call fatalError(Here,'Invallid size of result vector x. It is not size N')
 
-    else if ( any(shape(A) /= N)) then
+    else if (any(shape(A) /= N)) then
       call fatalError(Here,'Invalid shape of array A. Is not NxN')
 
     end if
@@ -447,7 +485,67 @@ contains
     ! Copy the results out
     x = B_t(:,1)
 
-  end subroutine solve
+  end subroutine solveReal
+
+  !! Solves linear system of equations of the form Ax = b for complex inputs.
+  !! Uses zgesv from lapack_gesv
+  !!
+  !! A - any NxN square real matrix
+  !! b - real vector of RHS of size N
+  !! x - result vector of size N
+  !!
+  !! Gives fatalError if input is invalid or solution A is singular
+  !!
+  subroutine solveComplex(A, x, b)
+    complex(defReal),dimension(:,:),intent(in) :: A
+    complex(defReal),dimension(:), intent(out) :: x
+    complex(defReal),dimension(:), intent(in)  :: b
+    complex(defReal),dimension(:,:),pointer    :: A_t, B_t
+    integer(shortInt),dimension(size(x))       :: pivot
+    integer(shortInt)                          :: N, mem, info
+    character(100),parameter                   :: Here = 'solveComplex (linearAlgebra_func.f90)'
+
+    ! Verify size of the inputs
+    N = size(A,1)
+
+    if (size(b) /= N) then
+      call fatalError(Here,'Invalid size of RHS vector b. It is not size N')
+
+    else if (size(x) /=N) then
+      call fatalError(Here,'Invallid size of result vector x. It is not size N')
+
+    else if (any(shape(A) /= N)) then
+      call fatalError(Here,'Invalid shape of array A. Is not NxN')
+
+    end if
+
+    ! Calculate memory required and ensure that memory is avalible
+    mem = N*N + N
+    call getMemComplex(mem)
+
+    ! Associate workspace memory with different variables
+    ! Use pointers to change ranks
+    A_t(1:N,1:N) => complexWorkspace(1:N*N)
+    B_t(1:N,1:1) => complexWorkspace(N*N+1 : N*N + N)
+
+    ! Copy input
+    A_t      = A
+    B_t(:,1) = b
+
+    ! Perform calculation
+    call lapack_gesv(N, 1, A_t, N, pivot, B_t, N, info)
+
+    if( info < 0) then
+      call fatalError(Here,'LINPACK procedure failed with error: '//numToChar(info))
+
+    else if(info > 0) then
+      call fatalError(Here,'LINPACK procedure failed. Matrix A is singular.')
+    end if
+
+    ! Copy the results out
+    x = B_t(:,1)
+
+  end subroutine solveComplex
 
   !!
   !! Solves a generalised adjoint problem for a GPT response
@@ -488,7 +586,7 @@ contains
     integer(shortInt)                        :: N, mem, maxIter, i
     real(defReal)                            :: dot
     logical(defBool)                         :: converged
-    character(100), parameter :: Here ='solveAdjointProblem ( linearAlgebra_func.f90)'
+    character(100), parameter :: Here = 'solveAdjointProblem ( linearAlgebra_func.f90)'
 
     ! Verify inputs
     N = size(A,1)
@@ -565,8 +663,7 @@ contains
   end subroutine solveAdjointProblem
 
   !!
-  !! Calculates real part of eigenvalues and
-  !! right eigenvectors of a square matrix A
+  !! Calculates real part of eigenvalues and right eigenvectors of a square matrix A
   !!
   !! A - any square real matrix
   !! k - vector of real part of the eigenvalue
@@ -643,6 +740,186 @@ contains
 
   end subroutine eig
 
+  !!
+  !! Forms a square identity matrix given the desired order as an input
+  !!
+  !! Args:
+  !!   order [input]     -> Order of matrix to be generated
+  !!   matrix [output] -> Identity matrix generated
+  !!
+  subroutine identityMatrix(order, matrix)
+    integer(shortInt), intent(in)              :: order
+    real(defReal), dimension(:,:), intent(out) :: matrix
+    integer(shortInt)                          :: i
+
+    ! Initialise matrix
+    matrix = ZERO
+
+    ! Fill the diagonal terms
+    do i = 1, order
+      matrix(i,i) = ONE
+    end do
+
+  end subroutine identityMatrix
+
+  !!
+  !! cram: Chebyshev Rational Approximation Method implementation.
+  !! Includes 4th, 16th and 48th order approximations.
+  !!
+  !! Finds action of a matrix exponential on a vector. Used in depletion calculations
+  !! to find the action of the exponentiated burnup matrix on the nuclide densities.
+  !!
+  !! Args:
+  !!   A [in]        -> Input matrix. Applied to depletion, it is the burnup
+  !!                    matrix multiplied by the timestep
+  !!   x [in]        -> Input array. Applied to depletion, this is the nuclide
+  !!                    density vector before a timestep
+  !!   order [inout] -> Order of desired CRAM solver. Only orders 4, 16 and 48 are supported
+  !!   y [out]       -> Output array. Applied to depletion, this is the nuclide
+  !!                    density vector after a timestep
+  !!
+  !! Errors:
+  !!   Fatal errors will be called if the input matrix is not square and if the
+  !!   input vector doesn't have the same size
+  !!
+  subroutine cram(A, x, order, y)
+    real(defReal), dimension(:,:), intent(in)   :: A
+    real(defReal), dimension(:), intent(in)     :: x
+    integer(shortInt), intent(inout)            :: order
+    real(defReal), dimension(:), intent(out)    :: y
+    complex(defReal), dimension(:), allocatable :: v1, v2
+    real(defReal), dimension(:,:), allocatable  :: I
+    complex(defReal), dimension(:), allocatable :: alpha, theta
+    real(defReal)                               :: alpha_zero
+    integer(shortInt)                           :: j, N
+    character(100),parameter :: Here = 'cram (linearAlgebra_func.f90)'
+
+    ! Verify if the size of the input matrix and vector are ok
+    N = size(A, 1)
+    if (N /= size(A, 2)) call fatalError(Here,'Input matrix is not square')
+    if (N /= size(x))    call fatalError(Here,'Input matrix does not have compatible &
+                                                        & dimensions with the input vector')
+
+    ! Allocate and create identity matrix and intermediate vectors
+    allocate(I(N,N), v1(N), v2(N))
+    call identityMatrix(N, I)
+
+    ! Initialise a complex vector as the real input vector
+    v1 = x
+
+   !! All the other required constants for CRAM are defined
+   !! Useful documentation: https://www.tandfonline.com/doi/abs/10.13182/NSE15-26
+   select case(order)
+
+    case (4)
+
+     allocate(alpha(order/2), theta(order/2))
+     alpha(1) = cmplx(1.237660664064637E+2, -7.922222292656543E+2)
+     alpha(2) = cmplx(1.156509240520614E+1, -5.582759641139007E+1)
+     theta(1) = cmplx(-3.678453861815398E-1, 3.658121298678667E+0)
+     theta(2) = cmplx(1.548393223297122E+0, 1.191822946627426E+0)
+
+     alpha_zero = 8.652240695288853E-5
+
+    case (16)
+
+     allocate(alpha(order/2), theta(order/2))
+     alpha(1) = cmplx(5.464930576870210E+3, -3.797983575308356E+4)
+     alpha(2) = cmplx(9.045112476907548E+1, -1.115537522430261E+3)
+     alpha(3) = cmplx(2.344818070467641E+2, -4.228020157070496E+2)
+     alpha(4) = cmplx(9.453304067358312E+1, -2.951294291446048E+2)
+     alpha(5) = cmplx(7.283792954673409E+2, -1.205646080220011E+5)
+     alpha(6) = cmplx(3.648229059594851E+1, -1.155509621409682E+2)
+     alpha(7) = cmplx(2.547321630156819E+1, -2.639500283021502E+1)
+     alpha(8) = cmplx(2.394538338734709E+1, -5.650522971778156E+0)
+     theta(1) = cmplx(3.509103608414918E+0, 8.436198985884374E+0)
+     theta(2) = cmplx(5.948152268951177E+0, 3.587457362018322E+0)
+     theta(3) = cmplx(-5.264971343442647E+0, 1.622022147316793E+1)
+     theta(4) = cmplx(1.419375897185666E+0, 1.092536348449672E+1)
+     theta(5) = cmplx(6.416177699099435E+0, 1.194122393370139E+0)
+     theta(6) = cmplx(4.993174737717997E+0, 5.996881713603942E+0)
+     theta(7) = cmplx(-1.413928462488886E+0, 1.349772569889275E+1)
+     theta(8) = cmplx(-1.084391707869699E+1, 1.927744616718165E+1)
+
+     alpha_zero = 2.124853710495224E-16
+
+   case default
+
+     ! Manually set the order to 48 if something different is provided
+     if (order /= 48) then
+       order = 48
+       print*, "The CRAM order has defaulted to 48. Only acceptable inputs are 4, 16, and 48"
+     end if
+
+     allocate(alpha(order/2), theta(order/2))
+     alpha(1) = cmplx(6.387380733878774E+2, -6.743912502859256E+2)
+     alpha(2) = cmplx(1.909896179065730E+2, -3.973203432721332E+2)
+     alpha(3) = cmplx(4.236195226571914E+2, -2.041233768918671E+3)
+     alpha(4) = cmplx(4.645770595258726E+2, -1.652917287299683E+3)
+     alpha(5) = cmplx(7.765163276752433E+2, -1.783617639907328E+4)
+     alpha(6) = cmplx(1.907115136768522E+3, -5.887068595142284E+4)
+     alpha(7) = cmplx(2.909892685603256E+3, -9.953255345514560E+3)
+     alpha(8) = cmplx(1.944772206620450E+2, -1.427131226068449E+3)
+     alpha(9) = cmplx(1.382799786972332E+5, -3.256885197214938E+6)
+     alpha(10) = cmplx(5.628442079602433E+3, -2.924284515884309E+4)
+     alpha(11) = cmplx(2.151681283794220E+2, -1.121774011188224E+3)
+     alpha(12) = cmplx(1.324720240514420E+3, -6.370088443140973E+4)
+     alpha(13) = cmplx(1.617548476343347E+4, -1.008798413156542E+6)
+     alpha(14) = cmplx(1.112729040439685E+2, -8.837109731680418E+1)
+     alpha(15) = cmplx(1.074624783191125E+2, -1.457246116408180E+2)
+     alpha(16) = cmplx(8.835727765158191E+1, -6.388286188419360E+1)
+     alpha(17) = cmplx(9.354078136054179E+1, -2.195424319460237E+2)
+     alpha(18) = cmplx(9.418142823531573E+1, -6.719055740098035E+2)
+     alpha(19) = cmplx(1.040012390717851E+2, -1.693747595553868E+2)
+     alpha(20) = cmplx(6.861882624343235E+1, -1.177598523430493E+1)
+     alpha(21) = cmplx(8.766654491283722E+1, -4.596464999363902E+3)
+     alpha(22) = cmplx(1.056007619389650E+2, -1.738294585524067E+3)
+     alpha(23) = cmplx(7.738987569039419E+1, -4.311715386228984E+1)
+     alpha(24) = cmplx(1.041366366475571E+2, -2.777743732451969E+2)
+     theta(1) = cmplx(-4.465731934165702E+1, 6.233225190695437E+1)
+     theta(2) = cmplx(-5.284616241568964E+0, 4.057499381311059E+1)
+     theta(3) = cmplx(-8.867715667624458E+0, 4.325515754166724E+1)
+     theta(4) = cmplx(3.493013124279215E+0, 3.281615453173585E+1)
+     theta(5) = cmplx(1.564102508858634E+1, 1.558061616372237E+1)
+     theta(6) = cmplx(1.742097597385893E+1, 1.076629305714420E+1)
+     theta(7) = cmplx(-2.834466755180654E+1, 5.492841024648724E+1)
+     theta(8) = cmplx(1.661569367939544E+1, 1.316994930024688E+1)
+     theta(9) = cmplx(8.011836167974721E+0, 2.780232111309410E+1)
+     theta(10) = cmplx(-2.056267541998229E+0, 3.794824788914354E+1)
+     theta(11) = cmplx(1.449208170441839E+1, 1.799988210051809E+1)
+     theta(12) = cmplx(1.853807176907916E+1, 5.974332563100539E+0)
+     theta(13) = cmplx(9.932562704505182E+0, 2.532823409972962E+1)
+     theta(14) = cmplx(-2.244223871767187E+1, 5.179633600312162E+1)
+     theta(15) = cmplx(8.590014121680897E-1, 3.536456194294350E+1)
+     theta(16) = cmplx(-1.286192925744479E+1, 4.600304902833652E+1)
+     theta(17) = cmplx(1.164596909542055E+1, 2.287153304140217E+1)
+     theta(18) = cmplx(1.806076684783089E+1, 8.368200580099821E+0)
+     theta(19) = cmplx(5.870672154659249E+0, 3.029700159040121E+1)
+     theta(20) = cmplx(-3.542938819659747E+1, 5.834381701800013E+1)
+     theta(21) = cmplx(1.901323489060250E+1, 1.194282058271408E+0)
+     theta(22) = cmplx(1.885508331552577E+1, 3.583428564427879E+0)
+     theta(23) = cmplx(-1.734689708174982E+1, 4.883941101108207E+1)
+     theta(24) = cmplx(1.316284237125190E+1, 2.042951874827759E+1)
+
+     alpha_zero = 2.258038182743983D-47 !  Note double precision.
+
+   end select
+
+    !! CRAM solver
+    !! OpenMC has good documentation on this:
+    !! https://docs.openmc.org/en/stable/methods/depletion.html#matrix-exponential
+    do j = 1, order/2
+      ! Solves Ax = b
+      call solveComplex(A - (I*theta(j)), v2, v1)
+      v1 = v1 + TWO * real(alpha(j)*v2)
+    end do
+
+    ! Complex vector now holds the result of CRAM
+    v1 = alpha_zero * v1
+    ! Output real part for physical calculations
+    y = real(v1)
+
+  end subroutine cram
 
   !!
   !! Makes sure that workspace is allocated and has size > N
@@ -664,14 +941,36 @@ contains
 
   end subroutine getMem
 
+  !!
+  !! Makes sure that complexWorkspace is allocated and has size > N
+  !! used in solveComplex subroutine
+  !!
+  subroutine getMemComplex(N)
+    integer(shortInt), intent(in) :: N
+
+    if(allocated(complexWorkspace)) then
+      ! Check that complex workspace has sufficient size
+      if(size(complexWorkspace) < N) then
+        deallocate(complexWorkspace)
+        allocate(complexWorkspace(N))
+      end if
+
+    else
+      allocate(complexWorkspace(N))
+
+    end if
+
+  end subroutine getMemComplex
 
   !!
   !! Returns module to its uninitialised state
   !!
   subroutine kill_linearAlgebra()
 
-    if(allocated(workspace)) deallocate(workspace)
+    if (allocated(workspace)) deallocate(workspace)
+    if (allocated(complexWorkspace)) deallocate(complexWorkspace)
 
   end subroutine kill_linearAlgebra
+
 
 end module linearAlgebra_func
