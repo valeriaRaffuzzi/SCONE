@@ -290,6 +290,7 @@ contains
       else
         call mem % getResult(val, std, self % getMemAddress() - 1 + i)
       end if
+      print *, val
       call outFile % addResult(val, std)
     end do
 
@@ -307,7 +308,7 @@ contains
         call mem % getResult(val, std, self % getMemAddress() - 1 + i)
       end if
 
-      print *, std, val, (std / val)**2,  mem % getSimTime()
+      !print *, std, val, (std / val)**2,  mem % getSimTime()
       FoM = ONE / (((std / val)**2) * mem % getSimTime())
       call outFile % addValue(FoM)
     end do

@@ -131,7 +131,7 @@ contains
     print *, repeat("<>",50)
     print *, "/\/\ TIME DEPENDENT CALCULATION /\/\"
 
-    !call self % cycles_efficient_2(self % tally, self % N_cycles, self % N_timeBins, self % timeIncrement, simTime)
+    !!!!!!!call self % cycles_efficient_2(self % tally, self % N_cycles, self % N_timeBins, self % timeIncrement, simTime)
     call self % cycles_efficient(self % tally, self % N_cycles, self % N_timeBins, self % timeIncrement, simTime)
     !call self % cycles(self % tally, self % N_cycles, self % N_timeBins, self % timeIncrement, simTime)
     call self % tally % setSimTime(simTime)
@@ -539,7 +539,7 @@ contains
     type(tallyAdmin), pointer,intent(inout)         :: tally
     real(defReal), intent(inout)                    :: simTime
     integer(shortInt), intent(in)                   :: N_timeBins, N_cycles
-    integer(shortInt)                               :: i, t, n, nParticles, batchPop, m, nBootstraps, idx
+    integer(shortInt)                               :: i, t, n, nParticles, batchPop, m, nBootstraps, idx, hyperparam
     integer(shortInt)                               :: particleBatchTracker, numParticlesPerBatch, numBatches, k
     integer(shortInt), save                         :: j
     type(particle), save                            :: p
@@ -583,13 +583,15 @@ contains
     call timerReset(self % timerMain)
     call timerStart(self % timerMain)
 
+    hyperparam = 100 !5,100,1000?
+
     print *, 'TIME = 1'
     ! First time iteration, fixed source treatment. TODO: add treatment of converged stationary initial source
     call self % fixedSource % generate(self % currentTimeInterval, nParticles, self % pRNG)
 
     particleBatchTracker = 1
 
-    numParticlesPerBatch = nParticles / 10 ! /10000
+    numParticlesPerBatch = nParticles / hyperparam ! /10
     numBatches = nParticles / numParticlesPerBatch !tune this hyperparameter
 
 
@@ -681,7 +683,10 @@ contains
       end if
 
       nParticles = self % currentTimeInterval % popSize()
-      print *, 'nParticles', nParticles
+
+      numParticlesPerBatch = nParticles / hyperparam ! /10
+      numBatches = nParticles / numParticlesPerBatch !tune this hyperparameter
+      print *, 'nParticles', nParticles, numBatches
 
       particleBatchTracker = 1
 
