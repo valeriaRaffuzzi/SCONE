@@ -1,4 +1,0 @@
-/home/mskrette/SCONE_cambridge_fork/SCONE/Build/CMakeFiles/_CMakeLTOTest-CXX/bin/CMakeFiles/rebuild_cache.dir
-/home/mskrette/SCONE_cambridge_fork/SCONE/Build/CMakeFiles/_CMakeLTOTest-CXX/bin/CMakeFiles/edit_cache.dir
-/home/mskrette/SCONE_cambridge_fork/SCONE/Build/CMakeFiles/_CMakeLTOTest-CXX/bin/CMakeFiles/foo.dir
-/home/mskrette/SCONE_cambridge_fork/SCONE/Build/CMakeFiles/_CMakeLTOTest-CXX/bin/CMakeFiles/boo.dir

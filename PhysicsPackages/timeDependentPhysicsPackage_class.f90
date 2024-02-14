@@ -132,11 +132,11 @@ contains
     print *, "/\/\ TIME DEPENDENT CALCULATION /\/\"
 
     !!!!!!!call self % cycles_efficient_2(self % tally, self % N_cycles, self % N_timeBins, self % timeIncrement, simTime)
-    call self % cycles_efficient(self % tally, self % N_cycles, self % N_timeBins, self % timeIncrement, simTime)
-    !call self % cycles(self % tally, self % N_cycles, self % N_timeBins, self % timeIncrement, simTime)
+    !call self % cycles_efficient(self % tally, self % N_cycles, self % N_timeBins, self % timeIncrement, simTime)
+    call self % cycles(self % tally, self % N_cycles, self % N_timeBins, self % timeIncrement, simTime)
     call self % tally % setSimTime(simTime)
-    call self % collectResults()
-    !call self % collectResults(self % N_timeBins)
+    !call self % collectResults()
+    call self % collectResults(self % N_timeBins)
 
     print *
     print *, "\/\/ END OF TIME DEPENDENT CALCULATION \/\/"
