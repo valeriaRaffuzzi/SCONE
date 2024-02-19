@@ -1,20 +1,15 @@
-type timeDependentPhysicsPackage;
+type fixedSourcePhysicsPackage;
 
-pop      1000000; //1000000
-timeSteps   5; //70
+pop      100000;
 XSdata   ce;
 dataType ce;
-timeIncrement 1.E-06;
-cycles 3; //10 worked well, try 25
 buffer 1000000;
-combing 1; //toggle on or off
-//precursors 0; //toggle on or off
-// need to implement number of batches!! and compute statistics thereof, look at fixed source
+cycles 5;
 
 outputFormat asciiJSON;
-collisionOperator { neutronCE {type neutronCEstd; minEnergy 1.0e-11; maxEnergy 20.0;}}
-
-transportOperator { type transportOperatorDT; //currently will only support this
+collisionOperator { neutronCE {type neutronCEstd;}
+                  }
+transportOperator { type transportOperatorDT;
                   }
 
 source {
@@ -26,16 +21,16 @@ source {
 }
 
 tally  {
-  //bootstrap 100;
-  //timeSteps  70;
-  //modified 1;
-  flux_time { type collisionClerk; //collisionClerk_class, energyMap_class, scoreMemory_class
-    //map { type timeMap; grid lin; min 0.0; max 7E-04; N 70;}
-    map { type timeMap; grid lin; min 0.0; max 5E-06; N 5;}
+  flux_time { type collisionClerk;
+    //map { type multiMap; maps (map1 map2); // this supported properly in current implementation?
+    //map1 { type cellMap; cells (8); }
+    //map2 { type timeMap; grid lin; min 0.0; max 7E-04; N 70;}
+    //} //make this work on averaged accross all cells, then fix multimap on time dependent
+    map { type energyMap; grid lin; min 0.0; max 14.1; N 70;}
     response (flux); flux {type fluxResponse;}
     handleVirtual 1;
   }
-  }
+}
 
 geometry {
     type geometryStd;
@@ -72,8 +67,7 @@ nuclearData {
     m1 {
       temp 12345;
       composition {
-        94239.03   0.0048;}
-        //13027.03   0.05803;}
+        13027.03   0.05803;}
     }
 }
 }

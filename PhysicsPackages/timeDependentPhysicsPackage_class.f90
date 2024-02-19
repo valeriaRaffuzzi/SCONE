@@ -168,8 +168,8 @@ contains
     allocate(self % nextTime(N_cycles))
 
     do i = 1, self % N_cycles
-      call self % currentTime(i) % init(self % pop)
-      call self % nextTime(i) % init(self % pop)
+      call self % currentTime(i) % init(15*self % pop)
+      call self % nextTime(i) % init(15*self % pop)
     end do
 
     !$omp parallel
@@ -206,16 +206,33 @@ contains
         call p % pRNG % stride(n)
 
         call self % currentTime(i) % copy(p, n)
-
+        p % fate = fine_FATE
         bufferLoop_t0: do
-          p % fate = 0
+
+          !!!!
+          if ((p % fate == aged_FATE) .or. (p % fate == fine_FATE)) then
+            !print *, p%fate, p % isdead
+            p % fate = fine_FATE
+            p % isdead = .false.
+          else
+            !print *, p % fate
+            p % isdead = .true.
+          end if
+          !!!!
+
+
+          !p % fate = 0
           call self % geom % placeCoord(p % coords)
           p % timeMax = timeIncrement
           call p % savePreHistory()
           history_t0: do
+            !!!
+            if(p % isDead) exit history_t0
+            !!!
             call transOp % transport(p, tally, buffer, buffer)
             if(p % isDead) exit history_t0
             if(p % fate == AGED_FATE) then
+              !print *, 'crossed'
               call self % nextTime(i) % detain(p)
               exit history_t0
             endif
@@ -236,7 +253,7 @@ contains
 
       call tally % reportCycleEnd(self % nextTime(i))
       call self % currentTime(i) % cleanPop()
-      call self % pRNG % stride(nParticles)
+      call self % pRNG % stride(nParticles + 1)
     end do
 
     self % tempTime  => self % nextTime
@@ -284,12 +301,29 @@ contains
           call self % currentTime(i) % copy(p, n)
 
           bufferLoop: do
-            p % fate = 0
+
+            !!!!
+            if ((p % fate == aged_FATE) .or. (p % fate == fine_FATE)) then
+              !print *, p%fate, p % isdead
+              p % fate = fine_FATE
+              p % isdead = .false.
+
+            else
+              !print *, 'WTF'
+              p % isdead = .true.
+            end if
+            !!!!
+
+
+
             call self % geom % placeCoord(p % coords)
             p % timeMax = t * timeIncrement
             call p % savePreHistory()
             ! Transport particle untill its death
             history: do
+              !!!
+              if(p % isDead) exit history
+              !!!
               call transOp % transport(p, tally, buffer, buffer)
               if(p % isDead) exit history
               if(p % fate == AGED_FATE) then
@@ -312,7 +346,7 @@ contains
         !$omp end parallel do
 
         call tally % reportCycleEnd(self % currentTime(i))
-        call self % pRNG % stride(nParticles)
+        call self % pRNG % stride(nParticles + 1)
         call self % currentTime(i) % cleanPop()
       end do
 

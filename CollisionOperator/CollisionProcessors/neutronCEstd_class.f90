@@ -190,19 +190,31 @@ contains
       rand1 = p % pRNG % get()     ! Random number to sample sites
 
       call self % nuc % getMicroXSs(microXSs, p % E, p % pRNG)
-      sig_nufiss = microXSs % nuFission
+      sig_nufiss = microXSs % nuFission    !this does both prompt and delayed. So only do prompt. Need to get from sapleprompt.
       sig_tot    = microXSs % total
 
       ! Sample number of fission sites generated
       ! Support -ve weight particles
+
+
+      !!!!
+      ! Get fission Reaction
+      fission => fissionCE_TptrCast(self % xsData % getReaction(N_FISSION, collDat % nucIdx))
+      if(.not.associated(fission)) call fatalError(Here, "Failed to get fissionCE")
+      sig_nufiss = fission % releasePrompt(p % E)
+      sig_nufiss = sig_nufiss * microXSs % fission
+      !if (n < 1) return
+      !!!!
+
+
       n = int(abs( (wgt * sig_nufiss) / (w0 * sig_tot * k_eff)) + rand1, shortInt)
 
       ! Shortcut particle generation if no particles were sampled
       if (n < 1) return
 
       ! Get fission Reaction
-      fission => fissionCE_TptrCast(self % xsData % getReaction(N_FISSION, collDat % nucIdx))
-      if(.not.associated(fission)) call fatalError(Here, "Failed to get fissionCE")
+      !fission => fissionCE_TptrCast(self % xsData % getReaction(N_FISSION, collDat % nucIdx))
+      !if(.not.associated(fission)) call fatalError(Here, "Failed to get fissionCE")
 
       ! Store new sites in the next cycle dungeon
       wgt =  sign(w0, wgt)
@@ -222,6 +234,9 @@ contains
         pTemp % dir = dir
         pTemp % E   = E_out
         pTemp % wgt = wgt
+        pTemp % time = p % time
+
+        pTemp % fate = 5004
 
         call nextCycle % detain(pTemp)
       end do
