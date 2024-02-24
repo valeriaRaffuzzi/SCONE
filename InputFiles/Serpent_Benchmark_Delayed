@@ -1,0 +1,126 @@
+type timeDependentPhysicsPackage;
+
+pop      200000; //1000000
+timeSteps   500; //500
+XSdata   ce;
+dataType ce;
+timeIncrement 6.0E-06; //8.E-10
+cycles 10; //10 worked well, try 25
+buffer 1000000;
+combing 0; //toggle on or off
+//precursors 0; //toggle on or off
+// need to implement number of batches!! and compute statistics thereof, look at fixed source
+
+outputFormat asciiJSON;
+collisionOperator { neutronCE {type neutronCEstd; minEnergy 1.0e-11; maxEnergy 20;}}
+
+transportOperator { type transportOperatorDT; //currently will only support this
+                  }
+
+source {
+  type pointSource;
+  r (0.0 0.0 10.0);
+  //dir (0.0 0.0 0.0); no dir, isentropic
+  particle neutron;
+  E 1.0E-6;
+}
+
+tally  {
+  //bootstrap 100;
+  //timeSteps  70;
+  //modified 1;
+  flux_time { type collisionClerk; //collisionClerk_class, energyMap_class, scoreMemory_class
+    map { type multiMap; maps (map1 map2);
+    map1 { type timeMap; grid lin; min 0.0; max 3E-3; N 500;} // max 400E-09; N 500;} 
+    map2 { type cellMap; cells (1); } 
+    }
+    response (flux); flux {type fluxResponse;}
+    handleVirtual 1;
+  }
+  }
+
+geometry {
+    type geometryStd;
+    boundary (0 0 0 0 0 0);
+    graph {type shrunk;}
+
+    surfaces
+    {
+      surf1 { id 1; type zTruncCylinder; origin (0.0 0.0 23.415); halfwidth 23.415; radius 29.5; }
+      surf2 { id 2; type zTruncCylinder; origin (0.0 0.0 98.415); halfwidth 51.585; radius 29.5; }
+
+      surf3 { id 3; type zTruncCylinder; origin (0.0 0.0 151.25); halfwidth 1.25; radius 29.8; }
+      surf4 { id 4; type zTruncCylinder; origin (0.0 0.0 -1.0); halfwidth 1.0; radius 29.8; }
+
+
+      surf5 { id 5; type zTruncCylinder; origin (0.0 0.0 75.0); halfwidth 75.0; radius 29.5; }
+      surf6 { id 6; type zTruncCylinder; origin (0.0 0.0 75.0); halfwidth 75.0; radius 29.8; }
+
+      surf7 { id 7; type zTruncCylinder; origin (0.0 0.0 75.25); halfwidth 77.25; radius 29.8; }
+    } 
+
+    cells
+    {
+      cellOne { id 1; type simpleCell; surfaces (-1); filltype mat; material m1;} 
+      cellTwo { id 2; type simpleCell; surfaces (-2); filltype mat; material m3;}
+      cellThree { id 3; type simpleCell; surfaces (5 -6); filltype mat; material m2;}
+      cellFour { id 4; type simpleCell; surfaces (-4); filltype mat; material m2;}
+      cellFive { id 5; type simpleCell; surfaces (-3); filltype mat; material m2;} 
+
+ 
+    }
+
+
+    universes
+    {
+
+      root{id 1; type rootUniverse; border 7; fill u<2>;}
+      geom { id 2; type cellUniverse; cells ( 1 2 3 4 5);}
+    }
+}
+
+nuclearData {
+  handles {
+    ce { type aceNeutronDatabase; aceLibrary $SCONE_ACE;} }
+  materials {
+
+    m1 {
+      temp 12345;
+      composition {
+      1001.03     5.6707E-02;
+      7014.03     2.9406E-03;
+      8016.03     3.8084E-02;
+     92234.03     6.4430E-07;
+     92235.03     7.9954E-05;
+     92236.03     7.9854E-08;
+     92238.03     7.1216E-04;
+        }
+      //moder { 1001.00 lwe7v2; }
+    }
+
+    m2 {
+      temp 12345;
+      composition {
+      6000.03 4.3736e-5;
+     14000.03 1.0627e-3;
+     25055.03 1.1561e-3;
+     15031.03 4.3170e-5;
+     16000.03 2.9782e-6;
+     28000.03 8.3403e-3;
+     24000.03 1.6775e-2;
+     26000.03 5.9421e-2;
+      }
+
+      }
+
+    m3 {
+      temp 12345;
+      composition {
+      7014.03 3.9016e-5;
+      8016.03 1.0409e-5;
+      }
+
+    }
+
+  }
+}

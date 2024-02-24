@@ -5,7 +5,7 @@ timeSteps   500; //500
 XSdata   ce;
 dataType ce;
 timeIncrement 8.E-10; //8.E-10
-cycles 10; //10 worked well, try 25
+cycles 100; //10 worked well, try 25
 buffer 1000000;
 combing 0; //toggle on or off
 //precursors 0; //toggle on or off
