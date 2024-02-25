@@ -236,8 +236,10 @@ contains
               call self % nextTime(i) % detain(p)
               exit history_t0
             endif
+            if(p % fate /= fine_FATE) exit history_t0
             call collOp % collide(p, tally, buffer, buffer)!self % precursorDungeons(i))
             if(p % isDead) exit history_t0
+            if(p % fate /= fine_FATE) exit history_t0
           end do history_t0
 
           ! Clear out buffer
@@ -330,8 +332,10 @@ contains
                 call self % nextTime(i) % detain(p)
                 exit history
               endif
+              if(p % fate /= fine_FATE) exit history
               call collOp % collide(p, tally, buffer, buffer)!self % precursorDungeons(i))
               if(p % isDead) exit history
+              if(p % fate /= fine_FATE) exit history
             end do history
 
             ! Clear out buffer

@@ -160,7 +160,7 @@ contains
 
     ! Report end-of-history if particle was killed
     if( p % isDead) then
-      p % fate = ABS_FATE_2
+      p % fate = ABS_FATE
       call tally % reportHist(p)
     end if
 

@@ -234,38 +234,38 @@ contains
     ! Sample E_out
     E_out = self % eLawPrompt % sample(E_in, rand)
 
-    ! Calculate delayed emission probability
-    if(allocated(self % delayed)) then
-      p_del = self % releaseDelayed(E_in) / self % release(E_in)
-    else
-      p_del = ZERO
-    end if
-
-    r1 = rand % get()
-    if( r1 > p_del ) then ! Prompt emission
-      E_out = self % eLawPrompt % sample(E_in, rand)
-      if(present(lambda)) lambda = huge(lambda)
-
-    else ! Delayed emission
-      r2 = rand % get()
-
-      ! Loop over precursor groups
-      precursors: do i=1,size(self % delayed)
-        r2 = r2 - self % delayed(i) % prob % at(E_in)
-        if( r2 < ZERO) then
-          E_out = self % delayed(i) % eLaw % sample(E_in, rand)
-          if(present(lambda)) lambda = self % delayed(i) % lambda
-          return
-
-        end if
-      end do precursors
-
-      ! Sampling failed -> Choose top precursor group
-      N = size(self % delayed)
-      E_out = self % delayed(N) % eLaw % sample(E_in, rand)
-      if(present(lambda)) lambda = self % delayed(N) % lambda
-
-    end if
+!    ! Calculate delayed emission probability
+!    if(allocated(self % delayed)) then
+!      p_del = self % releaseDelayed(E_in) / self % release(E_in)
+!    else
+!      p_del = ZERO
+!    end if
+!
+!    r1 = rand % get()
+!    if( r1 > p_del ) then ! Prompt emission
+!      E_out = self % eLawPrompt % sample(E_in, rand)
+!      if(present(lambda)) lambda = huge(lambda)
+!
+!    else ! Delayed emission
+!      r2 = rand % get()
+!
+!      ! Loop over precursor groups
+!      precursors: do i=1,size(self % delayed)
+!        r2 = r2 - self % delayed(i) % prob % at(E_in)
+!        if( r2 < ZERO) then
+!          E_out = self % delayed(i) % eLaw % sample(E_in, rand)
+!          if(present(lambda)) lambda = self % delayed(i) % lambda
+!          return
+!
+!        end if
+!      end do precursors
+!
+!      ! Sampling failed -> Choose top precursor group
+!      N = size(self % delayed)
+!      E_out = self % delayed(N) % eLaw % sample(E_in, rand)
+!      if(present(lambda)) lambda = self % delayed(N) % lambda
+!
+!    end if
   end subroutine sampleOut
 
   !!

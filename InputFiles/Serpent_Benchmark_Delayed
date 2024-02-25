@@ -1,6 +1,6 @@
 type timeDependentPhysicsPackage;
 
-pop      200000; //1000000
+pop      100000; //+2
 timeSteps   500; //500
 XSdata   ce;
 dataType ce;
@@ -35,7 +35,7 @@ tally  {
     map2 { type cellMap; cells (1); } 
     }
     response (flux); flux {type fluxResponse;}
-    handleVirtual 1;
+    //handleVirtual 1;
   }
   }
 
@@ -49,8 +49,8 @@ geometry {
       surf1 { id 1; type zTruncCylinder; origin (0.0 0.0 23.415); halfwidth 23.415; radius 29.5; }
       surf2 { id 2; type zTruncCylinder; origin (0.0 0.0 98.415); halfwidth 51.585; radius 29.5; }
 
-      surf3 { id 3; type zTruncCylinder; origin (0.0 0.0 151.25); halfwidth 1.25; radius 29.8; }
-      surf4 { id 4; type zTruncCylinder; origin (0.0 0.0 -1.0); halfwidth 1.0; radius 29.8; }
+      surf3 { id 3; type zTruncCylinder; origin (0.0 0.0 151.25); halfwidth 1.25; radius 29.8; } //29.8
+      surf4 { id 4; type zTruncCylinder; origin (0.0 0.0 -1.0); halfwidth 1.0; radius 29.8; } //29.8
 
 
       surf5 { id 5; type zTruncCylinder; origin (0.0 0.0 75.0); halfwidth 75.0; radius 29.5; }

@@ -190,7 +190,7 @@ contains
       rand1 = p % pRNG % get()     ! Random number to sample sites
 
       call self % nuc % getMicroXSs(microXSs, p % E, p % pRNG)
-      sig_nufiss = microXSs % nuFission    !this does both prompt and delayed. So only do prompt. Need to get from sapleprompt.
+      !sig_nufiss = microXSs % nuFission    !this does both prompt and delayed. So only do prompt. Need to get from sapleprompt.
       sig_tot    = microXSs % total
 
       ! Sample number of fission sites generated
@@ -201,8 +201,8 @@ contains
       ! Get fission Reaction
       fission => fissionCE_TptrCast(self % xsData % getReaction(N_FISSION, collDat % nucIdx))
       if(.not.associated(fission)) call fatalError(Here, "Failed to get fissionCE")
-      sig_nufiss = fission % releasePrompt(p % E)
-      sig_nufiss = sig_nufiss * microXSs % fission
+      sig_nufiss = fission % releasePrompt(p % E) * microXSs % fission
+      !sig_nufiss = sig_nufiss * microXSs % fission
       !if (n < 1) return
       !!!!
 
