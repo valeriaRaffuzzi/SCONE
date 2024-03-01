@@ -91,16 +91,10 @@ module timeDependentPhysicsPackage_class
     real(defReal) :: avWgt = 0.5
 
     ! Calculation components
-    type(particleDungeon), pointer, dimension(:) :: currentTime  => null()
-    type(particleDungeon), pointer, dimension(:) :: nextTime     => null()
-    type(particleDungeon), pointer, dimension(:) :: tempTime     => null()
-
-    type(particleDungeon), pointer :: thisTimeInterval  => null()
-    type(particleDungeon), pointer :: currentTimeInterval  => null()
-    type(particleDungeon), pointer :: nextTimeInterval     => null()
-    type(particleDungeon), pointer :: tempTimeInterval     => null()
-    type(particleDungeon), pointer :: precursorDungeon     => null() 
-    type(particleDungeon), pointer :: bootstrapTimeInterval  => null() 
+    type(particleDungeon), pointer, dimension(:) :: currentTime       => null()
+    type(particleDungeon), pointer, dimension(:) :: nextTime          => null()
+    type(particleDungeon), pointer, dimension(:) :: tempTime          => null()
+    type(particleDungeon), pointer, dimension(:) :: precursorDungeons => null() 
     real(defReal), dimension(:), allocatable :: precursorWeights
     class(source), allocatable     :: fixedSource
 
@@ -212,8 +206,9 @@ contains
               p % isdead = .true.
             end if
             !!!!
-
-
+            !if (n == 1) then
+            !  print *, '1', p % fate, p % isDead
+            !end if
 
             call self % geom % placeCoord(p % coords)
             p % timeMax = t * timeIncrement
@@ -226,6 +221,7 @@ contains
               call transOp % transport(p, tally, buffer, buffer)
               if(p % isDead) exit history
               if(p % fate == AGED_FATE) then
+                !p % fate = 0
                 call self % nextTime(i) % detain(p)
                 exit history
               endif
@@ -240,6 +236,9 @@ contains
               exit bufferLoop
             else
               call buffer % release(p)
+              !if (n == 1) then
+              !print *, '2', p % fate, p % isDead
+              !end if
             end if
 
           end do bufferLoop
@@ -436,14 +435,16 @@ contains
     allocate(self % nextTime(self % N_cycles))
 
     do i = 1, self % N_cycles
-      call self % currentTime(i) % init(2*self % pop)
-      call self % nextTime(i) % init(2*self % pop)
+      call self % currentTime(i) % init(15*self % pop)
+      call self % nextTime(i) % init(15*self % pop)
     end do
 
+    ! Size precursor dungeon
     if (self % usePrecursors) then
-      ! Size precursor dungeon
-      allocate(self % precursorDungeon)
-      call self % precursorDungeon % init(10 * self % pop)
+      allocate(self % precursorDungeons(self % N_cycles))
+      do i = 1, self % N_cycles
+        call self % precursorDungeons(i) % init(self % pop)
+      end do
     end if
 
     call self % printSettings()
