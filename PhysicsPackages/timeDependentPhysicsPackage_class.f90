@@ -196,9 +196,9 @@ contains
           bufferLoop: do
 
             !!!!
-            if ((p % fate == aged_FATE) .or. (p % fate == fine_FATE)) then
+            if ((p % fate == aged_FATE) .or. (p % fate == no_FATE)) then
               !print *, p%fate, p % isdead
-              p % fate = fine_FATE
+              p % fate = no_FATE
               p % isdead = .false.
 
             else
@@ -206,9 +206,9 @@ contains
               p % isdead = .true.
             end if
             !!!!
-            !if (n == 1) then
-            !  print *, '1', p % fate, p % isDead
-            !end if
+            if (p % fate == aged_FATE) then
+              print *, p % fate , p % isDead
+            end if
 
             call self % geom % placeCoord(p % coords)
             p % timeMax = t * timeIncrement
@@ -216,19 +216,18 @@ contains
             ! Transport particle untill its death
             history: do
               !!!
-              if(p % isDead) exit history
+              !if(p % isDead) exit history
               !!!
               call transOp % transport(p, tally, buffer, buffer)
               if(p % isDead) exit history
               if(p % fate == AGED_FATE) then
-                !p % fate = 0
                 call self % nextTime(i) % detain(p)
                 exit history
               endif
-              if(p % fate /= fine_FATE) exit history
+              if(p % fate /= no_FATE) exit history
               call collOp % collide(p, tally, buffer, buffer)!self % precursorDungeons(i))
               if(p % isDead) exit history
-              if(p % fate /= fine_FATE) exit history
+              if(p % fate /= no_FATE) exit history
             end do history
 
             ! Clear out buffer
@@ -435,8 +434,8 @@ contains
     allocate(self % nextTime(self % N_cycles))
 
     do i = 1, self % N_cycles
-      call self % currentTime(i) % init(15*self % pop)
-      call self % nextTime(i) % init(15*self % pop)
+      call self % currentTime(i) % init(2*self % pop)
+      call self % nextTime(i) % init(2*self % pop)
     end do
 
     ! Size precursor dungeon

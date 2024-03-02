@@ -2,6 +2,7 @@ module particle_class
 
   use numPrecision
   use universalVariables
+  use tallyCodes
   use genericProcedures
   use coord_class,       only : coordList
   use RNG_class,         only : RNG
@@ -53,7 +54,7 @@ module particle_class
     real(defReal)              :: E    = ZERO       ! Energy
     integer(shortInt)          :: G    = 0          ! Energy group
     logical(defBool)           :: isMG = .false.    ! Is neutron multi-group
-    integer(shortInt)          :: fate = 5004 
+    integer(shortInt)          :: fate = no_FATE    !Neutron's fate after being subjected to an operator
     integer(shortInt)          :: type = P_NEUTRON  ! Particle physical type
     real(defReal)              :: time = ZERO       ! Particle time position
     real(defReal),dimension(precursorGroups):: lambda_i = -ONE   ! Precursor decay constants
@@ -121,7 +122,7 @@ module particle_class
     logical(defBool)           :: isDead
     logical(defBool)           :: isMG
     real(defReal)              :: timeMax = ZERO ! Maximum neutron time before cut-off
-    integer(shortInt)          :: fate = 5004       ! Neutron's fate after being subjected to an operator
+    integer(shortInt)          :: fate = no_FATE ! Neutron's fate after being subjected to an operator
     integer(shortInt)          :: type           ! Particle type
 
     ! Particle processing information
@@ -334,8 +335,7 @@ contains
     LHS % lambda_i              = RHS % lambda_i
     LHS % fd_i                  = RHS % fd_i
     LHS % E_out_i               = RHS % E_out_i
-
-    LHS % fate               = RHS % fate    
+    LHS % fate                  = RHS % fate    
 
   end subroutine particle_fromParticleState
 
@@ -890,7 +890,6 @@ contains
     isEqual = isEqual .and. LHS % matIdx   == RHS % matIdx
     isEqual = isEqual .and. LHS % cellIdx  == RHS % cellIdx
     isEqual = isEqual .and. LHS % uniqueID == RHS % uniqueID
-
     isEqual = isEqual .and. LHS % fate == RHS % fate
 
     if( LHS % isMG ) then

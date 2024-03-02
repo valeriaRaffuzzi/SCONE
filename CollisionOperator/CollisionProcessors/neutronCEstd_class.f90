@@ -236,8 +236,6 @@ contains
         pTemp % wgt = wgt
         pTemp % time = p % time
 
-        pTemp % fate = 5004
-
         call nextCycle % detain(pTemp)
       end do
     end if

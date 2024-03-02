@@ -19,10 +19,10 @@ module tallyCodes
                                         cycleEnd_CODE   = 1006
 
   ! List of codes for different particle fates
-  integer(shortInt),parameter,public :: abs_FATE  = 5000 ,&
-                                        leak_FATE = 5001 ,&
-                                        lost_FATE = 5002 ,&
-                                        aged_FATE = 5003 ,&
-                                        fine_FATE = 5004
+  integer(shortInt),parameter,public :: no_FATE   = 5000, &
+                                        abs_FATE  = 5001, &
+                                        leak_FATE = 5002, &
+                                        lost_FATE = 5003, &
+                                        aged_FATE = 5004
 
 end module tallyCodes
