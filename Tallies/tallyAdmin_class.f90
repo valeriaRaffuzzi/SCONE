@@ -151,22 +151,6 @@ module tallyAdmin_class
 
     procedure,private :: addToReports
 
-    procedure :: closeBootstrap
-
-    procedure :: getNbootstraps
-
-    procedure :: initScoreBootstrap
-
-    procedure :: closePlugInCycle
-
-    procedure :: closePlugInCycleModified
-
-    procedure :: bootstrapPlugIn
-
-    procedure :: setBootstrapScore
-
-    procedure :: setSimTime
-
   end type tallyAdmin
 
 contains
@@ -234,13 +218,8 @@ contains
     ! Initialise score memory
     ! Calculate required size.
     memSize = sum( self % tallyClerks % getSize() )
-    if ((bootstrap == 0) .and. (timeSteps == 0)) then
-      call self % mem % init(memSize, 1, batchSize = cyclesPerBatch)
-    else if ((bootstrap /= 0) .and. (timeSteps /= 0) .and. (m == 0)) then
-      call self % mem % init(memSize, 1, batchSize = cyclesPerBatch, bootstrap = bootstrap, timeSteps = timeSteps)
-    else if ((bootstrap /= 0) .and. (timeSteps /= 0) .and. (m /= 0))  then
-      call self % mem % init(memSize, 1, batchSize = cyclesPerBatch, bootstrap = bootstrap, timeSteps = timeSteps, modified = m)
-    end if
+    call self % mem % init(memSize, 1, batchSize = cyclesPerBatch)
+
     ! Assign memory locations to the clerks
     memLoc = 1
     do i=1,size(self % tallyClerks)
@@ -826,63 +805,5 @@ contains
     end select
 
   end subroutine addToReports
-
-
-subroutine closeBootstrap(self, binIdx, bootstrapIdx)
-  class(tallyAdmin),intent(inout) :: self
-  integer(shortInt), intent(in)   :: binIdx, bootstrapIdx
-
-  call self % mem % closeBootstrap(binIdx, bootstrapIdx) 
-
-end subroutine closeBootstrap
-
-function getNbootstraps(self) result(nBootstraps)
-  class(tallyAdmin),intent(inout) :: self
-  integer(shortInt)               :: nBootstraps
-  nBootstraps = self % mem % getNbootstraps()
-end function getNbootstraps
-
-
-subroutine initScoreBootstrap(self, nParticles)
-  class(tallyAdmin),intent(inout) :: self
-  integer(shortInt), intent(in) :: nParticles
-
-  call self % mem % initScoreBootstrap(nParticles)
-end subroutine initScoreBootstrap
-
-subroutine closePlugInCycle(self, n, binIdx)
-  class(tallyAdmin),intent(inout) :: self
-  integer(shortInt), intent(in) :: n, binIdx
-
-  call self % mem % closePlugInCycle(n, binIdx)
-end subroutine closePlugInCycle
-
-subroutine closePlugInCycleModified(self, k, binIdx)
-  class(tallyAdmin),intent(inout) :: self
-  integer(shortInt), intent(in) :: k, binIdx
-
-  call self % mem % closePlugInCycleModified(k, binIdx)
-end subroutine closePlugInCycleModified
-
-subroutine bootstrapPlugIn(self, nBootstraps, pRNG, N_timeBins, binIdx)
-  class(tallyAdmin),intent(inout) :: self
-  integer(shortInt), intent(in) :: nBootstraps, N_timeBins, binIdx
-  type(RNG), intent(inout)    :: pRNG
-
-  call self % mem % bootstrapPlugIn(nBootstraps, pRNG, N_timeBins, binIdx)
-end subroutine bootstrapPlugIn
-
-subroutine setBootstrapScore(self)
-  class(tallyAdmin),intent(inout) :: self
-
-  call self % mem % setBootstrapScore()
-end subroutine setBootstrapScore
-
-subroutine setSimTime(self, simTime)
-  class(tallyAdmin),intent(inout) :: self
-  real(defReal), intent(in) :: simTime
-
-  call self % mem % setSimTime(simTime)
-end subroutine setSimTime
 
 end module tallyAdmin_class

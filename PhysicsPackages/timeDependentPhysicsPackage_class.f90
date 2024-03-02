@@ -124,7 +124,6 @@ contains
     print *, "/\/\ TIME DEPENDENT CALCULATION /\/\"
 
     call self % cycles(self % tally, self % N_cycles, self % N_timeBins, self % timeIncrement, simTime)
-    call self % tally % setSimTime(simTime)
     call self % collectResults(self % N_timeBins)
 
     print *
@@ -183,7 +182,6 @@ contains
         end if
 
         call tally % reportCycleStart(self % currentTime(i))
-
         nParticles = self % currentTime(i) % popSize()
 
         !$omp parallel do schedule(dynamic)
@@ -195,39 +193,28 @@ contains
 
           bufferLoop: do
 
-            !!!!
             if ((p % fate == aged_FATE) .or. (p % fate == no_FATE)) then
-              !print *, p%fate, p % isdead
               p % fate = no_FATE
               p % isdead = .false.
-
             else
-              !print *, 'WTF'
               p % isdead = .true.
-            end if
-            !!!!
-            if (p % fate == aged_FATE) then
-              print *, p % fate , p % isDead
             end if
 
             call self % geom % placeCoord(p % coords)
             p % timeMax = t * timeIncrement
             call p % savePreHistory()
+
             ! Transport particle untill its death
             history: do
-              !!!
-              !if(p % isDead) exit history
-              !!!
+              if(p % isDead) exit history
               call transOp % transport(p, tally, buffer, buffer)
               if(p % isDead) exit history
               if(p % fate == AGED_FATE) then
                 call self % nextTime(i) % detain(p)
                 exit history
               endif
-              if(p % fate /= no_FATE) exit history
-              call collOp % collide(p, tally, buffer, buffer)!self % precursorDungeons(i))
+              call collOp % collide(p, tally, buffer, buffer)
               if(p % isDead) exit history
-              if(p % fate /= no_FATE) exit history
             end do history
 
             ! Clear out buffer
@@ -235,9 +222,6 @@ contains
               exit bufferLoop
             else
               call buffer % release(p)
-              !if (n == 1) then
-              !print *, '2', p % fate, p % isDead
-              !end if
             end if
 
           end do bufferLoop
@@ -434,8 +418,8 @@ contains
     allocate(self % nextTime(self % N_cycles))
 
     do i = 1, self % N_cycles
-      call self % currentTime(i) % init(2*self % pop)
-      call self % nextTime(i) % init(2*self % pop)
+      call self % currentTime(i) % init(15*self % pop)
+      call self % nextTime(i) % init(15*self % pop)
     end do
 
     ! Size precursor dungeon

@@ -53,6 +53,7 @@ module particle_class
     real(defReal),dimension(3) :: dir  = ZERO       ! Global direction
     real(defReal)              :: E    = ZERO       ! Energy
     integer(shortInt)          :: G    = 0          ! Energy group
+    logical(defBool)           :: isDead
     logical(defBool)           :: isMG = .false.    ! Is neutron multi-group
     integer(shortInt)          :: fate = no_FATE    !Neutron's fate after being subjected to an operator
     integer(shortInt)          :: type = P_NEUTRON  ! Particle physical type
@@ -329,6 +330,7 @@ contains
     LHS % coords % lvl(1) % dir = RHS % dir
     LHS % E                     = RHS % E
     LHS % G                     = RHS % G
+    LHS % isDead                = RHS % isDead
     LHS % isMG                  = RHS % isMG
     LHS % type                  = RHS % type
     LHS % time                  = RHS % time
@@ -854,15 +856,16 @@ contains
     class(particleState), intent(out)  :: LHS
     class(particle), intent(in)        :: RHS
 
-    LHS % wgt  = RHS % w
-    LHS % r    = RHS % rGlobal()
-    LHS % dir  = RHS % dirGlobal()
-    LHS % E    = RHS % E
-    LHS % G    = RHS % G
-    LHS % isMG = RHS % isMG
-    LHS % type = RHS % type
-    LHS % time = RHS % time
-    LHS % fate = RHS % fate
+    LHS % wgt    = RHS % w
+    LHS % r      = RHS % rGlobal()
+    LHS % dir    = RHS % dirGlobal()
+    LHS % E      = RHS % E
+    LHS % G      = RHS % G
+    LHS % isDead = RHS % isDead
+    LHS % isMG   = RHS % isMG
+    LHS % type   = RHS % type
+    LHS % time   = RHS % time
+    LHS % fate   = RHS % fate
 
     ! Save all indexes
     LHS % matIdx   = RHS % coords % matIdx
@@ -885,6 +888,7 @@ contains
     isEqual = isEqual .and. all(LHS % r   == RHS % r)
     isEqual = isEqual .and. all(LHS % dir == RHS % dir)
     isEqual = isEqual .and. LHS % time == RHS % time
+    isEqual = isEqual .and. LHS % isDead .eqv. RHS % isDead
     isEqual = isEqual .and. LHS % isMG .eqv. RHS % isMG
     isEqual = isEqual .and. LHS % type == RHS % type
     isEqual = isEqual .and. LHS % matIdx   == RHS % matIdx
