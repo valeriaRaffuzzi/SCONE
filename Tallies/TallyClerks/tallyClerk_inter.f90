@@ -200,15 +200,13 @@ module tallyClerk_inter
     !!   outFile [inout] -> Output File object
     !!   mem [in]        -> Score Memory with data
     !!
-    subroutine print(self, outFile, mem, NtimeBins)
+    subroutine print(self, outFile, mem)
       import :: tallyClerk, &
                 outputFile, &
-                scoreMemory, &
-                shortInt
+                scoreMemory
       class(tallyClerk), intent(in)    :: self
       class(outputFile), intent(inout) :: outFile
       type(scoreMemory), intent(in)    :: mem
-      integer(shortInt), optional, intent(in) :: NtimeBins
     end subroutine print
 
   end interface

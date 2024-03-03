@@ -124,7 +124,7 @@ contains
     print *, "/\/\ TIME DEPENDENT CALCULATION /\/\"
 
     call self % cycles(self % tally, self % N_cycles, self % N_timeBins, self % timeIncrement, simTime)
-    call self % collectResults(self % N_timeBins)
+    call self % collectResults()
 
     print *
     print *, "\/\/ END OF TIME DEPENDENT CALCULATION \/\/"
@@ -140,7 +140,6 @@ contains
     real(defReal), intent(inout)                    :: simTime
     integer(shortInt), intent(in)                   :: N_timeBins, N_cycles
     integer(shortInt)                               :: i, t, n, nParticles
-    integer(shortInt), save                         :: j
     type(particle), save                            :: p
     type(particleDungeon), save                     :: buffer
     type(collisionOperator), save                   :: collOp
@@ -172,7 +171,6 @@ contains
     call timerStart(self % timerMain)
 
     do t = 1, N_timeBins
-
       do i = 1, N_cycles
 
         if (t == 1) then 
@@ -254,21 +252,18 @@ contains
       print *, 'Time to end:  ', trim(secToChar(T_toEnd))
       call tally % display()
 
+      call tally % setNumBatchesPerTimeStep(N_cycles)
     end do
-
-
 
   end subroutine cycles
 
   !!
   !! Print calculation results to file
   !!
-  subroutine collectResults(self, NtimeBins)
+  subroutine collectResults(self)
     class(timeDependentPhysicsPackage), intent(inout) :: self
-    integer(shortInt), optional, intent(in)           :: NtimeBins !only for cycles
-    type(outputFile)                                :: out
-    character(nameLen)                              :: name
-    integer(shortInt)                               :: i
+    type(outputFile)                                  :: out
+    character(nameLen)                                :: name
 
     call out % init(self % outputFormat)
 
@@ -295,11 +290,7 @@ contains
     call out % printValue(timerTime(self % timerMain),name)
 
     ! Print tally
-    if (present(NtimeBins)) then
-      call self % tally % print(out, NtimeBins)
-    else
-      call self % tally % print(out)
-    end if
+    call self % tally % print(out)
 
     call out % writeToFile(self % outputFile)
 
@@ -418,8 +409,8 @@ contains
     allocate(self % nextTime(self % N_cycles))
 
     do i = 1, self % N_cycles
-      call self % currentTime(i) % init(15*self % pop)
-      call self % nextTime(i) % init(15*self % pop)
+      call self % currentTime(i) % init(2*self % pop)
+      call self % nextTime(i) % init(2*self % pop)
     end do
 
     ! Size precursor dungeon

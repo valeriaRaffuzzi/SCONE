@@ -74,6 +74,7 @@ module tallyAdmin_class
   !!   getResult        -> Return tallyResult object from a named Clerk
   !!   display     -> Call "display" on all Clerks registered to display
   !!   isConverged -> Return .true. if all convergance targets have been reached
+  !!   setNumBatchesPerTimeStep -> sets batchN in scoreMemory
   !!   print       -> Prints results to an output file object
   !!
   !! SAMPLE DICTIOANRY INPUT:
@@ -145,6 +146,9 @@ module tallyAdmin_class
 
     ! Convergance check
     procedure :: isConverged
+
+    ! Number of batches per time step for kinetic
+    procedure :: setNumBatchesPerTimeStep
 
     ! File writing procedures
     procedure :: print
@@ -411,6 +415,23 @@ contains
   end function isConverged
 
   !!
+  !! Set number of batches used per time step in ScoreMemory
+  !!
+  !! Args:
+  !!   batchN
+  !!
+  !! Errors:
+  !!   None
+  !!
+  subroutine setNumBatchesPerTimeStep(self, batchN) 
+    class(tallyAdmin), intent(inout) :: self
+    integer(shortInt), intent(in) :: batchN
+
+    call self % mem % setNumBatchesPerTimeStep(batchN)
+
+  end subroutine setNumBatchesPerTimeStep
+
+  !!
   !! Add all results to outputfile
   !!
   !! Args:
@@ -419,10 +440,9 @@ contains
   !! Errors:
   !!   None
   !!
-  subroutine print(self,output, NtimeBins)
+  subroutine print(self,output)
     class(tallyAdmin), intent(in)    :: self
     class(outputFile), intent(inout) :: output
-    integer(shortInt), optional, intent(in) :: NtimeBins
     integer(shortInt)                :: i
     character(nameLen)               :: name
 
@@ -432,11 +452,7 @@ contains
 
     ! Print Clerk results
     do i=1,size(self % tallyClerks)
-      if (present(NtimeBins)) then
-        call self % tallyClerks(i) % print(output, self % mem, NtimeBins)
-      else
-        call self % tallyClerks(i) % print(output, self % mem)
-      end if
+      call self % tallyClerks(i) % print(output, self % mem)
     end do
 
   end subroutine print

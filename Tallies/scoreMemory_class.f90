@@ -59,6 +59,8 @@ module scoreMemory_class
   !!
   !!     getBatchSize(): Returns number of cycles that constitute a single batch.
   !!
+  !!     setNumBatchesPerTimeStep(batchN): Sets batchN member of scoreMemory for kinetic treatment
+  !!
   !! Example use case:
   !!
   !!  do batches=1,20
@@ -99,6 +101,7 @@ module scoreMemory_class
     procedure :: closeBin
     procedure :: lastCycle
     procedure :: getBatchSize
+    procedure :: setNumBatchesPerTimeStep
 
     ! Private procedures
     procedure, private :: score_defReal
@@ -355,6 +358,23 @@ contains
     S = self % batchSize
 
   end function getBatchSize
+
+  !!
+  !! Set number of batches used per time step in ScoreMemory
+  !!
+  !! Args:
+  !!   batchN
+  !!
+  !! Errors:
+  !!   None
+  !!
+  subroutine setNumBatchesPerTimeStep(self, batchN) 
+    class(scoreMemory), intent(inout) :: self
+    integer(shortInt), intent(in)     :: batchN
+
+    self % batchN = batchN
+
+  end subroutine setNumBatchesPerTimeStep
 
   !!
   !! Load mean result and Standard deviation into provided arguments

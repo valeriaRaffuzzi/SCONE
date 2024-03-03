@@ -250,17 +250,14 @@ contains
   !!
   !! See tallyClerk_inter for details
   !!
-  subroutine print(self, outFile, mem, NtimeBins)
+  subroutine print(self, outFile, mem)
     class(collisionClerk), intent(in)          :: self
     class(outputFile), intent(inout)           :: outFile
     type(scoreMemory), intent(in)              :: mem
-    integer(shortInt), optional, intent(in)    :: NtimeBins
     real(defReal)                              :: val, std
-    integer(shortInt)                          :: i, Nsamples, numBatchesPerTimeBin
+    integer(shortInt)                          :: i
     integer(shortInt),dimension(:),allocatable :: resArrayShape
     character(nameLen)                         :: name
-    real(defReal)                              :: FoM
-    logical(defBool)                           :: bootstrapScore
 
     ! Begin block
     call outFile % startBlock(self % getName())
@@ -284,13 +281,7 @@ contains
 
     ! Print results to the file
     do i=1,product(resArrayShape)
-      if (present(NtimeBins)) then
-        numBatchesPerTimeBin = mem % batchN / NtimeBins
-        call mem % getResult(val, std, self % getMemAddress() - 1 + i, numBatchesPerTimeBin)
-      else
-        call mem % getResult(val, std, self % getMemAddress() - 1 + i)
-      end if
-      print *, val
+      call mem % getResult(val, std, self % getMemAddress() - 1 + i)
       call outFile % addResult(val, std)
     end do
 

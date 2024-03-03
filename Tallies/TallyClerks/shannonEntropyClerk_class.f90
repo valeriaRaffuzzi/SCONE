@@ -171,13 +171,12 @@ contains
   !!
   !! Write contents of the clerk to output file
   !!
-  subroutine print(self, outFile, mem, NtimeBins)
+  subroutine print(self, outFile, mem)
     class(shannonEntropyClerk), intent(in) :: self
-    class(outputFile), intent(inout) :: outFile
-    type(scoreMemory), intent(in)    :: mem
-    integer(shortInt), optional, intent(in) :: NtimeBins
-    integer(shortInt)                :: i
-    character(nameLen)               :: name
+    class(outputFile), intent(inout)       :: outFile
+    type(scoreMemory), intent(in)          :: mem
+    integer(shortInt)                      :: i
+    character(nameLen)                     :: name
 
     ! Begin block
     call outFile % startBlock(self % getName())

@@ -309,17 +309,12 @@ contains
   !!
   !! See tallyClerk_inter for details
   !!
-  subroutine print(self, outFile, mem, NtimeBins)
+  subroutine print(self, outFile, mem)
     class(tallyClerkSlot), intent(in) :: self
     class(outputFile), intent(inout)  :: outFile
     type(scoreMemory), intent(in)     :: mem
-    integer(shortInt), optional, intent(in)    :: NtimeBins
 
-    if (present(NtimeBins)) then
-      call self % slot % print(outFile, mem, NtimeBins)
-    else
-      call self % slot % print(outFile, mem)
-    end if
+    call self % slot % print(outFile, mem)
 
   end subroutine print
 
