@@ -8,10 +8,10 @@ module collisionProcessorFactory_func
   use collisionProcessor_inter, only : collisionProcessor
 
   ! Implementation
-  use neutronCEstd_class,  only  : neutronCEstd
-  use neutronCEimp_class,  only  : neutronCEimp
-  use neutronMGstd_class,  only  : neutronMGstd
-  use kinetic_neutronCEstd_class, only  : kineticNeutronCEstd
+  use neutronCEstd_class,     only  : neutronCEstd
+  use neutronCEimp_class,     only  : neutronCEimp
+  use neutronMGstd_class,     only  : neutronMGstd
+  use neutronCEkinetic_class, only  : neutronCEkinetic
 
   implicit none
   private
@@ -57,7 +57,7 @@ contains
         allocate(neutronMGstd :: new)
 
       case('neutronCEkin')
-        allocate(kineticNeutronCEstd :: new)
+        allocate(neutronCEkinetic :: new)
 
       case default
         print *, AVALIBLE_collisionProcessors
