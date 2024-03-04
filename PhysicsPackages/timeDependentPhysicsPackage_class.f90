@@ -211,7 +211,11 @@ contains
                 call self % nextTime(i) % detain(p)
                 exit history
               endif
-              call collOp % collide(p, tally, buffer, buffer)
+              if (self % usePrecursors) then
+                call collOp % collide(p, tally, buffer, buffer)
+              else
+                call collOp % collide(p, tally, self % precursorDungeons(i), buffer)
+              end if
               if(p % isDead) exit history
             end do history
 
@@ -409,8 +413,8 @@ contains
     allocate(self % nextTime(self % N_cycles))
 
     do i = 1, self % N_cycles
-      call self % currentTime(i) % init(2*self % pop)
-      call self % nextTime(i) % init(2*self % pop)
+      call self % currentTime(i) % init(15*self % pop)
+      call self % nextTime(i) % init(15*self % pop)
     end do
 
     ! Size precursor dungeon

@@ -13,6 +13,8 @@ module fissionCE_class
 
   ! Data Structures
   use endfTable_class,              only : endfTable
+  use poissonPmf_class,             only : poissonPmf
+  use exponentialPdf_class,         only : exponentialPdf
 
   ! Factiories
   use releaseLawENDFfactory_func,   only : new_totalNu, new_delayedNu
@@ -64,6 +66,8 @@ module fissionCE_class
     class(energyLawENDF), allocatable        :: eLawPrompt
     class(releaseLawENDF),allocatable        :: nuBarDelayed
     type(precursor),dimension(:),allocatable :: delayed
+    type(poissonPmf)                         :: poissonPmf
+    type(exponentialPdf)                     :: exponentialPdf
 
   contains
     ! Superclass procedures
@@ -73,7 +77,12 @@ module fissionCE_class
     procedure :: release
     procedure :: releasePrompt
     procedure :: releaseDelayed
+    procedure :: sampleNPromptPoisson
+    procedure :: sampleNDelayedPoisson
     procedure :: sampleOut
+    procedure :: samplePrompt
+    procedure :: sampleDelayed
+    procedure :: samplePrecursorDecayT
     procedure :: probOf
 
     ! Type specific procedures
@@ -209,6 +218,37 @@ contains
   end function releaseDelayed
 
   !!
+  !! Returns number of prompt neutrons according to the Poisson distribution
+  !!
+  function sampleNPromptPoisson(self, E, rand) result(N)
+    class(fissionCE), intent(in) :: self
+    real(defReal), intent(in)    :: E
+    class(RNG), intent(inout)    :: rand
+    real(defReal)                :: nuBarPrompt
+    integer(shortInt)            :: N
+
+    nuBarPrompt = self % releasePrompt(E)
+
+    N = self % poissonPmf % sample(nuBarPrompt, rand)
+
+  end function sampleNPromptPoisson
+
+  !!
+  !! Returns number of delayed neutrons according to the Poisson distribution
+  !!
+  function sampleNDelayedPoisson(self, E, rand) result(N)
+    class(fissionCE), intent(in) :: self
+    real(defReal), intent(in)    :: E
+    class(RNG), intent(inout)    :: rand
+    real(defReal)                :: nuBarDelayed
+    integer(shortInt)            :: N
+
+    nuBarDelayed = self % releaseDelayed(E)
+    N = self % poissonPmf % sample(nuBarDelayed, rand)
+
+  end function sampleNDelayedPoisson
+
+  !!
   !! Sample outgoing particle
   !!
   !! See uncorrelatedReactionCE for details
@@ -234,39 +274,118 @@ contains
     ! Sample E_out
     E_out = self % eLawPrompt % sample(E_in, rand)
 
-!    ! Calculate delayed emission probability
-!    if(allocated(self % delayed)) then
-!      p_del = self % releaseDelayed(E_in) / self % release(E_in)
-!    else
-!      p_del = ZERO
-!    end if
-!
-!    r1 = rand % get()
-!    if( r1 > p_del ) then ! Prompt emission
-!      E_out = self % eLawPrompt % sample(E_in, rand)
-!      if(present(lambda)) lambda = huge(lambda)
-!
-!    else ! Delayed emission
-!      r2 = rand % get()
-!
-!      ! Loop over precursor groups
-!      precursors: do i=1,size(self % delayed)
-!        r2 = r2 - self % delayed(i) % prob % at(E_in)
-!        if( r2 < ZERO) then
-!          E_out = self % delayed(i) % eLaw % sample(E_in, rand)
-!          if(present(lambda)) lambda = self % delayed(i) % lambda
-!          return
-!
-!        end if
-!      end do precursors
-!
-!      ! Sampling failed -> Choose top precursor group
-!      N = size(self % delayed)
-!      E_out = self % delayed(N) % eLaw % sample(E_in, rand)
-!      if(present(lambda)) lambda = self % delayed(N) % lambda
-!
-!    end if
+    ! Calculate delayed emission probability
+    if(allocated(self % delayed)) then
+      p_del = self % releaseDelayed(E_in) / self % release(E_in)
+    else
+      p_del = ZERO
+    end if
+
+    r1 = rand % get()
+    if( r1 > p_del ) then ! Prompt emission
+      E_out = self % eLawPrompt % sample(E_in, rand)
+      if(present(lambda)) lambda = huge(lambda)
+
+    else ! Delayed emission
+      r2 = rand % get()
+
+      ! Loop over precursor groups
+      precursors: do i=1,size(self % delayed)
+        r2 = r2 - self % delayed(i) % prob % at(E_in)
+        if( r2 < ZERO) then
+          E_out = self % delayed(i) % eLaw % sample(E_in, rand)
+          if(present(lambda)) lambda = self % delayed(i) % lambda
+          return
+
+        end if
+      end do precursors
+
+      ! Sampling failed -> Choose top precursor group
+      N = size(self % delayed)
+      E_out = self % delayed(N) % eLaw % sample(E_in, rand)
+      if(present(lambda)) lambda = self % delayed(N) % lambda
+
+    end if
   end subroutine sampleOut
+
+  !!
+  !! Samples mu, phi, E_out for a prompt neutron
+  !!
+  subroutine samplePrompt(self, mu, phi, E_out, E_in, rand)
+    class(fissionCE), intent(in)         :: self
+    real(defReal), intent(out)           :: mu
+    real(defReal), intent(out)           :: phi
+    real(defReal), intent(out)           :: E_out
+    real(defReal), intent(in)            :: E_in
+    class(RNG), intent(inout)            :: rand
+    character(100),parameter :: Here = 'samplePrompt (fissionCE_class.f90)'
+    
+    ! Sample mu
+    mu = TWO * rand % get() - ONE
+
+    ! Sample Phi
+    phi = TWO_PI * rand % get()
+    
+    E_out = self % eLawPrompt % sample(E_in, rand)
+  end subroutine samplePrompt
+
+  !!
+  !! Samples mu, phi, E_out for a delayed neutron
+  !!
+  subroutine sampleDelayed(self, mu, phi, E_out, E_in, rand, lambda, p_del)
+    class(fissionCE), intent(in)                           :: self
+    real(defReal), intent(out)                             :: mu
+    real(defReal), intent(out)                             :: phi
+    real(defReal), intent(out)                             :: E_out
+    real(defReal), intent(in)                              :: E_in
+    class(RNG), intent(inout)                              :: rand
+    real(defReal), intent(out), optional                   :: lambda
+    real(defReal), intent(out), optional                   :: p_del
+    real(defReal)                                          :: r2
+    integer(shortInt)                                      :: i, N
+    character(100),parameter :: Here = 'sampleDelayed (fissionCE_class.f90)'
+  
+    r2 = rand % get()
+
+    ! Sample mu
+    mu = TWO * rand % get() - ONE
+
+    ! Sample Phi
+    phi = TWO_PI * rand % get()
+    
+    ! Calculate delayed neutron probability (needed by neutronCEtime)
+    if(present (p_del)) p_del = self % releaseDelayed(E_in) / self % release(E_in)
+
+    ! Loop over precursor groups
+    precursors: do i=1,size(self % delayed)
+      r2 = r2 - self % delayed(i) % prob % at(E_in)
+      if( r2 < ZERO) then
+        E_out = self % delayed(i) % eLaw % sample(E_in, rand)
+        lambda = self % delayed(i) % lambda
+        !print *, 'lambda: ', numToChar(lambda)
+        return
+      end if
+    end do precursors
+
+    ! Sampling failed -> Choose top precursor group
+    N = size(self % delayed)
+    E_out = self % delayed(N) % eLaw % sample(E_in, rand)
+    lambda = self % delayed(N) % lambda
+
+  end subroutine sampleDelayed
+
+  !!
+  !! Samples the time until decay for a precursor
+  !!
+  subroutine samplePrecursorDecayT(self, lambda, rand, decayT)
+    class(fissionCE), intent(in) :: self
+    real(defReal), intent(in)    :: lambda
+    class(RNG), intent(inout)    :: rand
+    real(defReal), intent(inout) :: decayT
+
+    decayT = self % exponentialPdf % sample(lambda, rand)
+
+  end subroutine samplePrecursorDecayT
 
   !!
   !! Return probability density of emission at given angle and energy

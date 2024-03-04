@@ -1,6 +1,5 @@
 module poissonPmf_class
 
-
   use numPrecision
   use genericProcedures, only : fatalError
   use RNG_class,         only : RNG
@@ -51,7 +50,6 @@ contains
     end do SPloop
 
   end function sample
-
 
   !!
   !! Returns Poisson probability of n.

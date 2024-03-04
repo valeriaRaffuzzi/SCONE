@@ -1,18 +1,18 @@
 type timeDependentPhysicsPackage;
 
-pop      10000; //1000000
+pop      10000; //10000
 timeSteps   500; //500
 XSdata   ce;
 dataType ce;
 timeIncrement 8.E-10; //8.E-10
-cycles 100; //10 worked well, try 25
+cycles 100; //100
 buffer 1000000;
 combing 0; //toggle on or off
 //precursors 0; //toggle on or off
 // need to implement number of batches!! and compute statistics thereof, look at fixed source
 
 outputFormat asciiJSON;
-collisionOperator { neutronCE {type neutronCEkin; minEnergy 1.0e-11; maxEnergy 20;}}
+collisionOperator { neutronCE {type neutronCEkineticstd; minEnergy 1.0e-11; maxEnergy 20;}}
 
 transportOperator { type transportOperatorDT; //currently will only support this
                   }

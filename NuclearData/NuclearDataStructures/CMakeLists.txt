@@ -2,7 +2,8 @@ add_sources ( ./endfTable/endfTable_class.f90
               ./pdf/tabularPdf_class.f90
               ./pdf/maxwellEnergyPdf_class.f90
               ./pdf/kalbachTable_class.f90
-              ./pmf/poissonPmf_class.f90)
+              ./pmf/poissonPmf_class.f90
+              ./pdf/ExponentialPdf_class.f90)
 
 add_unit_tests(./Tests/tabularPdf_test.f90
                ./Tests/endfTable_test.f90)
