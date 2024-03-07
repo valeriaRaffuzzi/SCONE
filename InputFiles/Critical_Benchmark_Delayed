@@ -1,0 +1,80 @@
+type timeDependentPhysicsPackage;
+
+pop      200000; //100000
+timeSteps   200; //500
+XSdata   ce;
+dataType ce;
+timeIncrement 0.1; //8.E-10
+cycles 10; //10
+buffer 1000;
+combing 0; //toggle on or off
+//precursors 0; //toggle on or off
+// need to implement number of batches!! and compute statistics thereof, look at fixed source
+precursors 1;
+
+outputFormat asciiJSON;
+collisionOperator { neutronCE {type neutronCEkineticstd; minEnergy 1.0e-11; maxEnergy 20;precursors 1;}} //precursors 1;
+
+transportOperator { type transportOperatorDT; //currently will only support this
+                  }
+
+source {
+  type pointSource;
+  r (0 0 0);
+  particle neutron;
+  E 0.025E-06;
+}
+
+tally  {
+  //bootstrap 100;
+  //timeSteps  70;
+  //modified 1;
+  flux_time { type collisionClerk; //collisionClerk_class, energyMap_class, scoreMemory_class
+    map { type timeMap; grid lin; min 0.0; max 20.0; N 200;} // max 400E-09; N 500;} 
+    response (flux); flux {type fluxResponse;}
+    //handleVirtual 1;
+    }
+  }
+geometry {
+    type geometryStd;
+    boundary (1 1 1 1 1 1);
+    graph {type shrunk;}
+
+    surfaces
+    {
+      squareBound { id 1; type box; origin ( 0.0  0.0  0.0); halfwidth (10.0 10.0 10.0); }
+    }
+
+
+    cells
+    {
+    }
+
+    universes
+    {
+
+      root
+      {
+	  id 1;
+	  type rootUniverse;
+	  border 1;
+	  fill hydrogen_with_uranium;
+      }
+    }
+}
+
+nuclearData {
+  handles {
+    ce { type aceNeutronDatabase; aceLibrary $SCONE_ACE;}}
+  materials {
+
+    hydrogen_with_uranium {
+      temp 12345;
+      composition {
+      1001.03    2.01892E-05;
+      92235.03   9.3472E-09;	  }
+      }
+
+}
+
+}

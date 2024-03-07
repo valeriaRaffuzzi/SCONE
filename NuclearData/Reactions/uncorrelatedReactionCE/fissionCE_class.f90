@@ -2,6 +2,7 @@ module fissionCE_class
 
   use numPrecision
   use endfConstants
+  use universalVariables,           only : shake, precursorGroups
   use genericProcedures,            only : fatalError, numToChar
   use RNG_class,                    only : RNG
   use dataDeck_inter,               only : dataDeck
@@ -332,15 +333,15 @@ contains
   !!
   !! Samples mu, phi, E_out for a delayed neutron
   !!
-  subroutine sampleDelayed(self, mu, phi, E_out, E_in, rand, lambda, p_del)
+  subroutine sampleDelayed(self, mu, phi, E_out, E_in, rand, lambda) !p_del)
     class(fissionCE), intent(in)                           :: self
     real(defReal), intent(out)                             :: mu
     real(defReal), intent(out)                             :: phi
     real(defReal), intent(out)                             :: E_out
     real(defReal), intent(in)                              :: E_in
     class(RNG), intent(inout)                              :: rand
-    real(defReal), intent(out), optional                   :: lambda
-    real(defReal), intent(out), optional                   :: p_del
+    real(defReal), intent(inout)                           :: lambda
+    !real(defReal), intent(out), optional                   :: p_del
     real(defReal)                                          :: r2
     integer(shortInt)                                      :: i, N
     character(100),parameter :: Here = 'sampleDelayed (fissionCE_class.f90)'
@@ -354,7 +355,7 @@ contains
     phi = TWO_PI * rand % get()
     
     ! Calculate delayed neutron probability (needed by neutronCEtime)
-    if(present (p_del)) p_del = self % releaseDelayed(E_in) / self % release(E_in)
+    !if(present (p_del)) p_del = self % releaseDelayed(E_in) / self % release(E_in)
 
     ! Loop over precursor groups
     precursors: do i=1,size(self % delayed)
@@ -487,8 +488,8 @@ contains
       ! Read Precursor data
       call ACE % setToPrecursors()
       do i=1,size(self % delayed)
-        ! Read delay constant
-        self % delayed(i) % lambda = ACE % readReal()
+        ! Read decay constant
+        self % delayed(i) % lambda = ACE % readReal() / shake
         nr = ACE % readInt()
 
         if(nr < 0) call fatalError(Here, 'NR < 0. WTF?')

@@ -44,7 +44,7 @@ contains
     real(defReal)                     :: prob
 
     if (x >= 0.0) then
-      prob = ONE - exp(-lambda * x)
+      prob = lambda * exp(-lambda * x)
     else
       prob = 0.0 
     end if

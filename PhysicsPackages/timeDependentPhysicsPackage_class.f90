@@ -139,7 +139,7 @@ contains
     type(tallyAdmin), pointer,intent(inout)         :: tally
     real(defReal), intent(inout)                    :: simTime
     integer(shortInt), intent(in)                   :: N_timeBins, N_cycles
-    integer(shortInt)                               :: i, t, n, nParticles
+    integer(shortInt)                               :: i, t, n, nParticles, nDelayedParticles
     type(particle), save                            :: p
     type(particleDungeon), save                     :: buffer
     type(collisionOperator), save                   :: collOp
@@ -188,7 +188,6 @@ contains
           p % pRNG => pRNG
           call p % pRNG % stride(n)
           call self % currentTime(i) % copy(p, n)
-
           bufferLoop: do
 
             if ((p % fate == aged_FATE) .or. (p % fate == no_FATE)) then
@@ -212,9 +211,9 @@ contains
                 exit history
               endif
               if (self % usePrecursors) then
-                call collOp % collide(p, tally, buffer, buffer)
-              else
                 call collOp % collide(p, tally, self % precursorDungeons(i), buffer)
+              else
+                call collOp % collide(p, tally, buffer, buffer)
               end if
               if(p % isDead) exit history
             end do history
@@ -229,6 +228,60 @@ contains
           end do bufferLoop
         end do gen
         !$omp end parallel do
+
+        if (self % usePrecursors) then
+
+          nDelayedParticles = self % precursorDungeons(i) % popSize()
+
+          if (nDelayedParticles > 0) then
+            !$omp parallel do schedule(dynamic)
+            genDelayed: do n = 1, nDelayedParticles
+              call self % precursorDungeons(i) % copy(p, n)
+              if ((p % time <= t*timeIncrement) .and. (p % time > (t-1)*timeIncrement)) then
+                p % type = P_NEUTRON
+                pRNG = self % pRNG
+                p % pRNG => pRNG
+                call p % pRNG % stride(n)
+                bufferLoopDelayed: do
+
+                  if ((p % fate == aged_FATE) .or. (p % fate == no_FATE)) then
+                    p % fate = no_FATE
+                    p % isdead = .false.
+                  else
+                    p % isdead = .true.
+                  end if
+
+                  call self % geom % placeCoord(p % coords)
+                  p % timeMax = t * timeIncrement
+                  call p % savePreHistory()
+
+                  ! Transport particle untill its death
+                  historyDelayed: do
+                    if(p % isDead) exit historyDelayed
+                    call transOp % transport(p, tally, buffer, buffer)
+                    if(p % isDead) exit historyDelayed
+                    if(p % fate == AGED_FATE) then
+                      call self % nextTime(i) % detain(p)
+                      exit historyDelayed
+                    endif
+                    call collOp % collide(p, tally, self % precursorDungeons(i), buffer)
+                    if(p % isDead) exit historyDelayed
+                  end do historyDelayed
+
+                  ! Clear out buffer
+                  if (buffer % isEmpty()) then
+                    exit bufferLoopDelayed
+                  else
+                    call buffer % release(p)
+                  end if
+
+                end do bufferLoopDelayed
+              end if
+            end do genDelayed
+            !$omp end parallel do
+
+          end if
+        end if
 
         call tally % reportCycleEnd(self % currentTime(i))
         call self % pRNG % stride(nParticles + 1)
@@ -413,8 +466,8 @@ contains
     allocate(self % nextTime(self % N_cycles))
 
     do i = 1, self % N_cycles
-      call self % currentTime(i) % init(15*self % pop)
-      call self % nextTime(i) % init(15*self % pop)
+      call self % currentTime(i) % init(40*self % pop)
+      call self % nextTime(i) % init(40*self % pop)
     end do
 
     ! Size precursor dungeon

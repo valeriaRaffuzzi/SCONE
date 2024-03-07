@@ -126,7 +126,7 @@ contains
     if( self % thresh_A < 0) call fatalError(Here,' -ve massThreshold')
 
     ! Obtain precursor settings
-    call dict % getOrDefault(self % usePrecursors, 'precursors', .true.)
+    call dict % getOrDefault(self % usePrecursors, 'precursors', .false.)
 
   end subroutine init
 
@@ -212,7 +212,7 @@ contains
     type(particleState)                  :: pTemp
     real(defReal),dimension(3)           :: r, dir
     integer(shortInt)                    :: n, i, ntemp
-    real(defReal)                        :: wgt, w0, rand1, E_out, mu, phi, nubar
+    real(defReal)                        :: wgt, w0, rand1, E_out, mu, phi, nubar, lambda, decayT
     real(defReal)                        :: sig_nufiss, sig_tot, k_eff, sig_fiss
     character(100),parameter             :: Here = 'fission (neutronCEkineticstd_class.f90)'
 
@@ -232,33 +232,69 @@ contains
 
     n = fission1 % sampleNPromptPoisson(p % E, p % pRNG)
 
-    if (n < 1) then
-      p % isDead = .true.   
-      return
+    !if (n < 1) then
+    !  p % isDead = .true.   
+    !  return
+    !end if
+
+    if (n >= 1) then
+      ! Store new sites in the next cycle dungeon
+      wgt =  sign(w0, wgt)
+      r   = p % rGlobal()
+
+      do i = 1, n
+        call fission1 % samplePrompt(mu, phi, E_out, p % E, p % pRNG)
+        dir = rotateVector(p % dirGlobal(), mu, phi)
+
+        if (E_out > self % maxE) E_out = self % maxE
+
+        ! Copy extra detail from parent particle (i.e. time, flags ect.)
+        pTemp       = p
+
+        ! Overwrite position, direction, energy and weight
+        pTemp % r   = r
+        pTemp % dir = dir
+        pTemp % E   = E_out
+        pTemp % wgt = wgt
+        pTemp % time = p % time
+
+        call nextCycle % detain(pTemp)
+      end do
     end if
 
-    ! Store new sites in the next cycle dungeon
-    wgt =  sign(w0, wgt)
-    r   = p % rGlobal()
+    if (self % usePrecursors) then
+      n = fission1 % sampleNDelayedPoisson(p % E, p % pRNG)
 
-    do i = 1, n
-      call fission1 % samplePrompt(mu, phi, E_out, p % E, p % pRNG)
-      dir = rotateVector(p % dirGlobal(), mu, phi)
+      !if (n < 1) then
+      !  p % isDead = .true.   
+      !  return
+      !end if
 
-      if (E_out > self % maxE) E_out = self % maxE
+      if (n >= 1) then
+        wgt =  sign(w0, wgt)
+        r   = p % rGlobal()
+        do i=1,n
+          call fission1 % sampleDelayed(mu, phi, E_out, p % E, p % pRNG, lambda)
+          dir = rotateVector(p % dirGlobal(), mu, phi)
+          call fission1 % samplePrecursorDecayT(lambda, p % pRNG, decayT)
 
-      ! Copy extra detail from parent particle (i.e. time, flags ect.)
-      pTemp       = p
+          if (E_out > self % maxE) E_out = self % maxE
 
-      ! Overwrite position, direction, energy and weight
-      pTemp % r   = r
-      pTemp % dir = dir
-      pTemp % E   = E_out
-      pTemp % wgt = wgt
-      pTemp % time = p % time
+          ! Copy extra detail from parent particle (i.e. time, flags ect.)
+          pTemp       = p
 
-      call nextCycle % detain(pTemp)
-    end do
+          ! Overwrite position, direction, energy and weight
+          pTemp % r   = r
+          pTemp % dir = dir
+          pTemp % E   = E_out
+          pTemp % wgt = wgt
+          pTemp % time = pTemp % time + decayT
+          pTemp % type = 3
+
+          call thisCycle % detain(pTemp)
+        end do
+      end if
+    end if
 
     p % isDead = .true.
 

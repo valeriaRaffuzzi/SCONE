@@ -236,6 +236,8 @@ contains
 
 
       if (self % usePrecursors) then
+        !TODO: implicit treatment of delayed neutrons. Forced decay, adjust weighs accordingly. 
+
         sig_nuDelayedfiss = fission % releaseDelayed(p % E) * microXSs % fission
         n = int(abs( (wgt * sig_nuDelayedfiss) / (w0 * sig_tot * k_eff)) + rand1, shortInt)
         if (n < 1) return
