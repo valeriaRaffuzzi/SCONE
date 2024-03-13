@@ -84,6 +84,7 @@ module timeDependentPhysicsPackage_class
     real(defReal)      :: timeIncrement
     logical(defBool)   :: useCombing
     logical(defBool)   :: usePrecursors
+    logical(defBool)   :: useImplicit
     integer(shortInt), dimension(:), allocatable  :: batchPopulations
 
     real(defReal) :: minWgt = 0.25
@@ -140,12 +141,12 @@ contains
     real(defReal), intent(inout)                    :: simTime
     integer(shortInt), intent(in)                   :: N_timeBins, N_cycles
     integer(shortInt)                               :: i, t, n, nParticles, nDelayedParticles
-    type(particle), save                            :: p
+    type(particle), save                            :: p, p_Precursor
     type(particleDungeon), save                     :: buffer
     type(collisionOperator), save                   :: collOp
     class(transportOperator), allocatable, save     :: transOp
     type(RNG), target, save                         :: pRNG
-    real(defReal)                                   :: elapsed_T, end_T, T_toEnd
+    real(defReal)                                   :: elapsed_T, end_T, T_toEnd, decay_T, w_d
     real(defReal), intent(in)                       :: timeIncrement
     character(100),parameter :: Here ='cycles (timeDependentPhysicsPackage_class.f90)'
     !$omp threadprivate(p, buffer, collOp, transOp, pRNG)
@@ -175,9 +176,54 @@ contains
 
         if (t == 1) then 
           call self % fixedSource % generate(self % currentTime(i), nParticles, self % pRNG)
-        else if (self % useCombing) then
+        end if
+
+
+        if (self % usePrecursors .and. (self % useImplicit .eqv. .true.)) then
+          nDelayedParticles = self % precursorDungeons(i) % popSize()
+          if (nDelayedParticles > 0) then 
+            ! Forced precursor decay
+            do n = 1, nDelayedParticles
+              call self % precursorDungeons(i) % copy(p_Precursor, n)
+
+              ! Sample decay time
+              decay_T = timeIncrement * (t - pRNG % get())
+
+              ! Weight adjustment
+              ! CHECK THIS: should be adjusting by delayed fraction? -- no, think this is correct
+              w_d = p_Precursor % getPrecWeight(decay_T, timeIncrement)
+
+              pRNG = self % pRNG
+              p_Precursor % pRNG => pRNG
+              call p_Precursor % pRNG % stride(n)
+
+              ! Update parameters
+              p_Precursor % E = p_Precursor % getDelayedEnergy(decay_T)
+              p_Precursor % type = P_NEUTRON
+              p_Precursor % time = decay_T
+              p_Precursor % w = w_d
+              !print *, 'precursor weight', numToChar(w_d)
+              !print *, numToChar(p_Precursor % E)
+
+              p_Precursor % lambda_i = -ONE
+              p_Precursor % fd_i = -ONE
+
+              ! Add to current dungeon
+              call self % currentTime(i) % detain(p_Precursor)
+            end do
+
+
+          end if
+        end if
+
+
+
+
+
+        if (self % useCombing .and. t /= 1) then
           call self % currentTime(i) % normCombing(self % pop, pRNG)
         end if
+
 
         call tally % reportCycleStart(self % currentTime(i))
         nParticles = self % currentTime(i) % popSize()
@@ -229,7 +275,7 @@ contains
         end do gen
         !$omp end parallel do
 
-        if (self % usePrecursors) then
+        if (self % usePrecursors .and. (self % useImplicit .eqv. .false.)) then
 
           nDelayedParticles = self % precursorDungeons(i) % popSize()
 
@@ -406,6 +452,9 @@ contains
     ! Whether to implement precursors (default = yes)
     call dict % getOrDefault(self % usePrecursors, 'precursors', .false.)
 
+    ! Whether to use analog or implicit kinetic (default = Analog)
+    call dict % getOrDefault(self % useImplicit, 'useImplicit', .false.)
+
     ! Register timer
     self % timerMain = registerTimer('transportTime')
 
@@ -466,15 +515,15 @@ contains
     allocate(self % nextTime(self % N_cycles))
 
     do i = 1, self % N_cycles
-      call self % currentTime(i) % init(40*self % pop)
-      call self % nextTime(i) % init(40*self % pop)
+      call self % currentTime(i) % init(2*self % pop)
+      call self % nextTime(i) % init(2*self % pop)
     end do
 
     ! Size precursor dungeon
     if (self % usePrecursors) then
       allocate(self % precursorDungeons(self % N_cycles))
       do i = 1, self % N_cycles
-        call self % precursorDungeons(i) % init(self % pop)
+        call self % precursorDungeons(i) % init(2 * self % pop)
       end do
     end if
 

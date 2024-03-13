@@ -1,6 +1,6 @@
 type timeDependentPhysicsPackage;
 
-pop      1000000;
+pop      500000;
 timeSteps   70;
 XSdata   ce;
 dataType ce;
@@ -12,7 +12,7 @@ combing 1; //toggle on or off
 cycles 5;
 
 outputFormat asciiJSON;
-collisionOperator { neutronCE {type neutronCEkin;}}
+collisionOperator { neutronCE {type neutronCEkineticstd;}}
 
 transportOperator { type transportOperatorDT;
                   }
@@ -26,14 +26,14 @@ source {
 }
 
 tally  {
-  bootstrap 5;
-  timeSteps  70;
-  modified 1;
+  //bootstrap 5;
+  //timeSteps  70;
+  //modified 1;
   flux_time { type collisionClerk;
-    map { type multiMap; maps (map1 map2); // this supported properly in current implementation?
-    map1 { type timeMap; grid lin; min 0.0; max 7E-04; N 70;}
-    map2 { type cellMap; cells (1 2 3 4 5 6 7 8 9 20 21); }   //cells (1 2 3 4 5 6 7 8 9 20 21)
-    } //make this work on averaged accross all cells, then fix multimap on time dependent
+    //map { type multiMap; maps (map1 map2); // this supported properly in current implementation?
+    map { type timeMap; grid lin; min 0.0; max 7E-04; N 70;}
+    //map2 { type cellMap; cells (8); }   //cells (1 2 3 4 5 6 7 8 9 20 21)
+    //} //make this work on averaged accross all cells, then fix multimap on time dependent
     response (flux); flux {type fluxResponse;}
     handleVirtual 1;
   }
@@ -92,7 +92,7 @@ nuclearData {
       composition {
         1001.03    0.06639;
         8016.03   0.03347;}
-      moder { 1001.00 h-h2o-293; }
+      //moder { 1001.00 h-h2o-293; }
     }
 
     //poly box

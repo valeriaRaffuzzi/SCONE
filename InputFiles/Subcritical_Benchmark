@@ -4,16 +4,17 @@ pop      20000; //100000
 timeSteps   200; //500
 XSdata   ce;
 dataType ce;
-timeIncrement 0.025; //8.E-10
+timeIncrement 1.E-1; //8.E-10
 cycles 10; //10
-buffer 100;
-combing 0; //toggle on or off
+buffer 1000;
+combing 1; //toggle on or off
 //precursors 0; //toggle on or off
 // need to implement number of batches!! and compute statistics thereof, look at fixed source
 precursors 1;
+useImplicit 1;
 
 outputFormat asciiJSON;
-collisionOperator { neutronCE {type neutronCEkineticstd; minEnergy 1.0e-11; maxEnergy 20;precursors 1;}} //precursors 1;
+collisionOperator { neutronCE {type neutronCEkineticimp; minEnergy 1.0e-11; maxEnergy 20; precursors 1;}} //precursors 1;
 
 transportOperator { type transportOperatorDT; //currently will only support this
                   }
@@ -30,7 +31,7 @@ tally  {
   //timeSteps  70;
   //modified 1;
   flux_time { type collisionClerk; //collisionClerk_class, energyMap_class, scoreMemory_class
-    map { type timeMap; grid lin; min 0.0; max 5.0; N 200;} // max 400E-09; N 500;} 
+    map { type timeMap; grid lin; min 0.0; max 20.0; N 200;} // max 400E-09; N 500;} 
     response (flux); flux {type fluxResponse;}
     //handleVirtual 1;
     }
@@ -71,7 +72,7 @@ nuclearData {
     hydrogen_with_uranium {
       temp 12345;
       composition {
-      1001.03    1.004E-05;
+      1001.03    2.9623E-05;
       92235.03   9.3472E-09;	  }
       }
 

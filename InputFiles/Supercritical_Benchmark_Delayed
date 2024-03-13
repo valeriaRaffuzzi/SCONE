@@ -1,19 +1,19 @@
 type timeDependentPhysicsPackage;
 
-pop      200000; //100000
-timeSteps   200; //500
+pop      8000; //200000
+timeSteps   200; //200
 XSdata   ce;
 dataType ce;
-timeIncrement 1.E-1; //8.E-10
-cycles 10; //10
+timeIncrement 1.E-1; //1.E-1
+cycles 10;
 buffer 1000;
-combing 0; //toggle on or off
-//precursors 0; //toggle on or off
-// need to implement number of batches!! and compute statistics thereof, look at fixed source
-//precursors 1;
+combing 1; //toggle on or off
+
+precursors 1;
+useImplicit 1;
 
 outputFormat asciiJSON;
-collisionOperator { neutronCE {type neutronCEkineticstd; minEnergy 1.0e-11; maxEnergy 20;}} //precursors 1;
+collisionOperator { neutronCE {type neutronCEkineticimp; minEnergy 1.0e-11; maxEnergy 20;precursors 1;}} //precursors 1;
 
 transportOperator { type transportOperatorDT; //currently will only support this
                   }
@@ -26,11 +26,8 @@ source {
 }
 
 tally  {
-  //bootstrap 100;
-  //timeSteps  70;
-  //modified 1;
   flux_time { type collisionClerk; //collisionClerk_class, energyMap_class, scoreMemory_class
-    map { type timeMap; grid lin; min 0.0; max 20.0; N 200;} // max 400E-09; N 500;} 
+    map { type timeMap; grid lin; min 0.0; max 20.0; N 200;} // map { type timeMap; grid lin; min 0.0; max 20.0; N 200;}
     response (flux); flux {type fluxResponse;}
     //handleVirtual 1;
     }

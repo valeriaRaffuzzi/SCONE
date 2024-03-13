@@ -2,6 +2,7 @@ module neutronCEkineticimp_class
 
   use numPrecision
   use endfConstants
+  use universalVariables,            only : precursorGroups
   use genericProcedures,             only : fatalError, rotateVector, numToChar
   use dictionary_class,              only : dictionary
   use RNG_class,                     only : RNG
@@ -182,7 +183,8 @@ contains
     type(neutronMicroXSs)                :: microXSs
     type(particleState)                  :: pTemp
     real(defReal),dimension(3)           :: r, dir
-    integer(shortInt)                    :: n, i
+    integer(shortInt)                    :: n, i, j
+    real(defReal),dimension(precursorGroups) :: lambda_i, fd_i, E_out_i
     real(defReal)                        :: wgt, w0, rand1, E_out, mu, phi, lambda
     real(defReal)                        :: sig_nuPromptfiss, sig_nuDelayedfiss, sig_tot, k_eff
     character(100),parameter             :: Here = 'implicit (neutronCEkineticimp_class.f90)'
@@ -209,7 +211,7 @@ contains
       n = int(abs( (wgt * sig_nuPromptfiss) / (w0 * sig_tot * k_eff)) + rand1, shortInt)
 
       ! Shortcut particle generation if no particles were sampled
-      if (n < 1) return
+      !if (n < 1) return
 
       ! Store new sites in the next cycle dungeon
       wgt =  sign(w0, wgt)
@@ -240,14 +242,27 @@ contains
 
         sig_nuDelayedfiss = fission % releaseDelayed(p % E) * microXSs % fission
         n = int(abs( (wgt * sig_nuDelayedfiss) / (w0 * sig_tot * k_eff)) + rand1, shortInt)
-        if (n < 1) return
+        !if (n < 1) return
         wgt =  sign(w0, wgt)
         r   = p % rGlobal()
         do i=1,n
           call fission % sampleDelayed(mu, phi, E_out, p % E, p % pRNG, lambda)
+
+
+          ! Form arrays from single values
+          E_out_i(1) = E_out
+          E_out_i(2:) = ZERO
+          lambda_i(1) = lambda
+          lambda_i(2:) = ZERO
+          fd_i(1) = ONE
+          fd_i(2:) = ZERO
+
+
           dir = rotateVector(p % dirGlobal(), mu, phi)
 
-          if (E_out > self % maxE) E_out = self % maxE
+          do j=1, precursorGroups
+              if (E_out_i(i) > self % maxE) E_out_i(i) = self % maxE
+          end do
 
           ! Copy extra detail from parent particle (i.e. time, flags ect.)
           pTemp       = p
@@ -256,11 +271,16 @@ contains
           pTemp % r   = r
           pTemp % dir = dir
           pTemp % E   = E_out
-          pTemp % wgt = wgt
-          pTemp % time = p % time
           pTemp % type = 3
 
+
+          pTemp % wgt = wgt
+          pTemp % time = p % time
           !sample time to decay from labda?
+
+          pTemp % lambda_i = lambda_i
+          pTemp % E_out_i = E_out_i
+          pTemp % fd_i = fd_i
 
           call thisCycle % detain(pTemp)
         end do
