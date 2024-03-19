@@ -190,7 +190,7 @@ contains
               decay_T = timeIncrement * (t - pRNG % get())
 
               ! Weight adjustment
-              ! CHECK THIS: should be adjusting by delayed fraction? -- no, think this is correct
+
               w_d = p_Precursor % getPrecWeight(decay_T, timeIncrement)
 
               pRNG = self % pRNG
@@ -208,8 +208,17 @@ contains
               p_Precursor % lambda_i = -ONE
               p_Precursor % fd_i = -ONE
 
-              ! Add to current dungeon
-              call self % currentTime(i) % detain(p_Precursor)
+
+              if (p % time > t * timeIncrement) then 
+                p % fate = no_FATE
+                call self % nextTime(i) % detain(p)
+              else
+                p % fate = no_FATE
+                ! Add to current dungeon
+                call self % currentTime(i) % detain(p_Precursor)
+              end if
+
+
             end do
 
 
@@ -515,15 +524,15 @@ contains
     allocate(self % nextTime(self % N_cycles))
 
     do i = 1, self % N_cycles
-      call self % currentTime(i) % init(2*self % pop)
-      call self % nextTime(i) % init(2*self % pop)
+      call self % currentTime(i) % init(70*self % pop)
+      call self % nextTime(i) % init(70*self % pop)
     end do
 
     ! Size precursor dungeon
     if (self % usePrecursors) then
       allocate(self % precursorDungeons(self % N_cycles))
       do i = 1, self % N_cycles
-        call self % precursorDungeons(i) % init(2 * self % pop)
+        call self % precursorDungeons(i) % init(70 * self % pop)
       end do
     end if
 

@@ -1,6 +1,6 @@
 type timeDependentPhysicsPackage;
 
-pop      8000; //200000
+pop      20000; //200000
 timeSteps   200; //200
 XSdata   ce;
 dataType ce;
