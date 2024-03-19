@@ -8,9 +8,9 @@ module collisionProcessorFactory_func
   use collisionProcessor_inter, only : collisionProcessor
 
   ! Implementation
-  use neutronCEstd_class,     only  : neutronCEstd
-  use neutronCEimp_class,     only  : neutronCEimp
-  use neutronMGstd_class,     only  : neutronMGstd
+  use neutronCEstd_class,        only  : neutronCEstd
+  use neutronCEimp_class,        only  : neutronCEimp
+  use neutronMGstd_class,        only  : neutronMGstd
   use neutronCEkineticstd_class, only  : neutronCEkineticstd
   use neutronCEkineticimp_class, only  : neutronCEkineticimp
 

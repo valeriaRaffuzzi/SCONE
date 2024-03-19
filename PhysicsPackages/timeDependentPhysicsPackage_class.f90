@@ -178,7 +178,6 @@ contains
           call self % fixedSource % generate(self % currentTime(i), nParticles, self % pRNG)
         end if
 
-
         if (self % usePrecursors .and. (self % useImplicit .eqv. .true.)) then
           nDelayedParticles = self % precursorDungeons(i) % popSize()
           if (nDelayedParticles > 0) then 
@@ -202,12 +201,9 @@ contains
               p_Precursor % type = P_NEUTRON
               p_Precursor % time = decay_T
               p_Precursor % w = w_d
-              !print *, 'precursor weight', numToChar(w_d)
-              !print *, numToChar(p_Precursor % E)
 
               p_Precursor % lambda_i = -ONE
               p_Precursor % fd_i = -ONE
-
 
               if (p % time > t * timeIncrement) then 
                 p % fate = no_FATE
@@ -217,22 +213,13 @@ contains
                 ! Add to current dungeon
                 call self % currentTime(i) % detain(p_Precursor)
               end if
-
-
             end do
-
-
           end if
         end if
-
-
-
-
 
         if (self % useCombing .and. t /= 1) then
           call self % currentTime(i) % normCombing(self % pop, pRNG)
         end if
-
 
         call tally % reportCycleStart(self % currentTime(i))
         nParticles = self % currentTime(i) % popSize()

@@ -207,13 +207,13 @@ contains
     type(collisionData), intent(inout)   :: collDat
     class(particleDungeon),intent(inout) :: thisCycle
     class(particleDungeon),intent(inout) :: nextCycle
-    type(fissionCE), pointer             :: fission1
+    type(fissionCE), pointer             :: fiss
     type(neutronMicroXSs)                :: microXSs
     type(particleState)                  :: pTemp
     real(defReal),dimension(3)           :: r, dir
-    integer(shortInt)                    :: n, i, ntemp
-    real(defReal)                        :: wgt, w0, rand1, E_out, mu, phi, nubar, lambda, decayT
-    real(defReal)                        :: sig_nufiss, sig_tot, k_eff, sig_fiss
+    integer(shortInt)                    :: n, i
+    real(defReal)                        :: wgt, w0, rand1, E_out, mu, phi, lambda, decayT
+    real(defReal)                        :: sig_nufiss, k_eff, sig_fiss
     character(100),parameter             :: Here = 'fission (neutronCEkineticstd_class.f90)'
 
     ! Obtain required data
@@ -226,16 +226,11 @@ contains
     sig_fiss   = microXSs % fission
 
     ! Get fission Reaction
-    fission1 => fissionCE_TptrCast(self % xsData % getReaction(N_FISSION, collDat % nucIdx))
-    if(.not.associated(fission1)) call fatalError(Here, "Failed to get fissionCE")
-    sig_nufiss = fission1 % releasePrompt(p % E) * microXSs % fission
+    fiss => fissionCE_TptrCast(self % xsData % getReaction(N_FISSION, collDat % nucIdx))
+    if(.not.associated(fiss)) call fatalError(Here, "Failed to get fissionCE")
+    sig_nufiss = fiss % releasePrompt(p % E) * microXSs % fission
 
-    n = fission1 % sampleNPromptPoisson(p % E, p % pRNG)
-
-    !if (n < 1) then
-    !  p % isDead = .true.   
-    !  return
-    !end if
+    n = fiss % sampleNPromptPoisson(p % E, p % pRNG)
 
     if (n >= 1) then
       ! Store new sites in the next cycle dungeon
@@ -243,7 +238,7 @@ contains
       r   = p % rGlobal()
 
       do i = 1, n
-        call fission1 % samplePrompt(mu, phi, E_out, p % E, p % pRNG)
+        call fiss % samplePrompt(mu, phi, E_out, p % E, p % pRNG)
         dir = rotateVector(p % dirGlobal(), mu, phi)
 
         if (E_out > self % maxE) E_out = self % maxE
@@ -263,20 +258,15 @@ contains
     end if
 
     if (self % usePrecursors) then
-      n = fission1 % sampleNDelayedPoisson(p % E, p % pRNG)
-
-      !if (n < 1) then
-      !  p % isDead = .true.   
-      !  return
-      !end if
+      n = fiss % sampleNDelayedPoisson(p % E, p % pRNG)
 
       if (n >= 1) then
         wgt =  sign(w0, wgt)
         r   = p % rGlobal()
         do i=1,n
-          call fission1 % sampleDelayed(mu, phi, E_out, p % E, p % pRNG, lambda)
+          call fiss % sampleDelayed(mu, phi, E_out, p % E, p % pRNG, lambda)
           dir = rotateVector(p % dirGlobal(), mu, phi)
-          call fission1 % samplePrecursorDecayT(lambda, p % pRNG, decayT)
+          call fiss % samplePrecursorDecayT(lambda, p % pRNG, decayT)
 
           if (E_out > self % maxE) E_out = self % maxE
 

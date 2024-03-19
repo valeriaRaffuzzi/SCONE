@@ -179,7 +179,7 @@ contains
     type(collisionData), intent(inout)   :: collDat
     class(particleDungeon),intent(inout) :: thisCycle
     class(particleDungeon),intent(inout) :: nextCycle
-    type(fissionCE), pointer             :: fission
+    type(fissionCE), pointer             :: fiss
     type(neutronMicroXSs)                :: microXSs
     type(particleState)                  :: pTemp
     real(defReal),dimension(3)           :: r, dir
@@ -201,24 +201,21 @@ contains
       sig_tot    = microXSs % total
 
       ! Get fission Reaction
-      fission => fissionCE_TptrCast(self % xsData % getReaction(N_FISSION, collDat % nucIdx))
-      if(.not.associated(fission)) call fatalError(Here, "Failed to get fissionCE")
-      sig_nuPromptfiss = fission % releasePrompt(p % E) * microXSs % fission
+      fiss => fissionCE_TptrCast(self % xsData % getReaction(N_FISSION, collDat % nucIdx))
+      if(.not.associated(fiss)) call fatalError(Here, "Failed to get fissionCE")
+      sig_nuPromptfiss = fiss % releasePrompt(p % E) * microXSs % fission
 
 
       ! Sample number of prompt fission sites generated
       ! Support -ve weight particles
       n = int(abs( (wgt * sig_nuPromptfiss) / (w0 * sig_tot * k_eff)) + rand1, shortInt)
 
-      ! Shortcut particle generation if no particles were sampled
-      !if (n < 1) return
-
       ! Store new sites in the next cycle dungeon
       wgt =  sign(w0, wgt)
       r   = p % rGlobal()
 
       do i=1,n
-        call fission % samplePrompt(mu, phi, E_out, p % E, p % pRNG)
+        call fiss % samplePrompt(mu, phi, E_out, p % E, p % pRNG)
         dir = rotateVector(p % dirGlobal(), mu, phi)
 
         if (E_out > self % maxE) E_out = self % maxE
@@ -236,18 +233,16 @@ contains
         call nextCycle % detain(pTemp)
       end do
 
-
       if (self % usePrecursors) then
         !TODO: implicit treatment of delayed neutrons. Forced decay, adjust weighs accordingly. 
 
-        sig_nuDelayedfiss = fission % releaseDelayed(p % E) * microXSs % fission
+        sig_nuDelayedfiss = fiss % releaseDelayed(p % E) * microXSs % fission
         n = int(abs( (wgt * sig_nuDelayedfiss) / (w0 * sig_tot * k_eff)) + rand1, shortInt)
         !if (n < 1) return
         wgt =  sign(w0, wgt)
         r   = p % rGlobal()
         do i=1,n
-          call fission % sampleDelayed(mu, phi, E_out, p % E, p % pRNG, lambda)
-
+          call fiss % sampleDelayed(mu, phi, E_out, p % E, p % pRNG, lambda)
 
           ! Form arrays from single values
           E_out_i(1) = E_out
@@ -256,7 +251,6 @@ contains
           lambda_i(2:) = ZERO
           fd_i(1) = ONE
           fd_i(2:) = ZERO
-
 
           dir = rotateVector(p % dirGlobal(), mu, phi)
 
@@ -272,12 +266,8 @@ contains
           pTemp % dir = dir
           pTemp % E   = E_out
           pTemp % type = 3
-
-
           pTemp % wgt = wgt
           pTemp % time = p % time
-          !sample time to decay from labda?
-
           pTemp % lambda_i = lambda_i
           pTemp % E_out_i = E_out_i
           pTemp % fd_i = fd_i
@@ -285,9 +275,6 @@ contains
           call thisCycle % detain(pTemp)
         end do
       end if
-
-
-
     end if
 
   end subroutine implicit

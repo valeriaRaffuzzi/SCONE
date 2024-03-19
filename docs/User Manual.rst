@@ -151,6 +151,62 @@ Example: ::
         geometry { <Geometry definition> }
         viz { <Visualiser definition> }
 
+timeDependentPhysicsPackage
+#########################
+
+timeDependentPhysicsPackage, used for fixed source time-dependent calculations
+NB! currently only works with transportOperatorDT
+
+* pop: number of particles used per batch
+* cycles: number of batches
+* timeSteps: number of time intervals
+* timeIncrement: time interval
+* dataType: determines type of nuclear data used. Can only be ``ce``
+* XSdata: keyword to the name of the nuclearDataHandle used
+* precursors (*optional*, default = 0): 1 for true; 0 for false; include 
+  delayed neutrons in time-dependent calculations. NB! Must currently be set
+  in collision estimator as well.
+* useImplicit (*optional*, default = 0): 1 for true; 0 for false; implicit
+  treatment instead of analog in time-dependent calculations
+* seed (*optional*): initial seed for the pseudo random number generator
+* outputFile (*optional*, default = 'output'): name of the output file
+* outputFormat (*optional*, default = ``asciiMATLAB``): type of output file. 
+  Choices are ``asciiMATLAB`` and ``asciiJSON`` 
+* printSource (*optional*, default = 0): 1 for true; 0 for false; requests
+  to print the particle source (location, direction, energy of each particle
+  in the particleDungeon) to a text file
+* buffer (*optional*, default = 50): size of the particle bank used by each 
+  OpenMP thread to store secondary particles
+* commonBufferSize (*optional*): if not included, the common buffer is not 
+  used; if included, after each particle history the particles in each 
+  thread-private buffer (or bank, or dungeon) are moved to a buffer 
+  common to all threads to avoid long histories
+* bufferShift (*optional*, default = 10): threshold of particles to be 
+  stored in a thread-private buffer, after which particles are shifted to 
+  the common buffer
+
+Example: ::
+
+        type timeDependentPhysicsPackage;
+        pop    100000;
+        cycles 200;
+        timeSteps 200;
+        timeIncrement 1.E-1; 
+        dataType ce;
+        XSdata   ceData;
+        seed     2829741;
+        outputFile shield_type11;
+
+        buffer 10000;
+        commonBufferSize 50000;
+
+        transportOperator { <Transport operator definition> }
+        collisionOperator { <Collision operator definition> }
+        tally { <Tally definition> }
+        source { <Source definition> }
+        geometry { <Geometry definition> }
+        nuclearData { <Nuclear data definition> }
+
 Source
 ------
 
@@ -252,6 +308,9 @@ neutronCEstd, to perform analog collision processing
   energyThreshold where kT is target material temperature in [MeV]. [-]
 * massThreshold (*optional*, default = 1): mass threshold for explicit treatment of
   target nuclide movement. Target movement is sampled if target mass A < massThreshold. [Mn]
+* precursors (*optional*, default = 1): handle delayed neutrons in time-dependent 
+  calculations. NB! this currently requires precursors to be set in the
+  timeDependentPhysicsPackage as well.
 
 Example: ::
 
@@ -1217,6 +1276,18 @@ Examples: ::
       map1 { type weightMap; grid log; min 1.0e-3; max 100.0; N 100; }
       map2 { type weightMap; grid lin; min 0.1; max 2.0; N 20; }
       map3 { type weightMap; bins (0.0 0.2 0.4 0.6 0.8 1.0 2.0 5.0 10.0); }
+
+* timeMap (1D map), temporal map for time-dependent calculations
+
+  - grid: ``lin`` for linearly spaced bins
+
+    + min: lower time [s]
+    + max: upper time [s]
+    + N: number of bins
+
+Examples: ::
+
+    map { type timeMap; grid lin; min 0.0; max 20.0; N 200;}
 
 Tally Filters
 #############
