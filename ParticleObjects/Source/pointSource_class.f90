@@ -10,6 +10,7 @@ module pointSource_class
   use RNG_class,               only : RNG
   use nuclearDataReg_mod,      only : ndReg_getNeutronMG => getNeutronMG
   use mgNeutronDatabase_inter, only : mgNeutronDatabase
+  use poissonPmf_class,        only : poissonPmf
 
   implicit none
   private
@@ -63,12 +64,15 @@ module pointSource_class
     integer(shortInt)                         :: particleType = P_NEUTRON
     logical(defBool)                          :: isMG         = .false.
     logical(defBool)                          :: isIsotropic  = .false.
+    real(defReal)                             :: poissonSource = -ONE
+    type(poissonPmf)                          :: poissonPmf
   contains
     procedure :: init
     procedure :: sampleType
     procedure :: samplePosition
     procedure :: sampleEnergy
     procedure :: sampleEnergyAngle
+    procedure :: sampleTime
     procedure :: kill
   end type pointSource
 
@@ -139,6 +143,8 @@ contains
       self % dir = temp
       self % dir = self % dir / norm2(self % dir)
     end if
+
+    call dict % getOrDefault(self % poissonSource, 'poissonSource', -ONE)
 
     ! Get particle energy/group
     isCE = dict % isPresent('E')
@@ -267,6 +273,24 @@ contains
     end if
 
   end subroutine sampleEnergy
+
+  !!
+  !! Provide particle time
+  !!
+  !! See configSource_inter for details.
+  !!
+  subroutine sampleTime(self, p, rand)
+    class(pointSource), intent(inout)   :: self
+    class(particleState), intent(inout) :: p
+    class(RNG), intent(inout)           :: rand
+
+    if (self % poissonSource >= ZERO) then
+      p % time = self % poissonPmf % sample(self % poissonSource, rand)
+    else
+      p % time = ZERO
+    end if
+
+  end subroutine sampleTime
 
   !!
   !! Return to uninitialised state

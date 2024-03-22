@@ -230,6 +230,14 @@ contains
           p % pRNG => pRNG
           call p % pRNG % stride(n)
           call self % currentTime(i) % copy(p, n)
+
+          p % timeMax = t * timeIncrement
+          if (p % time > p % timeMax) then
+            p % fate = aged_FATE
+            call self % nextTime(i) % detain(p)
+            cycle gen
+          end if
+
           bufferLoop: do
 
             if ((p % fate == aged_FATE) .or. (p % fate == no_FATE)) then
@@ -240,7 +248,7 @@ contains
             end if
 
             call self % geom % placeCoord(p % coords)
-            p % timeMax = t * timeIncrement
+            !p % timeMax = t * timeIncrement
             call p % savePreHistory()
 
             ! Transport particle untill its death
@@ -511,15 +519,15 @@ contains
     allocate(self % nextTime(self % N_cycles))
 
     do i = 1, self % N_cycles
-      call self % currentTime(i) % init(70*self % pop)
-      call self % nextTime(i) % init(70*self % pop)
+      call self % currentTime(i) % init(2*self % pop)
+      call self % nextTime(i) % init(2*self % pop)
     end do
 
     ! Size precursor dungeon
     if (self % usePrecursors) then
       allocate(self % precursorDungeons(self % N_cycles))
       do i = 1, self % N_cycles
-        call self % precursorDungeons(i) % init(70 * self % pop)
+        call self % precursorDungeons(i) % init(2 * self % pop)
       end do
     end if
 

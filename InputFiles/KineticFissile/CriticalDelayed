@@ -5,15 +5,15 @@ timeSteps   200;
 XSdata   ce;
 dataType ce;
 timeIncrement 0.1;
-cycles 10; 
+cycles 20; 
 buffer 1000;
 
-combing 1; 
+//combing 1; 
 precursors 1;
-useImplicit 1;
+//useImplicit 1;
 
 outputFormat asciiJSON;
-collisionOperator { neutronCE {type neutronCEkineticimp; minEnergy 1.0e-11; maxEnergy 20;precursors 1;}} //precursors 1;
+collisionOperator { neutronCE {type neutronCEkineticstd; minEnergy 1.0e-11; maxEnergy 20;precursors 1;}} //precursors 1;
 
 transportOperator { type transportOperatorDT; //currently will only support this
                   }
@@ -23,6 +23,7 @@ source {
   r (0 0 0);
   particle neutron;
   E 0.025E-06;
+  //poissonSource 1.0;
 }
 
 tally  {
