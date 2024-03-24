@@ -10,7 +10,7 @@ buffer 1000;
 combing 1; //toggle on or off
 
 precursors 1;
-//useImplicit 1;
+//useForcedPrecursorDecay 1;
 
 outputFormat asciiJSON;
 collisionOperator { neutronCE {type neutronCEkineticstd; minEnergy 1.0e-11; maxEnergy 20;precursors 1;}} //precursors 1;

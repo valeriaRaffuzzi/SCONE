@@ -184,7 +184,6 @@ contains
     type(particleState)                  :: pTemp
     real(defReal),dimension(3)           :: r, dir
     integer(shortInt)                    :: n, i, j
-    real(defReal),dimension(precursorGroups) :: lambda_i, fd_i, E_out_i
     real(defReal)                        :: wgt, w0, rand1, E_out, mu, phi, lambda
     real(defReal)                        :: sig_nuPromptfiss, sig_nuDelayedfiss, sig_tot, k_eff
     character(100),parameter             :: Here = 'implicit (neutronCEkineticimp_class.f90)'
@@ -210,53 +209,16 @@ contains
       ! Support -ve weight particles
       n = int(abs( (wgt * sig_nuPromptfiss) / (w0 * sig_tot * k_eff)) + rand1, shortInt)
 
-      ! Store new sites in the next cycle dungeon
-      wgt =  sign(w0, wgt)
-      r   = p % rGlobal()
-
-      do i=1,n
-        call fiss % samplePrompt(mu, phi, E_out, p % E, p % pRNG)
-        dir = rotateVector(p % dirGlobal(), mu, phi)
-
-        if (E_out > self % maxE) E_out = self % maxE
-
-        ! Copy extra detail from parent particle (i.e. time, flags ect.)
-        pTemp       = p
-
-        ! Overwrite position, direction, energy and weight
-        pTemp % r   = r
-        pTemp % dir = dir
-        pTemp % E   = E_out
-        pTemp % wgt = wgt
-        pTemp % time = p % time
-
-        call nextCycle % detain(pTemp)
-      end do
-
-      if (self % usePrecursors) then
-        !TODO: implicit treatment of delayed neutrons. Forced decay, adjust weighs accordingly. 
-
-        sig_nuDelayedfiss = fiss % releaseDelayed(p % E) * microXSs % fission
-        n = int(abs( (wgt * sig_nuDelayedfiss) / (w0 * sig_tot * k_eff)) + rand1, shortInt)
-        !if (n < 1) return
+      if (n >= 1) then
+        ! Store new sites in the next cycle dungeon
         wgt =  sign(w0, wgt)
         r   = p % rGlobal()
-        do i=1,n
-          call fiss % sampleDelayed(mu, phi, E_out, p % E, p % pRNG, lambda)
 
-          ! Form arrays from single values
-          E_out_i(1) = E_out
-          E_out_i(2:) = ZERO
-          lambda_i(1) = lambda
-          lambda_i(2:) = ZERO
-          fd_i(1) = ONE
-          fd_i(2:) = ZERO
-
+        do i = 1, n
+          call fiss % samplePrompt(mu, phi, E_out, p % E, p % pRNG)
           dir = rotateVector(p % dirGlobal(), mu, phi)
 
-          do j=1, precursorGroups
-              if (E_out_i(i) > self % maxE) E_out_i(i) = self % maxE
-          end do
+          if (E_out > self % maxE) E_out = self % maxE
 
           ! Copy extra detail from parent particle (i.e. time, flags ect.)
           pTemp       = p
@@ -265,15 +227,44 @@ contains
           pTemp % r   = r
           pTemp % dir = dir
           pTemp % E   = E_out
-          pTemp % type = 3
           pTemp % wgt = wgt
           pTemp % time = p % time
-          pTemp % lambda_i = lambda_i
-          pTemp % E_out_i = E_out_i
-          pTemp % fd_i = fd_i
 
-          call thisCycle % detain(pTemp)
+          call nextCycle % detain(pTemp)
         end do
+      end if
+
+      if (self % usePrecursors) then
+
+        ! Handle delayed neutrons using Forced Decay
+        sig_nuDelayedfiss = fiss % releaseDelayed(p % E) * microXSs % fission
+        n = int(abs( (wgt * sig_nuDelayedfiss) / (w0 * sig_tot * k_eff)) + rand1, shortInt)
+
+        if (n >= 1) then
+          wgt =  sign(w0, wgt)
+          r   = p % rGlobal()
+          do i = 1, n
+            call fiss % sampleDelayed(mu, phi, E_out, p % E, p % pRNG, lambda)
+
+            dir = rotateVector(p % dirGlobal(), mu, phi)
+
+            if (E_out > self % maxE) E_out = self % maxE
+
+            ! Copy extra detail from parent particle (i.e. time, flags ect.)
+            pTemp       = p
+
+            ! Overwrite particle attributes
+            pTemp % r   = r
+            pTemp % dir = dir
+            pTemp % E   = E_out
+            pTemp % type = 3
+            pTemp % wgt = wgt
+            pTemp % time = p % time
+            pTemp % lambda = lambda
+
+            call thisCycle % detain(pTemp)
+          end do
+        end if
       end if
     end if
 

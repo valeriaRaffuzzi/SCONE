@@ -86,7 +86,7 @@ module particleDungeon_class
     procedure  :: isEmpty
     procedure  :: normWeight
     procedure  :: normSize
-    procedure  :: normCombing
+    procedure  :: combing
     procedure  :: cleanPop
     procedure  :: popSize
     procedure  :: popWeight
@@ -94,9 +94,7 @@ module particleDungeon_class
     procedure  :: printToFile
 
     !! Precursor procedures
-    procedure  :: precursorRoulette
     procedure  :: precursorCombing
-    procedure  :: totalTimedWeight
 
     ! Private procedures
     procedure, private :: detain_particle
@@ -446,7 +444,7 @@ contains
   !! Normalise the population using combing
   !! Presevers total weight
   !!
-  subroutine normCombing(self, N, rand)
+  subroutine combing(self, N, rand)
     class(particleDungeon), intent(inout)    :: self
     integer(shortInt), intent(in)            :: N
     integer(shortInt)                        :: i, j
@@ -454,7 +452,7 @@ contains
     real(defReal)                            :: w_av, nextTooth, curWeight
     real(defReal), dimension(self % pop)     :: w_array
     type(particleState), dimension(N)        :: newPrisoners
-    character(100), parameter :: Here =' normCombing (particleDungeon_class.f90)'
+    character(100), parameter :: Here =' combing (particleDungeon_class.f90)'
 
     ! Protect against invalid N
     if( N > size(self % prisoners)) then
@@ -500,39 +498,7 @@ contains
     do i=1, N
       call self % replace_particleState(newPrisoners(i), i)
     end do
-  end subroutine normCombing
-
-  !!
-  !! Normalises precusor population
-  !! Done according to expected neutron weight in
-  !! DOES NOT WORK YET DO NOT USE
-  !!
-  subroutine precursorRoulette(self, N, rand, t1, step_T)
-    class(particleDungeon), intent(inout)    :: self
-    integer(shortInt), intent(in)            :: N
-    class(RNG), intent(inout)                :: rand
-    real(defReal), intent(in)                :: t1, step_T
-    integer(shortInt)                        :: i
-    type(particle)                           :: p
-    real(defReal), dimension(N)              :: weights
-
-    character(100), parameter :: Here =' precursorRoulette (particleDungeon_class.f90)'
-
-    call self % normSize(N, rand)
-
-    do i=1, N
-      call self % copy(p, i)
-      weights(i) = p % w
-      p % w = p % getExpPrecWeight(t1, step_T)
-      call self % replace(p, i)
-    end do
-
-    do i=1, N
-      call self % copy(p, i)
-      p % w = weights(i)
-      call self % replace(p, i)
-    end do
-  end subroutine precursorRoulette
+  end subroutine combing
 
   !!
   !! Normalises precusor population by combing
@@ -566,7 +532,7 @@ contains
     ! Get timed weight of each precursor
     do i=1, self % pop
       call self % copy(p, i)
-      wTimedArray(i) = p % getTimedWeight(t)
+      wTimedArray(i) = p % timedWgt(t)
       T_kArray(i) = wTimedArray(i) / p % w
       wTimedTotal = wTimedTotal + wTimedArray(i)
     end do
@@ -635,24 +601,6 @@ contains
     wgt = sum( self % prisoners(1:self % pop) % wgt )
 
   end function popWeight
-
-  !!
-  !! Returns total population weight
-  !!
-  function totalTimedWeight(self, t) result(timedWeight)
-    class(particleDungeon), intent(in) :: self
-    real(defReal)                      :: timedWeight
-    real(defReal), intent(in)          :: t
-    integer(shortInt)                  :: i
-    type(particle)                     :: p
-
-    timedWeight = ZERO
-    do i = 1, self % pop
-        p = self % prisoners(i)
-        timedWeight = timedWeight + p % getTimedWeight(t)
-    end do
-
-  end function totalTimedWeight
 
   !!
   !! Set size of the dungeon to n

@@ -263,7 +263,7 @@ contains
       if (n >= 1) then
         wgt =  sign(w0, wgt)
         r   = p % rGlobal()
-        do i=1,n
+        do i = 1, n
           call fiss % sampleDelayed(mu, phi, E_out, p % E, p % pRNG, lambda)
           dir = rotateVector(p % dirGlobal(), mu, phi)
           call fiss % samplePrecursorDecayT(lambda, p % pRNG, decayT)

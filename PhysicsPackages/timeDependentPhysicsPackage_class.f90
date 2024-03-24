@@ -84,7 +84,7 @@ module timeDependentPhysicsPackage_class
     real(defReal)      :: timeIncrement
     logical(defBool)   :: useCombing
     logical(defBool)   :: usePrecursors
-    logical(defBool)   :: useImplicit
+    logical(defBool)   :: useForcedPrecursorDecay
     integer(shortInt), dimension(:), allocatable  :: batchPopulations
 
     real(defReal) :: minWgt = 0.25
@@ -141,7 +141,7 @@ contains
     real(defReal), intent(inout)                    :: simTime
     integer(shortInt), intent(in)                   :: N_timeBins, N_cycles
     integer(shortInt)                               :: i, t, n, nParticles, nDelayedParticles
-    type(particle), save                            :: p, p_Precursor
+    type(particle), save                            :: p, p_d
     type(particleDungeon), save                     :: buffer
     type(collisionOperator), save                   :: collOp
     class(transportOperator), allocatable, save     :: transOp
@@ -149,7 +149,7 @@ contains
     real(defReal)                                   :: elapsed_T, end_T, T_toEnd, decay_T, w_d
     real(defReal), intent(in)                       :: timeIncrement
     character(100),parameter :: Here ='cycles (timeDependentPhysicsPackage_class.f90)'
-    !$omp threadprivate(p, buffer, collOp, transOp, pRNG)
+    !$omp threadprivate(p, p_d, buffer, collOp, transOp, pRNG)
 
     !$omp parallel
     ! Create particle buffer
@@ -176,49 +176,6 @@ contains
 
         if (t == 1) then 
           call self % fixedSource % generate(self % currentTime(i), nParticles, self % pRNG)
-        end if
-
-        if (self % usePrecursors .and. (self % useImplicit .eqv. .true.)) then
-          nDelayedParticles = self % precursorDungeons(i) % popSize()
-          if (nDelayedParticles > 0) then 
-            ! Forced precursor decay
-            do n = 1, nDelayedParticles
-              call self % precursorDungeons(i) % copy(p_Precursor, n)
-
-              ! Sample decay time
-              decay_T = timeIncrement * (t - pRNG % get())
-
-              ! Weight adjustment
-
-              w_d = p_Precursor % getPrecWeight(decay_T, timeIncrement)
-
-              pRNG = self % pRNG
-              p_Precursor % pRNG => pRNG
-              call p_Precursor % pRNG % stride(n)
-
-              ! Update parameters
-              p_Precursor % E = p_Precursor % getDelayedEnergy(decay_T)
-              p_Precursor % type = P_NEUTRON
-              p_Precursor % time = decay_T
-              p_Precursor % w = w_d
-
-              p_Precursor % lambda_i = -ONE
-              p_Precursor % fd_i = -ONE
-
-              if (p % time > t * timeIncrement) then 
-                p % fate = no_FATE
-                call self % nextTime(i) % detain(p)
-              else
-                p % fate = no_FATE
-                ! Add to current dungeon
-                call self % currentTime(i) % detain(p_Precursor)
-              end if
-            end do
-          end if
-        end if
-
-        if (self % useCombing .and. t /= 1) then
-          call self % currentTime(i) % normCombing(self % pop, pRNG)
         end if
 
         call tally % reportCycleStart(self % currentTime(i))
@@ -279,10 +236,9 @@ contains
         end do gen
         !$omp end parallel do
 
-        if (self % usePrecursors .and. (self % useImplicit .eqv. .false.)) then
-
+        if (self % usePrecursors .and. (self % useForcedPrecursorDecay .eqv. .false.)) then
+          ! Analog delayed neutron handling
           nDelayedParticles = self % precursorDungeons(i) % popSize()
-
           if (nDelayedParticles > 0) then
             !$omp parallel do schedule(dynamic)
             genDelayed: do n = 1, nDelayedParticles
@@ -331,6 +287,43 @@ contains
             !$omp end parallel do
 
           end if
+
+        else if (self % usePrecursors .and. (self % useForcedPrecursorDecay .eqv. .true.)) then
+
+          ! Precursor population control
+          if (self % precursorDungeons(i) % popSize() > self % pop) then
+            call self % precursorDungeons(i) % precursorCombing(self % pop, pRNG, timeIncrement * t)
+          end if
+
+          ! Implicit delayed neutron handling using Forced Precursor Decay
+          nDelayedParticles = self % precursorDungeons(i) % popSize()
+          if (nDelayedParticles > 0) then
+            !$omp parallel do schedule(dynamic)
+            do n = 1, nDelayedParticles
+              call self % precursorDungeons(i) % copy(p_d, n)
+
+              ! Sample decay time
+              decay_T = timeIncrement * (t + pRNG % get())
+
+              ! Weight adjustment
+              w_d = p_d % forcedPrecursorDecayWgt(decay_T, timeIncrement)
+
+              pRNG = self % pRNG
+              p_d % pRNG => pRNG
+              call p_d % pRNG % stride(n)
+
+              ! Update parameters
+              p_d % type = P_NEUTRON
+              p_d % time = decay_T
+              p_d % w = w_d
+              p_d % fate = no_FATE
+
+              ! Add to current dungeon
+              call self % nextTime(i) % detain(p_d)
+
+            end do
+            !$omp end parallel do
+          end if
         end if
 
         ! Update RNG
@@ -339,6 +332,14 @@ contains
         call tally % reportCycleEnd(self % currentTime(i))
         call self % pRNG % stride(nParticles + 1)
         call self % currentTime(i) % cleanPop()
+
+        ! Neutron population control
+        if (self % useCombing) then
+          call self % nextTime(i) % combing(self % pop, pRNG)
+        else if (self % usePrecursors .and. (self % useForcedPrecursorDecay .eqv. .true.)) then
+          call self % nextTime(i) % combing(self % pop, pRNG)
+        end if
+
       end do
 
       self % tempTime  => self % nextTime
@@ -460,7 +461,7 @@ contains
     call dict % getOrDefault(self % usePrecursors, 'precursors', .false.)
 
     ! Whether to use analog or implicit kinetic (default = Analog)
-    call dict % getOrDefault(self % useImplicit, 'useImplicit', .false.)
+    call dict % getOrDefault(self % useForcedPrecursorDecay, 'useForcedPrecursorDecay', .false.)
 
     ! Register timer
     self % timerMain = registerTimer('transportTime')

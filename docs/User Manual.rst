@@ -163,12 +163,18 @@ NB! This is currently only compatible with transportOperatorDT.
 * timeIncrement: time interval
 * dataType: determines type of nuclear data used. Can only be ``ce``
 * XSdata: keyword to the name of the nuclearDataHandle used
+* combing (*optional*, default = 0): 1 for true; 0 for false; apply
+  Combing population control at each time-boundary.
 * precursors (*optional*, default = 0): 1 for true; 0 for false; include 
   delayed neutrons in time-dependent calculations. NB! It must currently be set
-  in the collision operator as well.
-* useImplicit (*optional*, default = 0): 1 for true; 0 for false; implicit
-  treatment instead of analog in time-dependent calculations. NB! This requires the
-  neutronCekineticimp collision operator.
+  in the collision operator as well. If the neutronCEkineticimp collision operator
+  is used this also requires 'useForcedPrecursorDecay' to be set to 1.
+* useForcedPrecursorDecay (*optional*, default = 0): 1 for true; 0 for false; 
+  Forced Precursor Decay for implicit treatment of delayed neutrons in time-dependent
+  calculations. NB! This requires the neutronCEkineticimp collision operator and 'precursors' 
+  set to 1 in the collision operator and in the time-dependent physics package.
+  Combing population control is automatically enforced for neutrons and precursors when 
+  Forced Precursor Decay is applied.
 * seed (*optional*): initial seed for the pseudo random number generator
 * outputFile (*optional*, default = 'output'): name of the output file
 * outputFormat (*optional*, default = ``asciiMATLAB``): type of output file. 
@@ -387,9 +393,8 @@ neutronCEkineticimp, to perform implicit collision processing for time-dependent
 * massThreshold (*optional*, default = 1): mass threshold for explicit treatment of
   target nuclide movement. Target movement is sampled if target mass A < massThreshold. [Mn]
 * precursors (*optional*, default = 0): handle delayed neutrons in time-dependent 
-  calculations. NB! This currently requires precursors to be set to 1 in the
-  timeDependentPhysicsPackage as well. Since this uses Forced Precursor Decay for variance reduction
-  by default, it requires 'useImplicit' and 'combing' to be set to 1 in the timeDependentPhysicsPackage.
+  calculations. NB! This currently requires 'precursors' and 'useForcedPrecursorDecay' to be set to 1 in the
+  timeDependentPhysicsPackage as well.
 
 Example: ::
 
