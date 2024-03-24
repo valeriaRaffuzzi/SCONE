@@ -333,6 +333,9 @@ contains
           end if
         end if
 
+        ! Update RNG
+        call self % pRNG % stride(self % pop + 1)
+
         call tally % reportCycleEnd(self % currentTime(i))
         call self % pRNG % stride(nParticles + 1)
         call self % currentTime(i) % cleanPop()
@@ -519,15 +522,15 @@ contains
     allocate(self % nextTime(self % N_cycles))
 
     do i = 1, self % N_cycles
-      call self % currentTime(i) % init(2*self % pop)
-      call self % nextTime(i) % init(2*self % pop)
+      call self % currentTime(i) % init(3 * self % pop)
+      call self % nextTime(i) % init(3 * self % pop)
     end do
 
     ! Size precursor dungeon
     if (self % usePrecursors) then
       allocate(self % precursorDungeons(self % N_cycles))
       do i = 1, self % N_cycles
-        call self % precursorDungeons(i) % init(2 * self % pop)
+        call self % precursorDungeons(i) % init(3 * self % pop)
       end do
     end if
 

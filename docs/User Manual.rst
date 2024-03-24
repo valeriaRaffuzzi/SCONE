@@ -155,7 +155,7 @@ timeDependentPhysicsPackage
 #########################
 
 timeDependentPhysicsPackage, used for fixed source time-dependent calculations
-NB! currently only works with transportOperatorDT
+NB! This is currently only compatible with transportOperatorDT.
 
 * pop: number of particles used per batch
 * cycles: number of batches
@@ -164,10 +164,11 @@ NB! currently only works with transportOperatorDT
 * dataType: determines type of nuclear data used. Can only be ``ce``
 * XSdata: keyword to the name of the nuclearDataHandle used
 * precursors (*optional*, default = 0): 1 for true; 0 for false; include 
-  delayed neutrons in time-dependent calculations. NB! Must currently be set
-  in collision estimator as well.
+  delayed neutrons in time-dependent calculations. NB! It must currently be set
+  in the collision operator as well.
 * useImplicit (*optional*, default = 0): 1 for true; 0 for false; implicit
-  treatment instead of analog in time-dependent calculations
+  treatment instead of analog in time-dependent calculations. NB! This requires the
+  neutronCekineticimp collision operator.
 * seed (*optional*): initial seed for the pseudo random number generator
 * outputFile (*optional*, default = 'output'): name of the output file
 * outputFormat (*optional*, default = ``asciiMATLAB``): type of output file. 
@@ -229,6 +230,11 @@ The properties of a point source are:
 * dir (*optional*, default = isotropic): (u v w) vector with the direction of the source
   particles
 
+* poissonSource (*optional*, default = -1): mu where mu is the average which defines the 
+  Poisson distribution over which initial particle times are sampled for kinetic fixed source 
+  calculations. By default all initial particle times are set to zero, and initial times are only sampled according
+  to a Poisson distribution if a value of mu >= 0 is provided.
+
 Hence, an input would look like: ::
 
       source { type pointSource; r (0.0 1.0 5.2); particle neutron; E 14.1; dir (0.0 1.0 0.0); }
@@ -287,7 +293,7 @@ include: ::
 
       collisionOperator { neutronCE { type <ceCollisionOperatorType>; *keywords* } }
 
-if continuos energy nuclear data are used, or ::
+if continuous energy nuclear data are used, or ::
 
       collisionOperator { neutronMG { type <ceCollisionOperatorType>; } }
 
@@ -308,9 +314,6 @@ neutronCEstd, to perform analog collision processing
   energyThreshold where kT is target material temperature in [MeV]. [-]
 * massThreshold (*optional*, default = 1): mass threshold for explicit treatment of
   target nuclide movement. Target movement is sampled if target mass A < massThreshold. [Mn]
-* precursors (*optional*, default = 1): handle delayed neutrons in time-dependent 
-  calculations. NB! this currently requires precursors to be set in the
-  timeDependentPhysicsPackage as well.
 
 Example: ::
 
@@ -349,6 +352,49 @@ Example: ::
 
       collisionOperator { neutronCE { type neutronCEimp; minEnergy 1.0e-12; maxEnergy 30.0;
       impAbs 1; roulette 1; splitting 1; impGen 1; maxWgt 2.0; minWgt 0.1; UFS 1; } }
+
+neutronCEkineticstd
+############
+
+neutronCEkineticstd, to perform analog collision processing for time-dependent calculations
+
+* minEnergy (*optional*, default = 1.0e-11): minimum energy cut-off. [MeV]
+* maxEnergy (*optional*, default = 20.0): maximum energy cut-off. [MeV]
+* energyThreshold (*optional*, default = 400): energy threshold for explicit treatment
+  of target nuclide movement. Target movement is sampled if neutron energy E < kT ∗
+  energyThreshold where kT is target material temperature in [MeV]. [-]
+* massThreshold (*optional*, default = 1): mass threshold for explicit treatment of
+  target nuclide movement. Target movement is sampled if target mass A < massThreshold. [Mn]
+* precursors (*optional*, default = 0): handle delayed neutrons in time-dependent 
+  calculations. NB! This currently requires precursors to be set in the
+  timeDependentPhysicsPackage as well.
+
+Example: ::
+
+      collisionOperator { neutronCE { type neutronCEkineticstd; minEnergy 1.0e-11;
+      maxEnergy 20; precursors 1; } }
+
+neutronCEkineticimp
+############
+
+neutronCEkineticimp, to perform implicit collision processing for time-dependent calculations
+
+* minEnergy (*optional*, default = 1.0e-11): minimum energy cut-off. [MeV]
+* maxEnergy (*optional*, default = 20.0): maximum energy cut-off. [MeV]
+* energyThreshold (*optional*, default = 400): energy threshold for explicit treatment
+  of target nuclide movement. Target movement is sampled if neutron energy E < kT ∗
+  energyThreshold where kT is target material temperature in [MeV]. [-]
+* massThreshold (*optional*, default = 1): mass threshold for explicit treatment of
+  target nuclide movement. Target movement is sampled if target mass A < massThreshold. [Mn]
+* precursors (*optional*, default = 0): handle delayed neutrons in time-dependent 
+  calculations. NB! This currently requires precursors to be set to 1 in the
+  timeDependentPhysicsPackage as well. Since this uses Forced Precursor Decay for variance reduction
+  by default, it requires 'useImplicit' and 'combing' to be set to 1 in the timeDependentPhysicsPackage.
+
+Example: ::
+
+      collisionOperator { neutronCE { type neutronCEkineticimp; minEnergy 1.0e-11;
+      maxEnergy 20; precursors 1; } }
 
 The possible types to be used with **multi-group** data are:
 

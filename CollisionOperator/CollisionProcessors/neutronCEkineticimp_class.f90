@@ -127,7 +127,7 @@ contains
     if( self % thresh_A < 0) call fatalError(Here,' -ve massThreshold')
 
     ! Obtain precursor settings
-    call dict % getOrDefault(self % usePrecursors, 'precursors', .true.)
+    call dict % getOrDefault(self % usePrecursors, 'precursors', .false.)
 
   end subroutine init
 
