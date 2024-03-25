@@ -63,7 +63,8 @@ module neutronXsPackages_class
     real(defReal) :: fission          = ZERO
     real(defReal) :: nuFission        = ZERO
   contains
-    procedure :: invert => invert_microXSs
+    procedure :: invert           => invert_microXSs
+    procedure :: invertBranchless => invert_microXSs_branchless
   end type neutronMicroXSs
 
 contains
@@ -281,4 +282,35 @@ contains
   end function invert_microXSs
 
 
+  !! Use a real r in < 0; 1 > to sample reaction for branchless algorithm from Macroscopic XSs
+  !!
+  !! Args:
+  !!    r [in] -> Real number in < 0; 1>
+  !!    flag [in] -> flag 'true' for preserving the interface
+  !!
+  !!  Result:
+  !!    One of the macroscopic MT number
+  !!      elasticScatter = macroEscatter
+  !!      inelasticScatter = macroIEscatter
+  !!      fission = macroFission
+
+  elemental function invert_microXSs_branchless(self, r) result(MT)
+    class(neutronMicroXSs), intent(in):: self
+    real(defReal), intent(in):: r
+    integer(shortInt):: MT
+    real(defReal):: effectiveXStot
+    
+    effectiveXStot = self % elasticScatter + self % inelasticScatter &
+                    + self % nuFission
+    
+    if (r*effectiveXStot < self % elasticScatter) then
+      MT = N_N_ELASTIC
+    elseif (r*effectiveXStot < self % inelasticScatter+self % elasticScatter) then
+      MT = N_N_INELASTIC
+    elseif (r*effectiveXStot < self % inelasticScatter + self % elasticScatter + self % nuFission) then
+      MT = N_FISSION
+    else 
+      MT = huge(0_shortInt)
+    end if
+  end function invert_microXSs_branchless
 end module neutronXsPackages_class

@@ -261,7 +261,7 @@ contains
                   p % timeMax = t * timeIncrement
                   call p % savePreHistory()
 
-                  ! Transport particle untill its death
+                  ! Transport particle until its death
                   historyDelayed: do
                     if(p % isDead) exit historyDelayed
                     call transOp % transport(p, tally, buffer, buffer)

@@ -59,6 +59,7 @@ module neutronCEkineticstd_class
   !!   #maxEnergy       <real>;#
   !!   #energyThreshold <real>;#
   !!   #massThreshold   <real>;#
+  !!   #precursors      <logical>;#
   !!   }
   !!
   type, public, extends(collisionProcessor) :: neutronCEkineticstd
@@ -212,7 +213,7 @@ contains
     type(particleState)                  :: pTemp
     real(defReal),dimension(3)           :: r, dir
     integer(shortInt)                    :: n, i
-    real(defReal)                        :: wgt, w0, rand1, E_out, mu, phi, lambda, decayT
+    real(defReal)                        :: wgt, w0, E_out, mu, phi, lambda, decayT
     real(defReal)                        :: sig_nufiss, k_eff, sig_fiss
     character(100),parameter             :: Here = 'fission (neutronCEkineticstd_class.f90)'
 
@@ -220,7 +221,6 @@ contains
     wgt   = p % w                ! Current weight
     w0    = p % preHistory % wgt ! Starting weight
     k_eff = p % k_eff            ! k_eff for normalisation
-    rand1 = p % pRNG % get()     ! Random number to sample sites
 
     call self % nuc % getMicroXSs(microXSs, p % E, p % pRNG)
     sig_fiss   = microXSs % fission

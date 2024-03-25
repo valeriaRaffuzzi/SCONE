@@ -44,14 +44,20 @@ module neutronCEkineticimp_class
   !!   -> Does not create secondary non-neutron projectiles
   !!
   !! Settings:
-  !!  minE    -> minimum energy cut-off [MeV] (default = 1.0E-11)
-  !!  maxE    -> maximum energy. Higher energies are set to maximum (not re-rolled) [MeV]
+  !!  minE       -> minimum energy cut-off [MeV] (default = 1.0E-11)
+  !!  maxE       -> maximum energy. Higher energies are set to maximum (not re-rolled) [MeV]
   !!             (default = 20.0)
-  !!  thresh_E -> Energy threshold for explicit treatment of target nuclide movement [-].
+  !!  thresh_E   -> Energy threshold for explicit treatment of target nuclide movement [-].
   !!              Target movment is sampled if neutron energy E < kT * thresh_E where
   !!              kT is target material temperature in [MeV]. (default = 400.0)
-  !!  thresh_A -> Mass threshold for explicit tratment of target nuclide movement [Mn].
+  !!  thresh_A   -> Mass threshold for explicit tratment of target nuclide movement [Mn].
   !!              Target movment is sampled if target mass A < thresh_A. (default = 1.0)
+  !!  minWgt     -> minimum particle weight for rouletting (optional)
+  !!  maxWgt     -> maximum particle weight for splitting (optional)
+  !!  avgWgt     -> weight of a particle on surviving rouletting (optional)
+  !!  splitting  -> splits particles above certain weight (off by default)
+  !!  roulette   -> roulettes particles below certain weight (off by default)
+  !!  branchless -> branchless collision
   !!
   !! Sample dictionary input:
   !!   collProcName {
@@ -60,6 +66,13 @@ module neutronCEkineticimp_class
   !!   #maxEnergy       <real>;#
   !!   #energyThreshold <real>;#
   !!   #massThreshold   <real>;#
+  !!   #splitting       <logical>;#
+  !!   #roulette        <logical>;#
+  !!   #minWgt          <real>;#
+  !!   #maxWgt          <real>;#
+  !!   #avgWgt          <real>;#
+  !!   #precursors      <logical>;#
+  !!   #branchless      <logical>;#
   !!   }
   !!
   type, public, extends(collisionProcessor) :: neutronCEkineticimp
@@ -70,10 +83,16 @@ module neutronCEkineticimp_class
     class(ceNeutronNuclide),  pointer, public :: nuc    => null()
 
     !! Settings - private
-    real(defReal) :: minE
-    real(defReal) :: maxE
-    real(defReal) :: thresh_E
-    real(defReal) :: thresh_A
+    real(defReal)    :: minE
+    real(defReal)    :: maxE
+    real(defReal)    :: thresh_E
+    real(defReal)    :: thresh_A
+    real(defReal)    :: minWgt
+    real(defReal)    :: maxWgt
+    real(defReal)    :: avWgt
+    logical(defBool) :: splitting
+    logical(defBool) :: roulette
+    logical(defBool) :: branchless
 
     ! Precursors
     logical(defBool) :: usePrecursors
@@ -95,6 +114,10 @@ module neutronCEkineticimp_class
     procedure,private :: scatterFromFixed
     procedure,private :: scatterFromMoving
     procedure,private :: scatterInLAB
+
+    ! Variance reduction procedures
+    procedure, private :: split
+    procedure, private :: russianRoulette
   end type neutronCEkineticimp
 
 contains
@@ -129,6 +152,25 @@ contains
     ! Obtain precursor settings
     call dict % getOrDefault(self % usePrecursors, 'precursors', .false.)
 
+    ! Obtain settings for variance reduction
+    call dict % getOrDefault(self % splitting,'split', .false.)
+    call dict % getOrDefault(self % roulette,'roulette', .false.)
+    call dict % getOrDefault(self % minWgt,'minWgt', 0.4_defReal)
+    call dict % getOrDefault(self % maxWgt,'maxWgt', 2.0_defReal)
+    call dict % getOrDefault(self % avWgt,'avWgt', 1.0_defReal)
+    call dict % getOrDefault(self % branchless,'branchless', .false.)
+
+    ! Ensure compatability
+    if (self % splitting .eqv. .true.) then
+      if (self % maxWgt < 2 * self % minWgt) call fatalError(Here,&
+              'Upper weight bound must be at least twice the lower weight bound')
+    end if
+
+    ! Enforce splitting and russian roulette if using branchless collisions
+    if (self % branchless .eqv. .true.) then
+      self % splitting = .true.
+      self % roulette = .true.
+    end if
   end subroutine init
 
   !!
@@ -166,7 +208,12 @@ contains
     ! Select Main reaction channel
     call self % nuc % getMicroXSs(microXss, p % E, p % pRNG)
     r = p % pRNG % get()
+
+  if (self % branchless .eqv. .true.) then
+    collDat % MT = microXss % invertBranchless(r)
+  else
     collDat % MT = microXss % invert(r)
+  end if
 
   end subroutine sampleCollision
 
@@ -174,27 +221,37 @@ contains
   !! Perform implicit treatment
   !!
   subroutine implicit(self, p, collDat, thisCycle, nextCycle)
-    class(neutronCEkineticimp), intent(inout)   :: self
-    class(particle), intent(inout)       :: p
-    type(collisionData), intent(inout)   :: collDat
-    class(particleDungeon),intent(inout) :: thisCycle
-    class(particleDungeon),intent(inout) :: nextCycle
-    type(fissionCE), pointer             :: fiss
-    type(neutronMicroXSs)                :: microXSs
-    type(particleState)                  :: pTemp
-    real(defReal),dimension(3)           :: r, dir
-    integer(shortInt)                    :: n, i, j
-    real(defReal)                        :: wgt, w0, rand1, E_out, mu, phi, lambda
-    real(defReal)                        :: sig_nuPromptfiss, sig_nuDelayedfiss, sig_tot, k_eff
-    character(100),parameter             :: Here = 'implicit (neutronCEkineticimp_class.f90)'
+    class(neutronCEkineticimp), intent(inout) :: self
+    class(particle), intent(inout)            :: p
+    type(collisionData), intent(inout)        :: collDat
+    class(particleDungeon),intent(inout)      :: thisCycle
+    class(particleDungeon),intent(inout)      :: nextCycle
+    type(fissionCE), pointer                  :: fiss
+    type(neutronMicroXSs)                     :: microXSs
+    type(particleState)                       :: pTemp
+    real(defReal),dimension(3)                :: r, dir
+    integer(shortInt)                         :: n, i
+    real(defReal)                             :: wgt, w0, E_out, mu, phi, lambda, wgtFactor
+    real(defReal)                             :: sig_nuPromptfiss, sig_nuDelayedfiss, sig_tot, k_eff
+    character(100),parameter                  :: Here = 'implicit (neutronCEkineticimp_class.f90)'
+
+    if (self % branchless .eqv. .true.) then
+      ! Obtain micro cross-sections
+      call self % nuc % getMicroXSs(microXSs, p % E, p % pRNG)
+
+      ! Compute weight multiplier when applying branchless on isotope
+      wgtFactor = (microXSs % nuFission + microXSs % elasticScatter + microXSs % inelasticScatter) &
+                  / microXSs % total 
+      
+      ! Modify weight at each collision
+      p % w = p % w * wgtFactor
 
     ! Generate fission sites if nuclide is fissile
-    if ( self % nuc % isFissile()) then
+    else if ( self % nuc % isFissile()) then
       ! Obtain required data
       wgt   = p % w                ! Current weight
       w0    = p % preHistory % wgt ! Starting weight
       k_eff = p % k_eff            ! k_eff for normalisation
-      rand1 = p % pRNG % get()     ! Random number to sample sites
 
       call self % nuc % getMicroXSs(microXSs, p % E, p % pRNG)
       sig_tot    = microXSs % total
@@ -207,7 +264,7 @@ contains
 
       ! Sample number of prompt fission sites generated
       ! Support -ve weight particles
-      n = int(abs( (wgt * sig_nuPromptfiss) / (w0 * sig_tot * k_eff)) + rand1, shortInt)
+      n = int(abs( (wgt * sig_nuPromptfiss) / (w0 * sig_tot * k_eff)) + p % pRNG % get(), shortInt)
 
       if (n >= 1) then
         ! Store new sites in the next cycle dungeon
@@ -238,7 +295,7 @@ contains
 
         ! Handle delayed neutrons using Forced Decay
         sig_nuDelayedfiss = fiss % releaseDelayed(p % E) * microXSs % fission
-        n = int(abs( (wgt * sig_nuDelayedfiss) / (w0 * sig_tot * k_eff)) + rand1, shortInt)
+        n = int(abs( (wgt * sig_nuDelayedfiss) / (w0 * sig_tot * k_eff)) + p % pRNG % get(), shortInt)
 
         if (n >= 1) then
           wgt =  sign(w0, wgt)
@@ -274,13 +331,13 @@ contains
   !! Process capture reaction
   !!
   subroutine capture(self, p, collDat, thisCycle, nextCycle)
-    class(neutronCEkineticimp), intent(inout)   :: self
-    class(particle), intent(inout)       :: p
-    type(collisionData), intent(inout)   :: collDat
-    class(particleDungeon),intent(inout) :: thisCycle
-    class(particleDungeon),intent(inout) :: nextCycle
+    class(neutronCEkineticimp), intent(inout) :: self
+    class(particle), intent(inout)            :: p
+    type(collisionData), intent(inout)        :: collDat
+    class(particleDungeon),intent(inout)      :: thisCycle
+    class(particleDungeon),intent(inout)      :: nextCycle
 
-    p % isDead =.true.
+    p % isDead = .true.
 
   end subroutine capture
 
@@ -293,8 +350,65 @@ contains
     type(collisionData), intent(inout)   :: collDat
     class(particleDungeon),intent(inout) :: thisCycle
     class(particleDungeon),intent(inout) :: nextCycle
+    type(fissionCE), pointer                  :: fiss
+    type(neutronMicroXSs)                     :: microXSs
+    type(particleState)                       :: pTemp
+    real(defReal),dimension(3)                :: r, dir
+    integer(shortInt)                         :: n
+    real(defReal)                             :: wgt, w0, E_out, mu, phi, lambda, rand, probabilityOfPrompt
+    real(defReal)                             :: sig_nuPromptfiss, sig_nuDelayedfiss, sig_tot, k_eff, sig_a, sig_s
+    character(100),parameter                  :: Here = 'fission (neutronCEkineticimp_class.f90)'
 
-    p % isDead =.true.
+    if ((self % branchless .eqv. .true.) .and. (self % nuc % isFissile() .eqv. .true.)) then
+      wgt   = p % w                ! Current weight
+      w0    = p % preHistory % wgt ! Starting weight
+      k_eff = p % k_eff            ! k_eff for normalisation
+
+
+      ! Get fission Reaction
+      fiss => fissionCE_TptrCast(self % xsData % getReaction(N_FISSION, collDat % nucIdx))
+      if(.not.associated(fiss)) call fatalError(Here, "Failed to get fissionCE")
+      call self % nuc % getMicroXSs(microXSs, p % E, p % pRNG)
+
+      probabilityOfPrompt = fiss % releasePrompt(p % E) / fiss % release(p % E)
+      rand = p % pRNG % get()
+
+      if (rand <= probabilityOfPrompt) then
+
+        sig_tot = microXSs % total
+        sig_s   = microXSs % elasticScatter + microXSs % inelasticScatter
+        sig_a   = sig_tot - sig_s
+
+        sig_nuPromptfiss = fiss % releasePrompt(p % E) * microXSs % fission
+
+        ! Store new sites in the next cycle dungeon
+        !wgt =  sign(w0, wgt) * sig_nuPromptfiss / sig_a
+        r   = p % rGlobal()
+
+
+        call fiss % samplePrompt(mu, phi, E_out, p % E, p % pRNG)
+        dir = rotateVector(p % dirGlobal(), mu, phi)
+
+        if (E_out > self % maxE) E_out = self % maxE
+
+        ! Copy extra detail from parent particle (i.e. time, flags ect.)
+        pTemp       = p
+
+        ! Overwrite position, direction, energy and weight
+        pTemp % r   = r
+        pTemp % dir = dir
+        pTemp % E   = E_out
+        !pTemp % wgt = wgt
+        pTemp % time = p % time
+
+        call nextCycle % detain(pTemp)
+
+      else if (self % usePrecursors) then
+        ! Do nothing for now
+      end if
+    end if
+
+    p % isDead = .true.
 
   end subroutine fission
 
@@ -375,15 +489,63 @@ contains
     class(particleDungeon),intent(inout) :: nextCycle
 
     if (p % E < self % minE ) p % isDead = .true.
+    if (p % isDead .eqv. .true.) return
+
+    ! Splitting with fixed threshold
+    if ((p % w > self % maxWgt) .and. (self % splitting .eqv. .true.)) then
+      call self % split(p, thisCycle, self % maxWgt)
+    ! Roulette with fixed threshold and survival weight
+    elseif ((p % w < self % minWgt) .and. (self % roulette .eqv. .true.)) then
+      call self % russianRoulette(p, self % avWgt)
+    end if
 
   end subroutine cutoffs
+
+  !!
+  !! Perform Russian roulette on a particle
+  !!
+  subroutine russianRoulette(self, p, avWgt)
+    class(neutronCEkineticimp), intent(inout) :: self
+    class(particle), intent(inout)            :: p
+    real(defReal), intent(in)                 :: avWgt
+
+    if (p % pRNG % get() < (ONE - p % w/avWgt)) then
+      p % isDead = .true.
+    else
+      p % w = avWgt
+    end if
+
+  end subroutine russianRoulette
+
+  !!
+  !! Split particle which has too large a weight
+  !!
+  subroutine split(self, p, nextCycle, maxWgt)
+    class(neutronCEkineticimp), intent(inout) :: self
+    class(particle), intent(inout)            :: p
+    class(particleDungeon), intent(inout)     :: nextCycle
+    real(defReal), intent(in)                 :: maxWgt
+    integer(shortInt)                         :: mult, i
+
+    ! This value must be at least 2
+    mult = ceiling(p % w/maxWgt)
+
+    ! Decrease weight
+    p % w = p % w/mult
+
+    ! Add split particle's to the dungeon
+    do i = 1,mult-1
+      call nextCycle % detain(p)
+    end do
+
+  end subroutine split
 
   !!
   !! Subroutine to perform scattering in LAB frame
   !! Returns mu -> cos of deflection angle in LAB frame
   !!
   subroutine scatterInLAB(self, p, collDat, reac)
-    class(neutronCEkineticimp), intent(inout)        :: self
+    class(neutronCEkineticimp), intent(inout) :: self
     class(particle), intent(inout)            :: p
     type(collisionData), intent(inout)        :: collDat
     class(uncorrelatedReactionCE), intent(in) :: reac
@@ -405,14 +567,14 @@ contains
   !! Returns mu -> cos of deflection angle in LAB frame
   !!
   subroutine scatterFromFixed(self, p, collDat, reac)
-    class(neutronCEkineticimp), intent(inout)         :: self
-    class(particle), intent(inout)             :: p
-    type(collisionData), intent(inout)         :: collDat
-    class(uncorrelatedReactionCE), intent(in)  :: reac
-    real(defReal)                              :: phi
-    real(defReal)                              :: E_out
-    real(defReal)                              :: E_outCM, mu
-    integer(shortInt)                          :: MT
+    class(neutronCEkineticimp), intent(inout) :: self
+    class(particle), intent(inout)            :: p
+    type(collisionData), intent(inout)        :: collDat
+    class(uncorrelatedReactionCE), intent(in) :: reac
+    real(defReal)                             :: phi
+    real(defReal)                             :: E_out
+    real(defReal)                             :: E_outCM, mu
+    integer(shortInt)                         :: MT
 
     ! Read data
     MT     = collDat % MT
@@ -441,17 +603,17 @@ contains
   !! Supports only elastic collisions
   !!
   subroutine scatterFromMoving(self, p, collDat, reac)
-    class(neutronCEkineticimp), intent(inout)         :: self
-    class(particle), intent(inout)             :: p
-    type(collisionData),intent(inout)          :: collDat
-    class(uncorrelatedReactionCE), intent(in)  :: reac
-    real(defReal)                              :: A, kT, mu
-    real(defReal),dimension(3)                 :: V_n           ! Neutron velocity (vector)
-    real(defReal)                              :: U_n           ! Neutron speed (scalar)
-    real(defReal),dimension(3)                 :: dir_pre       ! Pre-collision direction
-    real(defReal),dimension(3)                 :: dir_post      ! Post-collicion direction
-    real(defReal),dimension(3)                 :: V_t, V_cm     ! Target and CM velocity
-    real(defReal)                              :: phi, dummy
+    class(neutronCEkineticimp), intent(inout) :: self
+    class(particle), intent(inout)            :: p
+    type(collisionData),intent(inout)         :: collDat
+    class(uncorrelatedReactionCE), intent(in) :: reac
+    real(defReal)                             :: A, kT, mu
+    real(defReal),dimension(3)                :: V_n           ! Neutron velocity (vector)
+    real(defReal)                             :: U_n           ! Neutron speed (scalar)
+    real(defReal),dimension(3)                :: dir_pre       ! Pre-collision direction
+    real(defReal),dimension(3)                :: dir_post      ! Post-collicion direction
+    real(defReal),dimension(3)                :: V_t, V_cm     ! Target and CM velocity
+    real(defReal)                             :: phi, dummy
 
     ! Read data
     A      = collDat % A
