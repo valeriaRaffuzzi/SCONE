@@ -1,4 +1,4 @@
-module fixedSourceTRRMPhysicsPackage_class
+module fixedSourceCADISPhysicsPackage_class
 
   use numPrecision
   use universalVariables
@@ -57,9 +57,6 @@ module fixedSourceTRRMPhysicsPackage_class
 
   ! Parameter for uncollided flux calculations
   integer(shortInt), parameter :: NO_UC = 0, POINT = 1, VOLUME = 2
-
-  ! Parameter for CADIS calculation
-  integer(shortInt), parameter :: NO_CADIS = 0, GLOBAL = 1, DETECTOR = 2
 
   !!
   !! Physics package to perform The Random Ray Method (TRRM) fixed source calculations
@@ -187,7 +184,7 @@ module fixedSourceTRRMPhysicsPackage_class
   !! Interface:
   !!   physicsPackage interface
   !!
-  type, public, extends(physicsPackage) :: fixedSourceTRRMPhysicsPackage
+  type, public, extends(physicsPackage) :: fixedSourceCADISPhysicsPackage
     private
     ! Components
     class(geometryStd), pointer           :: geom
@@ -221,7 +218,6 @@ module fixedSourceTRRMPhysicsPackage_class
     logical(defBool)   :: printFlux   = .false.
     logical(defBool)   :: printVolume = .false.
     logical(defBool)   :: printCells  = .false.
-    logical(defBool)   :: adjointRes  = .false.
     type(visualiser)   :: viz
     real(defReal), dimension(:), allocatable      :: samplePoints
     character(nameLen), dimension(:), allocatable :: sampleNames
@@ -230,10 +226,6 @@ module fixedSourceTRRMPhysicsPackage_class
     character(nameLen),dimension(:), allocatable  :: intMatName
     logical(defBool)   :: mapFlux     = .false.
     class(tallyMap), allocatable :: fluxMap
-
-    ! CADIS settings
-    integer(shortInt)  :: cadis       = 0
-    character(nameLen), dimension(:), allocatable :: detMat
 
     ! Volume calculation settings
     integer(shortInt)  :: nVolRays = 0
@@ -263,7 +255,6 @@ module fixedSourceTRRMPhysicsPackage_class
     real(defReal), dimension(:,:), allocatable  :: fluxScores
     real(defFlt), dimension(:), allocatable     :: source
     real(defFlt), dimension(:), allocatable     :: fixedSource
-    real(defFlt), dimension(:), allocatable     :: responseSource
     real(defReal), dimension(:), allocatable    :: volume
     real(defReal), dimension(:), allocatable    :: volumeTracks
     real(defReal), dimension(:), allocatable    :: currentIn
@@ -291,6 +282,9 @@ module fixedSourceTRRMPhysicsPackage_class
     real (defReal)    :: CPU_time_start
     real (defReal)    :: CPU_time_end
 
+    ! CADIS response
+    type(dictionary), pointer :: dict
+
   contains
     ! Superclass procedures
     procedure :: init
@@ -316,9 +310,8 @@ module fixedSourceTRRMPhysicsPackage_class
     procedure, private :: cellMapCalculation
     procedure, private :: uncollidedSweep
     procedure, private :: uncollidedCalculation
-    procedure, private :: initCADIS
 
-  end type fixedSourceTRRMPhysicsPackage
+  end type fixedSourceCADISPhysicsPackage
 
 contains
 
@@ -328,7 +321,7 @@ contains
   !! See physicsPackage_inter for details
   !!
   subroutine init(self,dict)
-    class(fixedSourceTRRMPhysicsPackage), intent(inout) :: self
+    class(fixedSourceCADISPhysicsPackage), intent(inout) :: self
     class(dictionary), intent(inout)                    :: dict
     integer(shortInt)                                   :: seed_temp, n, nPoints, i, m, g, g1
     integer(longInt)                                    :: seed
@@ -339,14 +332,14 @@ contains
     real(defReal), dimension(:), allocatable            :: tempArray
     class(mgNeutronDatabase),pointer                    :: db
     character(nameLen)                                  :: geomName, graphType, nucData
-    character(nameLen),dimension(:), allocatable        :: names, detectors
+    character(nameLen),dimension(:), allocatable        :: names
     class(charMap), pointer                             :: matMap
     class(geometry), pointer                            :: geom
     type(outputFile)                                    :: test_out
     class(baseMgNeutronMaterial), pointer               :: mat
     class(materialHandle), pointer                      :: matPtr
     logical(defBool)                                    :: cellCheck
-    character(100), parameter :: Here = 'init (fixedSourceTRRMPhysicsPackage_class.f90)'
+    character(100), parameter :: Here = 'init (fixedSourceCADISPhysicsPackage_class.f90)'
 
     call cpu_time(self % CPU_time_start)
 
@@ -382,17 +375,6 @@ contains
     call dict % getOrDefault(self % rho, 'rho', ZERO)
     ! Shouldn't need this... but need to do a bit more work to allow these to be done together
     if (self % volCorr) self % rho = ZERO
-
-    ! Perform CADIS algorithm?
-    call dict % getOrDefault(self % cadis, 'CADIS', NO_CADIS)
-    if (self % cadis == DETECTOR) then
-
-      call dict % get(detectors,'detectors')
-
-      allocate(self % detMat(size(detectors)))
-      self % detMat = detectors
-
-    end if
 
     ! Print fluxes?
     call dict % getOrDefault(self % printFlux, 'printFlux', .false.)
@@ -681,6 +663,9 @@ contains
       call self % initialiseSource(sourceDict)
     end if
 
+    ! Foreward source
+    self % dict => dict % getDictPtr('sourceFW')
+
     ! Set active length traveled per iteration
     self % lengthPerIt = (self % termination - self % dead) * self % pop
 
@@ -699,15 +684,18 @@ contains
     allocate(self % chi(self % nMat * self % nG))
     allocate(self % sigmaS(self % nMat * self % nG * self % nG))
 
+    ! CADIS modifications:
+    !   - chi and nuFiss have been swapped
+    !   - the scattering matrix has been transposed (swapping g and g1)
     do m = 1, self % nMat
       matPtr  => self % mgData % getMaterial(m)
       mat     => baseMgNeutronMaterial_CptrCast(matPtr)
       do g = 1, self % nG
         self % sigmaT(self % nG * (m - 1) + g) = real(mat % getTotalXS(g, self % rand),defFlt)
-        self % nuSigmaF(self % nG * (m - 1) + g) = real(mat % getNuFissionXS(g, self % rand),defFlt)
-        self % chi(self % nG * (m - 1) + g) = real(mat % getChi(g, self % rand),defFlt)
+        self % nuSigmaF(self % nG * (m - 1) + g) = real(mat % getChi(g, self % rand),defFlt)
+        self % chi(self % nG * (m - 1) + g) = real(mat % getNuFissionXS(g, self % rand),defFlt)
         do g1 = 1, self % nG
-          self % sigmaS(self % nG * self % nG * (m - 1) + self % nG * (g - 1) + g1)  = &
+          self % sigmaS(self % nG * self % nG * (m - 1) + self % nG * (g1 - 1) + g)  = &
                   real(mat % getScatterXS(g1, g, self % rand) * mat % scatter % prod(g1, g) , defFlt)
 
         end do
@@ -725,7 +713,7 @@ contains
   !! Also sets options for uncollided flux calculations
   !!
   subroutine initialiseSource(self, dict)
-    class(fixedSourceTRRMPhysicsPackage), intent(inout) :: self
+    class(fixedSourceCADISPhysicsPackage), intent(inout) :: self
     class(dictionary), intent(inout)                    :: dict
     character(nameLen),dimension(:), allocatable        :: names
     real(defReal), dimension(:), allocatable            :: sourceStrength
@@ -734,7 +722,7 @@ contains
     logical(defBool)                                    :: found
     character(nameLen)                                  :: sourceName
     character(nameLen), save                            :: localName
-    character(100), parameter :: Here = 'initialiseSource (fixedSourceTRRMPhysicsPackage_class.f90)'
+    character(100), parameter :: Here = 'initialiseSource (fixedSourceCADISPhysicsPackage_class.f90)'
     !$omp threadprivate(matIdx, localName, idx, g, id)
 
     call dict % keys(names)
@@ -780,6 +768,8 @@ contains
       end do
       !$omp end parallel do
 
+      !print*, sum(self % fixedSource), 'fixed source cells'
+
       if (.not. found) call fatalError(Here,'The source '//trim(sourceName)//' does not correspond to '//&
               'any material found in the geometry.')
 
@@ -788,141 +778,18 @@ contains
   end subroutine initialiseSource
 
   !!
-  !! Initialise Physics Package from dictionary
-  !!
-  !! See physicsPackage_inter for details
-  !!
-  subroutine initCADIS(self)
-    class(fixedSourceTRRMPhysicsPackage), intent(inout) :: self
-    real(defFlt), dimension(:), allocatable             :: xsBuffer
-    integer(shortInt)                                   :: g1, m, i
-    integer(shortInt), save                             :: id, idx, matIdx, g
-    character(nameLen), save                            :: localName
-    !$omp threadprivate(id, idx, matIdx, g, localName)
-
-    ! Restart timer
-    call cpu_time(self % CPU_time_start)
-
-    ! Clean visualisation
-    call self % viz % kill()
-
-    ! Change some of the previous settings
-    self % plotResults    = .false.
-    self % printFlux      = .false.
-    self % printVolume    = .false.
-    self % printCells     = .false.
-    self % uncollidedType = NO_UC
-    self % nVolRays    = 0
-    self % volLength   = ZERO
-
-    ! Read outputfile path
-    self % outputFile = trim(self % outputFile)//'_adjoint'
-
-    ! Register timer
-    self % timerMain = registerTimer('simulationTime')
-    self % timerTransport = registerTimer('transportTime')
-
-    ! Save fixed source
-    allocate(self % responseSource(self % nCells * self % nG))
-    self % responseSource = self % fixedSource
-
-    ! Reinitialise fixed source
-    self % fixedSource = 0.0_defFlt
-
-    ! Construct CADIS SOURCE from forward calculation
-    ! This is where the different types of calculations differ
-    if (self % cadis == GLOBAL) then
-
-      !$omp parallel do
-      do i = 1, self % nCells * self % nG
-        if (self % fluxScores(i,1) /= ZERO) then
-          self % fixedSource(i) = real(ONE/self % fluxScores(i,1), defFlt)
-        end if
-      end do
-      !$omp end parallel do
-
-    elseif (self % cadis == DETECTOR) then
-
-      !$omp parallel do
-      do i = 1, self % nCells
-
-        id        = self % CellToID(i)
-        matIdx    = self % geom % geom % graph % getMatFromUID(id)
-        localName = mm_matName(matIdx)
-
-        if (any(localName == self % detMat)) then
-          do g = 1, self % nG
-            idx = (i - 1) * self % nG + g
-
-            if (self % fluxScores(idx,1) /= ZERO) then
-              self % fixedSource(idx) = real(ONE/self % fluxScores(idx,1), defFlt)
-            end if
-
-          end do
-        end if
-
-      end do
-      !$omp end parallel do
-
-    end if
-
-    ! Initialise new results
-    self % scalarFlux = 0.0_defFlt
-    self % prevFlux = 0.0_defFlt
-    self % fluxScores = ZERO
-    self % source = 0.0_defFlt
-    self % volume = ZERO
-    self % volumeTracks = ZERO
-    self % cellHit = 0
-    self % cellFound = .false.
-    self % cellPos = -INFINITY
-
-    ! Modify local nuclear data appropriately
-
-    ! Fission source
-    allocate(xsBuffer(self % nMat * self % nG))
-    xsBuffer = self % nuSigmaF
-    self % nuSigmaF = self % chi
-    self % chi      = xsBuffer
-    deallocate(xsBuffer)
-
-    ! Scattering matrix
-    allocate(xsBuffer(self % nMat * self % nG * self % nG))
-    xsBuffer = self % sigmaS
-
-    do m = 1, self % nMat
-      do g = 1, self % nG
-        do g1 = 1, self % nG
-          self % sigmaS(self % nG * self % nG * (m - 1) + self % nG * (g1 - 1) + g)  = &
-                  xsBuffer(self % nG * self % nG * (m - 1) + self % nG * (g - 1) + g1)
-        end do
-      end do
-    end do
-
-    ! CADIS flag
-    self % adjointRes = .true.
-
-  end subroutine initCADIS
-
-  !!
   !! Run calculation
   !!
   !! See physicsPackage_inter for details
   !!
   subroutine run(self)
-    class(fixedSourceTRRMPhysicsPackage), intent(inout) :: self
+    class(fixedSourceCADISPhysicsPackage), intent(inout) :: self
 
     call self % printSettings()
     if (self % nVolRays > 0) call self % volumeCalculation()
     if (self % uncollidedType > NO_UC) call self % uncollidedCalculation()
     call self % cycles()
     call self % printResults()
-
-    if (self % cadis /= NO_CADIS) then
-      call self % initCADIS()
-      call self % cycles()
-      call self % printResults()
-    end if
 
   end subroutine run
 
@@ -933,7 +800,7 @@ contains
   !! Rays are tracked until they reach some specified termination length.
   !!
   subroutine cellMapCalculation(self)
-    class(fixedSourceTRRMPhysicsPackage), intent(inout) :: self
+    class(fixedSourceCADISPhysicsPackage), intent(inout) :: self
     type(ray), save                                     :: r
     type(RNG), target, save                             :: pRNG
     real(defReal)                                       :: hitRate
@@ -1007,7 +874,7 @@ contains
   !! scoring to volume estimates.
   !!
   subroutine volumeCalculation(self)
-    class(fixedSourceTRRMPhysicsPackage), intent(inout) :: self
+    class(fixedSourceCADISPhysicsPackage), intent(inout) :: self
     type(ray), save                                     :: r
     type(RNG), target, save                             :: pRNG
     real(defReal)                                       :: hitRate
@@ -1065,7 +932,7 @@ contains
   !! During tracking, fluxes are attenuated (and adjusted according to BCs).
   !!
   subroutine uncollidedCalculation(self)
-    class(fixedSourceTRRMPhysicsPackage), intent(inout) :: self
+    class(fixedSourceCADISPhysicsPackage), intent(inout) :: self
     type(ray), save                                     :: r
     type(RNG), target, save                             :: pRNG
     real(defReal)                                       :: hitRate
@@ -1169,7 +1036,7 @@ contains
   !! given criteria or when a fixed number of iterations has been passed.
   !!
   subroutine cycles(self)
-    class(fixedSourceTRRMPhysicsPackage), intent(inout) :: self
+    class(fixedSourceCADISPhysicsPackage), intent(inout) :: self
     type(ray), save                                     :: r
     type(RNG), target, save                             :: pRNG
     real(defReal)                                       :: hitRate
@@ -1326,12 +1193,12 @@ contains
   !! and performs the build operation
   !!
   subroutine initialiseRay(self, r)
-    class(fixedSourceTRRMPhysicsPackage), intent(inout) :: self
+    class(fixedSourceCADISPhysicsPackage), intent(inout) :: self
     type(ray), intent(inout)                            :: r
     real(defReal)                                       :: mu, phi
     real(defReal), dimension(3)                         :: u, rand3, x
     integer(shortInt)                                   :: i, matIdx, id, cIdx
-    character(100), parameter :: Here = 'initialiseRay (fixedSourceTRRMPhysicsPackage_class.f90)'
+    character(100), parameter :: Here = 'initialiseRay (fixedSourceCADISPhysicsPackage_class.f90)'
 
     i = 0
     mu = TWO * r % pRNG % get() - ONE
@@ -1374,7 +1241,7 @@ contains
   !! Also used for constructing the cell map
   !!
   subroutine volumeSweep(self, r, maxLength, doVolume)
-    class(fixedSourceTRRMPhysicsPackage), intent(inout) :: self
+    class(fixedSourceCADISPhysicsPackage), intent(inout) :: self
     type(ray), intent(inout)                            :: r
     real(defReal), intent(in)                           :: maxLength
     logical(defBool), intent(in)                        :: doVolume
@@ -1455,7 +1322,7 @@ contains
   !!
   !!
   subroutine uncollidedSweep(self, r, ints)
-    class(fixedSourceTRRMPhysicsPackage), target, intent(inout) :: self
+    class(fixedSourceCADISPhysicsPackage), target, intent(inout) :: self
     type(ray), intent(inout)                              :: r
     integer(longInt), intent(out)                         :: ints
     integer(shortInt)                                     :: matIdx, g, event, matIdx0, &
@@ -1467,7 +1334,7 @@ contains
     real(defFlt), dimension(self % nG)                    :: attenuate, delta, fluxVec
     real(defFlt), pointer, dimension(:)                   :: scalarVec, totVec
     real(defReal), dimension(3)                           :: r0, mu0, u, x0, rand3
-    character(100), parameter :: Here = 'uncollidedSweep (fixedSourceTRRMPhysicsPackage_class.f90)'
+    character(100), parameter :: Here = 'uncollidedSweep (fixedSourceCADISPhysicsPackage_class.f90)'
 
     ! If point source, position and direction sample is straightforward
     ! Flux is determined by source
@@ -1623,7 +1490,7 @@ contains
   !! Records the number of integrations/ray movements.
   !!
   subroutine transportSweep(self, r, ints)
-    class(fixedSourceTRRMPhysicsPackage), target, intent(inout) :: self
+    class(fixedSourceCADISPhysicsPackage), target, intent(inout) :: self
     type(ray), intent(inout)                              :: r
     integer(longInt), intent(out)                         :: ints
     integer(shortInt)                                     :: matIdx, g, event, matIdx0, &
@@ -1632,10 +1499,10 @@ contains
     real(defReal)                                         :: totalLength, length
     logical(defBool)                                      :: activeRay, hitVacuum
     type(distCache)                                       :: cache
-    real(defFlt), dimension(self % nG)                    :: attenuate, delta, fluxVec, tau, avgFluxVec
+    real(defFlt), dimension(self % nG)                    :: attenuate, delta, fluxVec, tau
     real(defFlt), pointer, dimension(:)                   :: scalarVec, sourceVec, totVec
     real(defFlt)                                          :: lenFlt
-    real(defReal), dimension(3)                           :: r0, mu0, dirPre, posPre, dirPost, norm
+    real(defReal), dimension(3)                           :: r0, mu0, dirPre, posPre
     type(particleState)                                   :: state
 
     matIdx  = r % coords % matIdx
@@ -1734,7 +1601,6 @@ contains
           attenuate(g) = f1(tau(g))
           delta(g) = (tau(g) * fluxVec(g) - lenFlt * sourceVec(g)) * attenuate(g)
           fluxVec(g) = fluxVec(g) - delta(g)
-          avgFluxVec(g) = (delta(g) + lenFlt * sourceVec(g))/tau(g)
         end do
 
         ! Accumulate to scalar flux
@@ -1759,20 +1625,6 @@ contains
 
             state % r  = r % rGlobal() + NUDGE * r % dirGlobal()
             mapIdxPost = self % fluxMap % map(state)
-            dirPost = r % dirGlobal()
-
-            !norm = ZERO
-
-            !if (event == CROSS_EV) then
-            !  surfIdx = abs(surfIdx)
-            !  if (surfIdx == 1 .or. surfIdx == 2) norm(1) = ONE
-            !  if (surfIdx == 3 .or. surfIdx == 4) norm(2) = ONE
-            !  if (surfIdx == 5 .or. surfIdx == 6) norm(3) = ONE
-            !elseif (event == BOUNDARY_EV) then
-            !  if (dirPre(1) /= dirPost(1)) norm(1) = ONE
-            !  if (dirPre(2) /= dirPost(2)) norm(2) = ONE
-            !  if (dirPre(3) /= dirPost(3)) norm(3) = ONE
-            !end if
 
             !!! Accumulate currents !!!
             if ((mapIdxPre /= mapIdxPost .or. event == BOUNDARY_EV) .and. .not. hitVacuum) then
@@ -1782,15 +1634,6 @@ contains
                 self % currentIn(idx) = self % currentIn(idx) + fluxVec(g)
               end do
             end if
-
-            !if (mapIdxPre /= 0) then
-            !  do g = 1, self % nG
-            !    idx = (mapIdxPre - 1)*self % nG + g
-            !    !$omp atomic
-            !    self % currentIn(idx) = self % currentIn(idx) + &
-            !                            avgFluxVec(g)*length*abs(dotProduct(norm, r % dirGlobal()))
-            !  end do
-            !end if
 
           end if
 
@@ -1822,7 +1665,7 @@ contains
   !! Normalise flux from uncollided calculation
   !!
   subroutine normaliseFluxUncollided(self, norm)
-    class(fixedSourceTRRMPhysicsPackage), intent(inout) :: self
+    class(fixedSourceCADISPhysicsPackage), intent(inout) :: self
     real(defReal), intent(in)                           :: norm
     real(defFlt)                                        :: normFlt
     real(defFlt), save                                  :: total
@@ -1866,7 +1709,7 @@ contains
   !! the flux by the neutron source
   !!
   subroutine normaliseFluxAndVolume(self, lengthPerIt, it)
-    class(fixedSourceTRRMPhysicsPackage), intent(inout) :: self
+    class(fixedSourceCADISPhysicsPackage), intent(inout) :: self
     real(defReal), intent(in)                           :: lengthPerIt
     integer(shortInt), intent(in)                       :: it
     real(defReal)                                       :: normVol
@@ -1974,7 +1817,7 @@ contains
   !! Kernel to update sources given a cell index
   !!
   subroutine sourceUpdateKernel(self, cIdx)
-    class(fixedSourceTRRMPhysicsPackage), target, intent(inout) :: self
+    class(fixedSourceCADISPhysicsPackage), target, intent(inout) :: self
     integer(shortInt), intent(in)                         :: cIdx
     real(defFlt)                                          :: scatter, fission
     real(defFlt), dimension(:), pointer                   :: nuFission, total, chi, scatterXS
@@ -2031,7 +1874,7 @@ contains
   !! Overwrites any existing fixed source
   !!
   subroutine firstCollidedSourceKernel(self, cIdx)
-    class(fixedSourceTRRmPhysicsPackage), target, intent(inout) :: self
+    class(fixedSourceCADISPhysicsPackage), target, intent(inout) :: self
     integer(shortInt), intent(in)                         :: cIdx
     real(defFlt)                                          :: scatter, fission
     real(defFlt), dimension(:), pointer                   :: nuFission, chi, scatterXS
@@ -2088,7 +1931,7 @@ contains
   !! Sets prevFlux to scalarFlux and zero's scalarFlux
   !!
   subroutine resetFluxes(self)
-    class(fixedSourceTRRMPhysicsPackage), intent(inout) :: self
+    class(fixedSourceCADISPhysicsPackage), intent(inout) :: self
     integer(shortInt)                                   :: idx
 
     !$omp parallel do schedule(static)
@@ -2104,7 +1947,7 @@ contains
   !! Accumulate flux scores for stats
   !!
   subroutine accumulateFluxScores(self)
-    class(fixedSourceTRRMPhysicsPackage), intent(inout) :: self
+    class(fixedSourceCADISPhysicsPackage), intent(inout) :: self
     real(defReal), save                                 :: flux, current
     integer(shortInt)                                   :: idx
     !$omp threadprivate(flux, current)
@@ -2134,7 +1977,7 @@ contains
   !! Finalise flux scores for stats
   !!
   subroutine finaliseFluxScores(self,it)
-    class(fixedSourceTRRMPhysicsPackage), intent(inout) :: self
+    class(fixedSourceCADISPhysicsPackage), intent(inout) :: self
     integer(shortInt), intent(in)                       :: it
     integer(shortInt)                                   :: idx
     real(defReal)                                       :: N1, Nm1
@@ -2184,7 +2027,7 @@ contains
   !!   None
   !!
   subroutine printResults(self)
-    class(fixedSourceTRRMPhysicsPackage), intent(inout) :: self
+    class(fixedSourceCADISPhysicsPackage), intent(inout) :: self
     type(outputFile)                                    :: out
     character(nameLen)                                  :: name
     integer(shortInt)                                   :: g1, cIdx
@@ -2233,22 +2076,23 @@ contains
     name = 'Clock_Time'
     call out % printValue(timerTime(self % timerMain),name)
 
-    if (self % cadis /= NO_CADIS .and. self % adjointRes) then
-      response = ZERO
-
-      !$omp parallel do reduction(+: response)
-      do cIdx = 1, self % nCells
-        vol    =  self % volume(cIdx)
-        do g = 1, self % nG
-          idx = (cIdx - 1)* self % nG + g
-          response = response + self % responseSource(idx) * vol * self % fluxScores(idx,1)
-        end do
+    ! GET FOREWARD SOURCE FOR RESPONSE CALCULATION (CADIS)
+    deallocate(self % sourceIdx)
+    self % fixedSource = ZERO
+    call self % initialiseSource(self % dict)
+    response = ZERO
+    !$omp parallel do reduction(+: response)
+    do cIdx = 1, self % nCells
+      vol    =  self % volume(cIdx)
+      do g = 1, self % nG
+        idx = (cIdx - 1)* self % nG + g
+        response = response + self % fixedSource(idx) * vol * self % fluxScores(idx,1)
       end do
-      !$omp end parallel do
+    end do
+    !$omp end parallel do
 
-      name = 'Response'
-      call out % printValue(response,name)
-    end if
+    name = 'Response'
+    call out % printValue(response,name)
 
     ! Print cell volumes
     if (self % printVolume) then
@@ -2494,7 +2338,7 @@ contains
   !!   None
   !!
   subroutine printSettings(self)
-    class(fixedSourceTRRMPhysicsPackage), intent(in) :: self
+    class(fixedSourceCADISPhysicsPackage), intent(in) :: self
 
     print *, repeat("<>", MAX_COL/2)
     print *, "/\/\ RANDOM RAY FIXED SOURCE CALCULATION /\/\"
@@ -2521,7 +2365,7 @@ contains
   !! Return to uninitialised state
   !!
   subroutine kill(self)
-    class(fixedSourceTRRMPhysicsPackage), intent(inout) :: self
+    class(fixedSourceCADISPhysicsPackage), intent(inout) :: self
     integer(shortInt) :: i
 
     ! Clean Nuclear Data, Geometry and visualisation
@@ -2612,4 +2456,4 @@ contains
 
   end subroutine kill
 
-end module fixedSourceTRRMPhysicsPackage_class
+end module fixedSourceCADISPhysicsPackage_class

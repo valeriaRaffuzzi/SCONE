@@ -207,13 +207,14 @@ module geometry_inter
     !!
     !! hitVacuum [out] -> false if a vacuum was not hit, true if it was.
     !!
-    subroutine moveRay_noCache(self, coords, maxDist, event, hitVacuum)
+    subroutine moveRay_noCache(self, coords, maxDist, event, hitVacuum, surfIdx)
       import :: geometry, coordList, defReal, shortInt, defBool
       class(geometry), intent(in)    :: self
       type(coordList), intent(inout) :: coords
       real(defReal), intent(inout)   :: maxDist
       integer(shortInt), intent(out) :: event
       logical(defBool), intent(out)  :: hitVacuum
+      integer(shortInt), intent(out) :: surfIdx
     end subroutine moveRay_noCache
 
     !!
@@ -227,7 +228,7 @@ module geometry_inter
     !!
     !! hitVacuum [out] -> false if a vacuum was not hit, true if it was.
     !!
-    subroutine moveRay_withCache(self, coords, maxDist, event, cache, hitVacuum)
+    subroutine moveRay_withCache(self, coords, maxDist, event, cache, hitVacuum, surfIdx)
       import :: geometry, coordList, defReal, shortInt, distCache, defBool
       class(geometry), intent(in)    :: self
       type(coordList), intent(inout) :: coords
@@ -235,6 +236,7 @@ module geometry_inter
       integer(shortInt), intent(out) :: event
       type(distCache), intent(inout) :: cache
       logical(defBool), intent(out)  :: hitVacuum
+      integer(shortInt), intent(out) :: surfIdx
     end subroutine moveRay_withCache
 
     !!

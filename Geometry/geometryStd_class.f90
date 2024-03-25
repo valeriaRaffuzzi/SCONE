@@ -316,7 +316,7 @@ contains
     end if
 
   end subroutine move_withCache
-  
+
   !!
   !! Given coordinates placed in the geometry move point through the geometry
   !!
@@ -324,13 +324,14 @@ contains
   !!
   !! Uses explicit BC while treating vacuum boundaries as reflective
   !!
-  subroutine moveRay_noCache(self, coords, maxDist, event, hitVacuum)
+  subroutine moveRay_noCache(self, coords, maxDist, event, hitVacuum, surfIdx)
     class(geometryStd), intent(in) :: self
     type(coordList), intent(inout) :: coords
     real(defReal), intent(inout)   :: maxDist
     integer(shortInt), intent(out) :: event
     logical(defBool), intent(out)  :: hitVacuum
-    integer(shortInt)              :: surfIdx, level
+    integer(shortInt), intent(out) :: surfIdx
+    integer(shortInt)              :: level
     real(defReal)                  :: dist
     class(surface), pointer        :: surf
     class(universe), pointer       :: uni
@@ -390,14 +391,15 @@ contains
   !!
   !! Uses explicit BC while treating vacuum boundaries as reflective
   !!
-  subroutine moveRay_withCache(self, coords, maxDist, event, cache, hitVacuum)
+  subroutine moveRay_withCache(self, coords, maxDist, event, cache, hitVacuum, surfIdx)
     class(geometryStd), intent(in) :: self
     type(coordList), intent(inout) :: coords
     real(defReal), intent(inout)   :: maxDist
     integer(shortInt), intent(out) :: event
     type(distCache), intent(inout) :: cache
     logical(defBool), intent(out)  :: hitVacuum
-    integer(shortInt)              :: surfIdx, level
+    integer(shortInt), intent(out) :: surfIdx
+    integer(shortInt)              :: level
     real(defReal)                  :: dist
     class(surface), pointer        :: surf
     class(universe), pointer       :: uni
@@ -555,7 +557,7 @@ contains
     end if
 
   end function activeMats
-  
+
   !!
   !! Returns the number of unique cells present in the geometry
   !!

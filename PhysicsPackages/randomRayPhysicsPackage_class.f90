@@ -716,7 +716,8 @@ contains
     class(randomRayPhysicsPackage), target, intent(inout) :: self
     type(ray), intent(inout)                              :: r
     integer(longInt), intent(out)                         :: ints
-    integer(shortInt)                                     :: matIdx, g, cIdx, idx, event, matIdx0, baseIdx
+    integer(shortInt)                                     :: matIdx, g, cIdx, idx, event, &
+                                                             matIdx0, baseIdx, surfIdx
     real(defReal)                                         :: totalLength, length
     logical(defBool)                                      :: activeRay, hitVacuum
     type(distCache)                                       :: cache
@@ -770,16 +771,16 @@ contains
       ! of distance calculations.
       if (self % cache) then
         if (mod(ints,100_longInt) == 0)  cache % lvl = 0
-        call self % geom % moveRay_withCache(r % coords, length, event, cache, hitVacuum)
+        call self % geom % moveRay_withCache(r % coords, length, event, cache, hitVacuum, surfIdx)
       else
-        call self % geom % moveRay_noCache(r % coords, length, event, hitVacuum)
+        call self % geom % moveRay_noCache(r % coords, length, event, hitVacuum, surfIdx)
       end if
       totalLength = totalLength + length
-      
+
       ! Set new cell's position. Use half distance across cell
       ! to try and avoid FP error
       if (.not. self % cellFound(cIdx)) then
-        !$omp critical 
+        !$omp critical
         self % cellFound(cIdx) = .true.
         self % cellPos(cIdx,:) = r0 + length/2 * mu0
         !$omp end critical
@@ -840,7 +841,8 @@ contains
     class(randomRayPhysicsPackage), target, intent(inout) :: self
     type(ray), intent(inout)                              :: r
     integer(longInt), intent(out)                         :: ints
-    integer(shortInt)                                     :: matIdx, g, cIdx, idx, event, matIdx0, baseIdx
+    integer(shortInt)                                     :: matIdx, g, cIdx, idx, event, &
+                                                             matIdx0, baseIdx, surfIdx
     real(defReal)                                         :: totalLength, length
     real(defFlt)                                          :: lenFlt
     logical(defBool)                                      :: activeRay, hitVacuum
@@ -894,18 +896,18 @@ contains
       ! of distance calculations.
       if (self % cache) then
         if (mod(ints,100_longInt) == 0)  cache % lvl = 0
-        call self % geom % moveRay_withCache(r % coords, length, event, cache, hitVacuum)
+        call self % geom % moveRay_withCache(r % coords, length, event, cache, hitVacuum, surfIdx)
       else
-        call self % geom % moveRay_noCache(r % coords, length, event, hitVacuum)
+        call self % geom % moveRay_noCache(r % coords, length, event, hitVacuum, surfIdx)
       end if
       totalLength = totalLength + length
-      
+
       lenFlt = real(length,defFlt)
 
       ! Set new cell's position. Use half distance across cell
       ! to try and avoid FP error
       if (.not. self % cellFound(cIdx)) then
-        !$omp critical 
+        !$omp critical
         self % cellFound(cIdx) = .true.
         self % cellPos(cIdx,:) = r0 + length/2 * mu0
         !$omp end critical
