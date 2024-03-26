@@ -236,15 +236,17 @@ The properties of a point source are:
 * dir (*optional*, default = isotropic): (u v w) vector with the direction of the source
   particles
 
-* poissonSource (*optional*, default = -1): mu [time unit of milliseconds] where mu is the average which defines the 
+* poissonSource (*optional*, default = -1): mu where mu is the average which defines the 
   Poisson distribution over which initial particle times are sampled for kinetic fixed source 
   calculations. By default all initial particle times are set to zero, and initial times are only sampled according
-  to a Poisson distribution if a value of mu >= 0 is provided. Initial times are sampled in the accuracy of 
-  milliseconds.
+  to a Poisson distribution if a value of mu >= 0 is provided. Initial times are sampled with units given by
+  'poissonScale', which is required for poissonSource to be used. 
+* poissonScale (*optional*, default = -1): time-scale to be applied to Poisson source. This determines the
+  accuracy of the initial particle times, i.e., the units. For example: 0.001 is milliseconds, 1.0 is seconds etc.
 
 Hence, an input would look like: ::
 
-      source { type pointSource; r (0.0 1.0 5.2); particle neutron; E 14.1; dir (0.0 1.0 0.0); }
+      source { type pointSource; r (0.0 1.0 5.2); particle neutron; E 14.1; dir (0.0 1.0 0.0); poissonSource 30.0; poissonScale 0.01; }
 
 materialSource
 ##############

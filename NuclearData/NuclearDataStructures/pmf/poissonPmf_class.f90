@@ -17,7 +17,7 @@ module poissonPmf_class
   type, public :: poissonPmf
     private
   contains
-    procedure :: sample
+    procedure   :: sample
     procedure   :: probabilityOf
 
   end type poissonPmf

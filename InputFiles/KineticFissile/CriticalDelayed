@@ -1,6 +1,6 @@
 type timeDependentPhysicsPackage;
 
-pop      10000; //200000, 5000
+pop      5000; //200000, 5000
 timeSteps   200; 
 XSdata   ce;
 dataType ce;
@@ -23,7 +23,8 @@ source {
   r (0 0 0);
   particle neutron;
   E 0.025E-06;
-  poissonSource 500.0;
+  poissonSource 30.0;
+  poissonScale 0.01;
 }
 
 tally  {

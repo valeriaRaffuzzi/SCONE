@@ -65,6 +65,7 @@ module pointSource_class
     logical(defBool)                          :: isMG         = .false.
     logical(defBool)                          :: isIsotropic  = .false.
     real(defReal)                             :: poissonSource = -ONE
+    real(defReal)                             :: poissonSourceScale = -ONE
     type(poissonPmf)                          :: poissonPmf
   contains
     procedure :: init
@@ -145,6 +146,12 @@ contains
     end if
 
     call dict % getOrDefault(self % poissonSource, 'poissonSource', -ONE)
+    call dict % getOrDefault(self % poissonSourceScale, 'poissonScale', -ONE)
+    if ((self % poissonSource >= ZERO) .and. (self % poissonSourceScale == -ONE)) then 
+      call fatalError(Here, 'Poisson Source requires scale')
+    else if ((self % poissonSource == -ONE) .and. (self % poissonSourceScale > ZERO)) then
+      call fatalError(Here, 'Poisson Source needs to be defined')
+    end if
 
     ! Get particle energy/group
     isCE = dict % isPresent('E')
@@ -284,8 +291,8 @@ contains
     class(particleState), intent(inout) :: p
     class(RNG), intent(inout)           :: rand
 
-    if (self % poissonSource >= ZERO) then
-      p % time = self % poissonPmf % sample(self % poissonSource, rand) * 1.0E-03_defReal
+    if ((self % poissonSource >= ZERO) .and. (self % poissonSourceScale > ZERO)) then
+      p % time = self % poissonPmf % sample(self % poissonSource, rand) * self % poissonSourceScale
     else
       p % time = ZERO
     end if
