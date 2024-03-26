@@ -288,7 +288,7 @@ contains
 
           end if
 
-        else if (self % usePrecursors .and. (self % useForcedPrecursorDecay .eqv. .true.)) then
+        else if ((self % usePrecursors .eqv. .true.) .and. (self % useForcedPrecursorDecay .eqv. .true.)) then
 
           ! Precursor population control
           if (self % precursorDungeons(i) % popSize() > self % pop) then
@@ -336,7 +336,7 @@ contains
         ! Neutron population control
         if (self % useCombing) then
           call self % nextTime(i) % combing(self % pop, pRNG)
-        else if (self % usePrecursors .and. (self % useForcedPrecursorDecay .eqv. .true.)) then
+        else if ((self % usePrecursors .eqv. .true.) .and. (self % useForcedPrecursorDecay .eqv. .true.)) then
           call self % nextTime(i) % combing(self % pop, pRNG)
         end if
 

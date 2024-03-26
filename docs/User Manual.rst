@@ -395,11 +395,16 @@ neutronCEkineticimp, to perform implicit collision processing for time-dependent
 * precursors (*optional*, default = 0): handle delayed neutrons in time-dependent 
   calculations. NB! This currently requires 'precursors' and 'useForcedPrecursorDecay' to be set to 1 in the
   timeDependentPhysicsPackage as well.
+* branchless (*optional*, default = 0): branchless collisions in time-dependent calculations. For prompt handling
+  it automatically enforces splitting and russian roulette. For delayed handling, combing is automatically enforced and
+  splitting is enforced to be off.
+* split (*optional*, default = 0): splitting variance reduction method.
+* roulette (*optional*, default = 0): russian roulette variance reduction method.
 
 Example: ::
 
       collisionOperator { neutronCE { type neutronCEkineticimp; minEnergy 1.0e-11;
-      maxEnergy 20; precursors 1; } }
+      maxEnergy 20; precursors 1; branchless 1;} }
 
 The possible types to be used with **multi-group** data are:
 

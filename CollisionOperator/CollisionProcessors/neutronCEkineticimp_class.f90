@@ -166,10 +166,13 @@ contains
               'Upper weight bound must be at least twice the lower weight bound')
     end if
 
-    ! Enforce splitting and russian roulette if using branchless collisions
     if (self % branchless .eqv. .true.) then
-      self % splitting = .true.
-      self % roulette = .true.
+      if (self % usePrecursors .eqv. .false.) then
+        self % splitting = .true.
+        self % roulette = .true.
+      else
+        self % splitting = .false.
+      end if
     end if
   end subroutine init
 
@@ -354,16 +357,13 @@ contains
     type(neutronMicroXSs)                     :: microXSs
     type(particleState)                       :: pTemp
     real(defReal),dimension(3)                :: r, dir
-    integer(shortInt)                         :: n
-    real(defReal)                             :: wgt, w0, E_out, mu, phi, lambda, rand, probabilityOfPrompt
-    real(defReal)                             :: sig_nuPromptfiss, sig_nuDelayedfiss, sig_tot, k_eff, sig_a, sig_s
+    real(defReal)                             :: wgt, w0, E_out, mu, phi, lambda, rand, probabilityOfPrompt, k_eff
     character(100),parameter                  :: Here = 'fission (neutronCEkineticimp_class.f90)'
 
     if ((self % branchless .eqv. .true.) .and. (self % nuc % isFissile() .eqv. .true.)) then
       wgt   = p % w                ! Current weight
       w0    = p % preHistory % wgt ! Starting weight
       k_eff = p % k_eff            ! k_eff for normalisation
-
 
       ! Get fission Reaction
       fiss => fissionCE_TptrCast(self % xsData % getReaction(N_FISSION, collDat % nucIdx))
@@ -375,17 +375,7 @@ contains
 
       if (rand <= probabilityOfPrompt) then
 
-        sig_tot = microXSs % total
-        sig_s   = microXSs % elasticScatter + microXSs % inelasticScatter
-        sig_a   = sig_tot - sig_s
-
-        sig_nuPromptfiss = fiss % releasePrompt(p % E) * microXSs % fission
-
-        ! Store new sites in the next cycle dungeon
-        !wgt =  sign(w0, wgt) * sig_nuPromptfiss / sig_a
         r   = p % rGlobal()
-
-
         call fiss % samplePrompt(mu, phi, E_out, p % E, p % pRNG)
         dir = rotateVector(p % dirGlobal(), mu, phi)
 
@@ -398,13 +388,31 @@ contains
         pTemp % r   = r
         pTemp % dir = dir
         pTemp % E   = E_out
-        !pTemp % wgt = wgt
         pTemp % time = p % time
 
         call nextCycle % detain(pTemp)
 
       else if (self % usePrecursors) then
-        ! Do nothing for now
+
+        r   = p % rGlobal()
+        call fiss % sampleDelayed(mu, phi, E_out, p % E, p % pRNG, lambda)
+        if (E_out > self % maxE) E_out = self % maxE
+
+        dir = rotateVector(p % dirGlobal(), mu, phi)
+
+        ! Copy extra detail from parent particle (i.e. time, flags ect.)
+        pTemp       = p
+
+        ! Overwrite particle attributes
+        pTemp % r   = r
+        pTemp % dir = dir
+        pTemp % E   = E_out
+        pTemp % type = 3
+        pTemp % time = p % time
+        pTemp % lambda = lambda
+
+        call thisCycle % detain(pTemp)
+
       end if
     end if
 

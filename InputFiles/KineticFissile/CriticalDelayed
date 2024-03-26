@@ -1,6 +1,6 @@
 type timeDependentPhysicsPackage;
 
-pop      5000; //200000, 5000
+pop      10000; //200000, 5000
 timeSteps   200; 
 XSdata   ce;
 dataType ce;
@@ -9,11 +9,11 @@ cycles 100; //100
 buffer 1000;
 
 //combing 1; 
-//precursors 1;
+precursors 1;
 //useForcedPrecursorDecay 1;
 
 outputFormat asciiJSON;
-collisionOperator { neutronCE {type neutronCEkineticimp; minEnergy 1.0e-11; maxEnergy 20; branchless 1;}} //precursors 1;
+collisionOperator { neutronCE {type neutronCEkineticstd; minEnergy 1.0e-11; maxEnergy 20;precursors 1;}} //precursors 1;
 
 transportOperator { type transportOperatorDT; //currently will only support this
                   }
