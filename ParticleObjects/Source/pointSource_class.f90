@@ -285,7 +285,7 @@ contains
     class(RNG), intent(inout)           :: rand
 
     if (self % poissonSource >= ZERO) then
-      p % time = self % poissonPmf % sample(self % poissonSource, rand)
+      p % time = self % poissonPmf % sample(self % poissonSource, rand) * 1.0E-03_defReal
     else
       p % time = ZERO
     end if

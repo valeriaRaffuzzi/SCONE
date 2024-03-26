@@ -23,7 +23,7 @@ source {
   r (0 0 0);
   particle neutron;
   E 0.025E-06;
-  //poissonSource 1.0;
+  poissonSource 500.0;
 }
 
 tally  {

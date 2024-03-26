@@ -236,10 +236,11 @@ The properties of a point source are:
 * dir (*optional*, default = isotropic): (u v w) vector with the direction of the source
   particles
 
-* poissonSource (*optional*, default = -1): mu where mu is the average which defines the 
+* poissonSource (*optional*, default = -1): mu [time unit of milliseconds] where mu is the average which defines the 
   Poisson distribution over which initial particle times are sampled for kinetic fixed source 
   calculations. By default all initial particle times are set to zero, and initial times are only sampled according
-  to a Poisson distribution if a value of mu >= 0 is provided.
+  to a Poisson distribution if a value of mu >= 0 is provided. Initial times are sampled in the accuracy of 
+  milliseconds.
 
 Hence, an input would look like: ::
 
