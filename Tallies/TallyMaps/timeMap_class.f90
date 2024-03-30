@@ -185,10 +185,8 @@ contains
     class(timeMap), intent(in)       :: self
     class(particleState), intent(in) :: state
     integer(shortInt)                :: idx
-    real(defReal)                    :: t
 
-    t = state % time
-    idx = self % binBounds % search(t)
+    idx = state % timeBinIdx
     if (idx == valueOutsideArray) idx = 0
 
   end function map

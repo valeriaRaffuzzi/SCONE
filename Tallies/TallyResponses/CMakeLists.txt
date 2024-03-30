@@ -6,6 +6,8 @@ add_sources(./tallyResponse_inter.f90
             ./macroResponse_class.f90
             ./microResponse_class.f90
             ./weightResponse_class.f90
+            ./neutronResponse_class.f90
+            ./precursorResponse_class.f90
             ./testResponse_class.f90
             )
 

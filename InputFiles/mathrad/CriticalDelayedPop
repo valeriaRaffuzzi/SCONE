@@ -23,18 +23,13 @@ source {
   r (0 0 0);
   particle neutron;
   E 0.025E-06;
-  //poissonSource 30.0;
-  //poissonScale 0.01;
 }
 
 tally  {
-  //bootstrap 100;
-  //timeSteps  70;
-  //modified 1;
-  flux_time { type collisionClerk; //collisionClerk_class, energyMap_class, scoreMemory_class
-    map { type timeMap; grid lin; min 0.0; max 20.0; N 200;} // max 400E-09; N 500;} 
-    response (flux); flux {type fluxResponse;}
-    //handleVirtual 1;
+
+  flux_time { type temporalPopClerk;
+    map { type timeMap; grid lin; min 0.0; max 20.0; N 200;}
+    response (pop); pop {type precursorResponse;}
     }
   }
 geometry {

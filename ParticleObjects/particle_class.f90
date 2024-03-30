@@ -56,6 +56,7 @@ module particle_class
     integer(shortInt)          :: fate = no_FATE    !Neutron's fate after being subjected to an operator
     integer(shortInt)          :: type = P_NEUTRON  ! Particle physical type
     real(defReal)              :: time = ZERO       ! Particle time position
+    integer(shortInt)          :: timeBinIdx
     real(defReal)              :: lambda            ! Precursor decay constant
     integer(shortInt)          :: matIdx   = -1     ! Material index where particle is
     integer(shortInt)          :: cellIdx  = -1     ! Cell idx at the lowest coord level
@@ -108,6 +109,7 @@ module particle_class
     integer(shortInt)          :: G         ! Particle Energy Group
     real(defReal)              :: w         ! Particle Weight
     real(defReal)              :: time      ! Particle time point
+    integer(shortInt)          :: timeBinIdx
 
     ! Precursor particle data
     real(defReal)              :: lambda    ! Precursor decay constant
@@ -286,6 +288,7 @@ contains
     LHS % isMG                  = RHS % isMG
     LHS % type                  = RHS % type
     LHS % time                  = RHS % time
+    LHS % timeBinIdx            = RHS % timeBinIdx
     LHS % lambda                = RHS % lambda
     LHS % fate                  = RHS % fate    
 
@@ -487,7 +490,6 @@ contains
     class(particle), intent(in) :: self
     real(defReal), intent(in)   :: t
     real(defReal), intent(in)   :: delta_T
-    integer(shortInt)           :: i
     real(defReal)               :: w_d
 
     w_d = self % w * delta_T * self % lambda * exp(-self % lambda * (t - self % time))
@@ -509,7 +511,6 @@ contains
   function timedWgt(self, t) result(w_timed)
     class(particle), intent(in) :: self
     real(defReal), intent(in)   :: t
-    integer(shortInt)           :: i
     real(defReal)               :: w_timed
 
     w_timed = self % w * exp(-self % lambda * (t - self % time))
@@ -692,16 +693,17 @@ contains
     class(particleState), intent(out)  :: LHS
     class(particle), intent(in)        :: RHS
 
-    LHS % wgt    = RHS % w
-    LHS % r      = RHS % rGlobal()
-    LHS % dir    = RHS % dirGlobal()
-    LHS % E      = RHS % E
-    LHS % G      = RHS % G
-    LHS % isDead = RHS % isDead
-    LHS % isMG   = RHS % isMG
-    LHS % type   = RHS % type
-    LHS % time   = RHS % time
-    LHS % fate   = RHS % fate
+    LHS % wgt        = RHS % w
+    LHS % r          = RHS % rGlobal()
+    LHS % dir        = RHS % dirGlobal()
+    LHS % E          = RHS % E
+    LHS % G          = RHS % G
+    LHS % isDead     = RHS % isDead
+    LHS % isMG       = RHS % isMG
+    LHS % type       = RHS % type
+    LHS % time       = RHS % time
+    LHS % timeBinIdx = RHS % timeBinIdx
+    LHS % fate       = RHS % fate
 
     ! Save all indexes
     LHS % matIdx   = RHS % coords % matIdx
@@ -724,6 +726,7 @@ contains
     isEqual = isEqual .and. all(LHS % r   == RHS % r)
     isEqual = isEqual .and. all(LHS % dir == RHS % dir)
     isEqual = isEqual .and. LHS % time == RHS % time
+    isEqual = isEqual .and. LHS % timeBinIdx == RHS % timeBinIdx
     isEqual = isEqual .and. LHS % isDead .eqv. RHS % isDead
     isEqual = isEqual .and. LHS % isMG .eqv. RHS % isMG
     isEqual = isEqual .and. LHS % type == RHS % type

@@ -137,17 +137,17 @@ contains
   !!
   subroutine cycles(self, tally, N_cycles, N_timeBins, timeIncrement, simTime)
     class(timeDependentPhysicsPackage), intent(inout) :: self
-    type(tallyAdmin), pointer,intent(inout)         :: tally
-    real(defReal), intent(inout)                    :: simTime
-    integer(shortInt), intent(in)                   :: N_timeBins, N_cycles
-    integer(shortInt)                               :: i, t, n, nParticles, nDelayedParticles
-    type(particle), save                            :: p, p_d
-    type(particleDungeon), save                     :: buffer
-    type(collisionOperator), save                   :: collOp
-    class(transportOperator), allocatable, save     :: transOp
-    type(RNG), target, save                         :: pRNG
-    real(defReal)                                   :: elapsed_T, end_T, T_toEnd, decay_T, w_d
-    real(defReal), intent(in)                       :: timeIncrement
+    type(tallyAdmin), pointer,intent(inout)           :: tally
+    real(defReal), intent(inout)                      :: simTime
+    integer(shortInt), intent(in)                     :: N_timeBins, N_cycles
+    integer(shortInt)                                 :: i, t, n, nParticles, nDelayedParticles
+    type(particle), save                              :: p, p_d
+    type(particleDungeon), save                       :: buffer
+    type(collisionOperator), save                     :: collOp
+    class(transportOperator), allocatable, save       :: transOp
+    type(RNG), target, save                           :: pRNG
+    real(defReal)                                     :: elapsed_T, end_T, T_toEnd, decay_T, w_d
+    real(defReal), intent(in)                         :: timeIncrement
     character(100),parameter :: Here ='cycles (timeDependentPhysicsPackage_class.f90)'
     !$omp threadprivate(p, p_d, buffer, collOp, transOp, pRNG)
 
@@ -188,6 +188,7 @@ contains
           call p % pRNG % stride(n)
           call self % currentTime(i) % copy(p, n)
 
+          p % timeBinIdx = t
           p % timeMax = t * timeIncrement
           if (p % time > p % timeMax) then
             p % fate = aged_FATE
@@ -200,8 +201,10 @@ contains
             if ((p % fate == aged_FATE) .or. (p % fate == no_FATE)) then
               p % fate = no_FATE
               p % isdead = .false.
+              call tally % reportTemporalPopIn(p)
             else
               p % isdead = .true.
+              call tally % reportTemporalPopOut(p)
             end if
 
             call self % geom % placeCoord(p % coords)
@@ -212,7 +215,10 @@ contains
             history: do
               if(p % isDead) exit history
               call transOp % transport(p, tally, buffer, buffer)
-              if(p % isDead) exit history
+              if(p % isDead) then
+                call tally % reportTemporalPopOut(p)
+                exit history
+              end if
               if(p % fate == AGED_FATE) then
                 call self % nextTime(i) % detain(p)
                 exit history
@@ -222,7 +228,10 @@ contains
               else
                 call collOp % collide(p, tally, buffer, buffer)
               end if
-              if(p % isDead) exit history
+              if(p % isDead) then
+                call tally % reportTemporalPopOut(p)
+                exit history
+              end if
             end do history
 
             ! Clear out buffer
@@ -243,7 +252,29 @@ contains
             !$omp parallel do schedule(dynamic)
             genDelayed: do n = 1, nDelayedParticles
               call self % precursorDungeons(i) % copy(p, n)
+              p % timeBinIdx = t
+
+
+
+              !TODO: handle precursor population.
+              !same dungeon keeps getting refilled with new precursors.
+              !Both decayed and new (easy just check that current time > p % time)
+              !Difficult to handle old vs new yet to decay tho.
+              ! would need a flag and checked if been set
+
+              ! could do new setup with this and next precursor dungeon. 
+              ! only detain still alive. this solves memory prob in long run
+              ! solves decayed precursors.
+              ! does not solve recounting.
+
+              ! so need flag anyways to check if counted. TODO solution.
+              ! other thing can be fixed at another time. Precursor pop not big
+              ! issue for now.
+
+
+
               if ((p % time <= t*timeIncrement) .and. (p % time > (t-1)*timeIncrement)) then
+                call tally % reportTemporalPopOut(p)
                 p % type = P_NEUTRON
                 pRNG = self % pRNG
                 p % pRNG => pRNG
@@ -253,8 +284,10 @@ contains
                   if ((p % fate == aged_FATE) .or. (p % fate == no_FATE)) then
                     p % fate = no_FATE
                     p % isdead = .false.
+                    call tally % reportTemporalPopIn(p)
                   else
                     p % isdead = .true.
+                    call tally % reportTemporalPopOut(p)
                   end if
 
                   call self % geom % placeCoord(p % coords)
@@ -265,13 +298,19 @@ contains
                   historyDelayed: do
                     if(p % isDead) exit historyDelayed
                     call transOp % transport(p, tally, buffer, buffer)
-                    if(p % isDead) exit historyDelayed
+                    if(p % isDead) then
+                      call tally % reportTemporalPopOut(p)
+                      exit historyDelayed
+                    end if
                     if(p % fate == AGED_FATE) then
                       call self % nextTime(i) % detain(p)
                       exit historyDelayed
                     endif
                     call collOp % collide(p, tally, self % precursorDungeons(i), buffer)
-                    if(p % isDead) exit historyDelayed
+                    if(p % isDead) then
+                      call tally % reportTemporalPopOut(p)
+                      exit historyDelayed
+                    end if
                   end do historyDelayed
 
                   ! Clear out buffer

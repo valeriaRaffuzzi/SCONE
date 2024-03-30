@@ -94,6 +94,8 @@ module tallyClerk_inter
     procedure :: reportHist
     procedure :: reportCycleStart
     procedure :: reportCycleEnd
+    procedure :: reportTemporalPopIn
+    procedure :: reportTemporalPopOut
     procedure :: isConverged
 
     ! Output procedures
@@ -385,6 +387,52 @@ contains
     call fatalError(Here,'Report was send to an instance that does not support it.')
 
   end subroutine reportCycleEnd
+
+  !!
+  !! Process temporal population report
+  !!
+  !! Assumptions:
+  !!   Particle is provided as it affects (+ve) the temporal population.
+  !!   E.g. as it is born or crosses time-boundary
+  !!
+  !! Args:
+  !!   p [in]       -> Particle
+  !!
+  !! Errors:
+  !!   Depend on specific Clerk
+  !!
+  subroutine reportTemporalPopIn(self, p, mem)
+    class(tallyClerk), intent(inout) :: self
+    class(particle), intent(in)      :: p
+    type(scoreMemory), intent(inout) :: mem
+    character(100), parameter :: Here = "reportTemporalPopIn (tallyAdmin_class.f90)"
+
+    call fatalError(Here,'Report was send to an instance that does not support it.')
+
+  end subroutine reportTemporalPopIn
+
+  !!
+  !! Process temporal population report
+  !!
+  !! Assumptions:
+  !!   Particle is provided as it affects (-ve) the temporal population.
+  !!   E.g. as it dies or is converted to a different particle type.
+  !!
+  !! Args:
+  !!   p [in]       -> Particle
+  !!
+  !! Errors:
+  !!   Depend on specific Clerk
+  !!
+  subroutine reportTemporalPopOut(self, p, mem)
+    class(tallyClerk), intent(inout) :: self
+    class(particle), intent(in)      :: p
+    type(scoreMemory), intent(inout) :: mem
+    character(100), parameter :: Here = "reportTemporalPopOut (tallyAdmin_class.f90)"
+
+    call fatalError(Here,'Report was send to an instance that does not support it.')
+
+  end subroutine reportTemporalPopOut
 
   !!
   !! Perform convergence check in the Clerk

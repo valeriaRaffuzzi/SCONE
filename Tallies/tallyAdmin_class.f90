@@ -48,15 +48,16 @@ module tallyAdmin_class
   !!   normClerkName -> Name of a Clerk used for normalisation
   !!   tallyClerks   -> Array of all defined tally Clerks
   !!   clerksNameMap -> CharMap that maps Clerk Name to its index in tallyClerks
-  !!   inCollClerks     -> List of indices of all Clerks that require inCollReport
-  !!   outCollClerks    -> List of indices of all Clerks that require outCollReport
-  !!   pathClerks       -> List of indices of all Clerks that require pathReport
-  !!   transClerks      -> List of indices of all Clerks that require transReport
-  !!   histClerks       -> List of indices of all Clerks that require histReport
-  !!   cycleStartClerks -> List of indices of all Clerks that require cycleStartReport
-  !!   cycleEndClerks   -> List of indices of all Clerks that require cycleEndReport
-  !!   displayList      -> List of indices of all Clerks that are registered for display
-  !!   mem              -> Score Memory for all defined Clerks
+  !!   inCollClerks      -> List of indices of all Clerks that require inCollReport
+  !!   outCollClerks     -> List of indices of all Clerks that require outCollReport
+  !!   pathClerks        -> List of indices of all Clerks that require pathReport
+  !!   transClerks       -> List of indices of all Clerks that require transReport
+  !!   histClerks        -> List of indices of all Clerks that require histReport
+  !!   cycleStartClerks  -> List of indices of all Clerks that require cycleStartReport
+  !!   cycleEndClerks    -> List of indices of all Clerks that require cycleEndReport
+  !!   temporalPopClerks -> List of indices of all Clerks that require temporalPopReport
+  !!   displayList       -> List of indices of all Clerks that are registered for display
+  !!   mem               -> Score Memory for all defined Clerks
   !!
   !! Interface:
   !!   init   -> Initialise from dictionary
@@ -112,6 +113,7 @@ module tallyAdmin_class
     type(dynIntArray)  :: histClerks
     type(dynIntArray)  :: cycleStartClerks
     type(dynIntArray)  :: cycleEndClerks
+    type(dynIntArray)  :: temporalPopClerks
 
     ! List of clerks to display
     type(dynIntArray)  :: displayList
@@ -137,6 +139,8 @@ module tallyAdmin_class
     procedure :: reportHist
     procedure :: reportCycleStart
     procedure :: reportCycleEnd
+    procedure :: reportTemporalPopIn
+    procedure :: reportTemporalPopOut
 
     ! Interaction procedures
     procedure :: getResult
@@ -172,7 +176,7 @@ contains
     class(tallyAdmin), intent(inout)            :: self
     class(dictionary), intent(in)               :: dict
     character(nameLen),dimension(:),allocatable :: names
-    integer(shortInt)                           :: i, j, cyclesPerBatch, bootstrap, timeSteps, m
+    integer(shortInt)                           :: i, j, cyclesPerBatch
     integer(longInt)                            :: memSize, memLoc
     character(100), parameter :: Here ='init (tallyAdmin_class.f90)'
 
@@ -214,10 +218,6 @@ contains
 
     ! Read batching size
     call dict % getOrDefault(cyclesPerBatch,'batchSize',1)
-
-    call dict % getOrDefault(bootstrap,'bootstrap', 0)
-    call dict % getOrDefault(timeSteps,'timeSteps', 0)
-    call dict % getOrDefault(m,'modified', 0)
 
     ! Initialise score memory
     ! Calculate required size.
@@ -276,6 +276,7 @@ contains
     call self % histClerks % kill()
     call self % cycleStartClerks % kill()
     call self % cycleEndClerks % kill()
+    call self % temporalPopClerks % kill()
 
     ! Kill score memory
     call self % mem % kill()
@@ -740,6 +741,70 @@ contains
   end subroutine reportCycleEnd
 
   !!
+  !! Process temporal population report
+  !!
+  !! Assumptions:
+  !!   Particle is provided as it affects (+ve) the temporal population.
+  !!   E.g. as it is born or crosses time-boundary
+  !!
+  !! Args:
+  !!   p [in]       -> Particle
+  !!
+  !! Errors:
+  !!   None
+  !!
+  recursive subroutine reportTemporalPopIn(self, p)
+    class(tallyAdmin), intent(inout) :: self
+    class(particle), intent(in)      :: p
+    integer(shortInt)                :: i, idx
+    character(100), parameter :: Here = "reportTemporalPopIn (tallyAdmin_class.f90)"
+
+    ! Call attachment
+    if(associated(self % atch)) then
+      call reportTemporalPopIn(self % atch, p)
+    end if
+
+    ! Go through all clerks that request the report
+    do i=1,self % temporalPopClerks % getSize()
+      idx = self % temporalPopClerks % get(i)
+      call self % tallyClerks(idx) % reportTemporalPopIn(p, self % mem)
+    end do
+
+  end subroutine reportTemporalPopIn
+
+  !!
+  !! Process temporal population report
+  !!
+  !! Assumptions:
+  !!   Particle is provided as it affects (-ve) the temporal population.
+  !!   E.g. as it dies or is converted to a different particle type.
+  !!
+  !! Args:
+  !!   p [in]       -> Particle
+  !!
+  !! Errors:
+  !!   None
+  !!
+  recursive subroutine reportTemporalPopOut(self, p)
+    class(tallyAdmin), intent(inout) :: self
+    class(particle), intent(in)      :: p
+    integer(shortInt)                :: i, idx
+    character(100), parameter :: Here = "reportTemporalPopOut (tallyAdmin_class.f90)"
+
+    ! Call attachment
+    if(associated(self % atch)) then
+      call reportTemporalPopOut(self % atch, p)
+    end if
+
+    ! Go through all clerks that request the report
+    do i=1,self % temporalPopClerks % getSize()
+      idx = self % temporalPopClerks % get(i)
+      call self % tallyClerks(idx) % reportTemporalPopOut(p, self % mem)
+    end do
+
+  end subroutine reportTemporalPopOut
+
+  !!
   !! Get result from the clerk defined by name
   !!
   !! Args:
@@ -815,6 +880,9 @@ contains
 
       case(cycleEnd_CODE)
         call self % cycleEndClerks % add(idx)
+
+      case(temporalPop_CODE)
+        call self % temporalPopClerks % add(idx)
 
       case default
         call fatalError(Here, 'Undefined reportCode')

@@ -8,11 +8,13 @@ module tallyResponseFactory_func
   use tallyResponse_inter,    only : tallyResponse
 
   ! tallyResponse implementations
-  use fluxResponse_class,     only : fluxResponse
-  use macroResponse_class,    only : macroResponse
-  use microResponse_class,    only : microResponse
-  use weightResponse_class,   only : weightResponse
-  use testResponse_class,     only : testResponse
+  use fluxResponse_class,      only : fluxResponse
+  use macroResponse_class,     only : macroResponse
+  use microResponse_class,     only : microResponse
+  use weightResponse_class,    only : weightResponse
+  use neutronResponse_class,   only : neutronResponse
+  use precursorResponse_class, only : precursorResponse
+  use testResponse_class,      only : testResponse
 
   implicit none
   private
@@ -60,6 +62,12 @@ contains
 
       case('weightResponse')
         allocate(weightResponse :: new)
+
+      case('neutronResponse')
+        allocate(neutronResponse :: new)
+
+      case('precursorResponse')
+        allocate(precursorResponse :: new)
 
       case('testResponse')
         allocate(testResponse :: new)
