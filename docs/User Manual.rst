@@ -1101,6 +1101,26 @@ Example: ::
       fissionMat { type simpleFMClerk; map { <Map definition> } }
       }
 
+* temporalPopClerk, for a temporal population estimator of neutron and precursor populations
+
+  - response: defines which response function has to be used for this tally. Note
+    that more than one response can be defined per each tally. Currently, only two
+    temporal responses are available: neutronResponse and precursorResponse.
+  - map (type timeMap): contains a dictionary with the temporal ``tallyMap`` definition,
+    that defines the temporal domain of integration
+  - map (*optional*): contains a dictionary with the ``tallyMap`` definition,
+    that defines the domains of integration of each tally
+  - filter (*optional*): can filter out particles with certain properties,
+    preventing them from scoring results
+
+Example: ::
+
+      tally {
+      pop_time { type temporalPopClerk;
+      map { type timeMap; grid lin; min 0.0; max 20.0; N 200;}
+      response (pop); pop {type neutronResponse;}
+      } }
+
 Tally Responses
 ###############
 
@@ -1163,6 +1183,32 @@ Example: ::
    To calculate the average weight, one should divide weight moment 1 (weight1)
     by weight moment 0 (weight0). To calculate the variance of the weights, the
     tally results have to be post-processed as: var = weight2/weight0 - (weight1/weight0)^2
+
+* neutronResponse: response for scoring temporal neutron populations.
+  
+Example: ::
+
+      tally {
+      pop_estimator { type temporalPopClerk;
+      map { type timeMap; grid lin; min 0.0; max 20.0; N 200;}
+      response (pop); pop {type neutronResponse;}
+      } }
+
+.. note::
+  Must be used together with temporalPopClerk.
+
+* precursorResponse: response for scoring temporal precursor populations.
+
+Example: ::
+
+      tally {
+      pop_estimator { type temporalPopClerk;
+      map { type timeMap; grid lin; min 0.0; max 20.0; N 200;}
+      response (pop); pop {type precursorResponse;}
+      } }
+
+.. note::
+  Must be used together with temporalPopClerk.
 
 Tally Maps
 ##########

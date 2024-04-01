@@ -178,6 +178,7 @@ contains
           call self % fixedSource % generate(self % currentTime(i), nParticles, self % pRNG)
         end if
 
+        print *, self % currentTime(i) % popSize(), self % precursorDungeons(i) % popSize()
         call tally % reportCycleStart(self % currentTime(i))
         nParticles = self % currentTime(i) % popSize()
 
@@ -254,24 +255,9 @@ contains
               call self % precursorDungeons(i) % copy(p, n)
               p % timeBinIdx = t
 
-
-
-              !TODO: handle precursor population.
-              !same dungeon keeps getting refilled with new precursors.
-              !Both decayed and new (easy just check that current time > p % time)
-              !Difficult to handle old vs new yet to decay tho.
-              ! would need a flag and checked if been set
-
-              ! could do new setup with this and next precursor dungeon. 
-              ! only detain still alive. this solves memory prob in long run
-              ! solves decayed precursors.
-              ! does not solve recounting.
-
-              ! so need flag anyways to check if counted. TODO solution.
-              ! other thing can be fixed at another time. Precursor pop not big
-              ! issue for now.
-
-
+              if ((p % t0 <= t*timeIncrement) .and. (p % t0 > (t-1)*timeIncrement)) then
+                call tally % reportTemporalPopIn(p)
+              end if
 
               if ((p % time <= t*timeIncrement) .and. (p % time > (t-1)*timeIncrement)) then
                 call tally % reportTemporalPopOut(p)
@@ -340,6 +326,11 @@ contains
             !$omp parallel do schedule(dynamic)
             do n = 1, nDelayedParticles
               call self % precursorDungeons(i) % copy(p_d, n)
+
+              p_d % timeBinIdx = t
+              if ((p_d % t0 <= t*timeIncrement) .and. (p_d % t0 > (t-1)*timeIncrement)) then
+                call tally % reportTemporalPopIn(p_d)
+              end if
 
               ! Sample decay time
               decay_T = timeIncrement * (t + pRNG % get())

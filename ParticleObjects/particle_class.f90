@@ -27,18 +27,20 @@ module particle_class
   !! Particle compressed for storage
   !!
   !! Public Members:
-  !!   wgt      -> Weight of the particle
-  !!   r        -> Global Position of the particle [cm]
-  !!   dir      -> Direction vector of the particle (normalised to 1.0)
-  !!   E        -> Energy of the particle [MeV]
-  !!   G        -> Energy Group of the particle
-  !!   isMG     -> True if particle uses MG data
-  !!   type     -> Physical Type of the particle (NEUTRON, PHOTON etc.)
-  !!   time     -> Position in time of the particle [s]
-  !!   lambda   -> Decay constant of precursor [/s]
-  !!   matIdx   -> material Index in which particle is present
-  !!   cellIdx  -> Cell Index at the lowest level in which particle is present
-  !!   uniqueID -> Unique ID of the cell at the lowest level in which particle is present
+  !!   wgt        -> Weight of the particle
+  !!   r          -> Global Position of the particle [cm]
+  !!   dir        -> Direction vector of the particle (normalised to 1.0)
+  !!   E          -> Energy of the particle [MeV]
+  !!   G          -> Energy Group of the particle
+  !!   isMG       -> True if particle uses MG data
+  !!   type       -> Physical Type of the particle (NEUTRON, PHOTON etc.)
+  !!   time       -> Position in time of the particle [s]
+  !!   timeBinIdx -> Discrete position in time of the particle
+  !!   lambda     -> Decay constant of precursor [/s]
+  !!   t0         -> Precursor time of birth
+  !!   matIdx     -> material Index in which particle is present
+  !!   cellIdx    -> Cell Index at the lowest level in which particle is present
+  !!   uniqueID   -> Unique ID of the cell at the lowest level in which particle is present
   !!
   !! Interface:
   !!   assignemnt(=)  -> Build particleState from particle
@@ -58,6 +60,7 @@ module particle_class
     real(defReal)              :: time = ZERO       ! Particle time position
     integer(shortInt)          :: timeBinIdx
     real(defReal)              :: lambda            ! Precursor decay constant
+    real(defReal)              :: t0                ! Precursor time of birth
     integer(shortInt)          :: matIdx   = -1     ! Material index where particle is
     integer(shortInt)          :: cellIdx  = -1     ! Cell idx at the lowest coord level
     integer(shortInt)          :: uniqueID = -1     ! Unique id at the lowest coord level
@@ -113,6 +116,7 @@ module particle_class
 
     ! Precursor particle data
     real(defReal)              :: lambda    ! Precursor decay constant
+    real(defReal)              :: t0        ! Precursor time of birth
 
     ! Particle flags
     real(defReal)              :: w0             ! Particle initial weight (for implicit, variance reduction...)
@@ -290,6 +294,7 @@ contains
     LHS % time                  = RHS % time
     LHS % timeBinIdx            = RHS % timeBinIdx
     LHS % lambda                = RHS % lambda
+    LHS % t0                    = RHS % t0
     LHS % fate                  = RHS % fate    
 
   end subroutine particle_fromParticleState
@@ -703,6 +708,7 @@ contains
     LHS % type       = RHS % type
     LHS % time       = RHS % time
     LHS % timeBinIdx = RHS % timeBinIdx
+    LHS % t0         = LHS % t0
     LHS % fate       = RHS % fate
 
     ! Save all indexes
@@ -727,6 +733,7 @@ contains
     isEqual = isEqual .and. all(LHS % dir == RHS % dir)
     isEqual = isEqual .and. LHS % time == RHS % time
     isEqual = isEqual .and. LHS % timeBinIdx == RHS % timeBinIdx
+    isEqual = isEqual .and. LHS % t0 == RHS % t0
     isEqual = isEqual .and. LHS % isDead .eqv. RHS % isDead
     isEqual = isEqual .and. LHS % isMG .eqv. RHS % isMG
     isEqual = isEqual .and. LHS % type == RHS % type
