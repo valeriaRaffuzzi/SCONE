@@ -278,7 +278,6 @@ contains
           pTemp % dir = dir
           pTemp % E   = E_out
           pTemp % wgt = wgt
-          pTemp % t0 = pTemp % time
           pTemp % time = pTemp % time + decayT
           pTemp % type = 3
 

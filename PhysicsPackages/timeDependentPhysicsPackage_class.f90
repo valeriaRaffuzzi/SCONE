@@ -178,7 +178,6 @@ contains
           call self % fixedSource % generate(self % currentTime(i), nParticles, self % pRNG)
         end if
 
-        print *, self % currentTime(i) % popSize(), self % precursorDungeons(i) % popSize()
         call tally % reportCycleStart(self % currentTime(i))
         nParticles = self % currentTime(i) % popSize()
 
@@ -255,7 +254,7 @@ contains
               call self % precursorDungeons(i) % copy(p, n)
               p % timeBinIdx = t
 
-              if ((p % t0 <= t*timeIncrement) .and. (p % t0 > (t-1)*timeIncrement)) then
+              if (p % time > t*timeIncrement) then
                 call tally % reportTemporalPopIn(p)
               end if
 
@@ -326,11 +325,9 @@ contains
             !$omp parallel do schedule(dynamic)
             do n = 1, nDelayedParticles
               call self % precursorDungeons(i) % copy(p_d, n)
-
               p_d % timeBinIdx = t
-              if ((p_d % t0 <= t*timeIncrement) .and. (p_d % t0 > (t-1)*timeIncrement)) then
-                call tally % reportTemporalPopIn(p_d)
-              end if
+
+              call tally % reportTemporalPopIn(p_d)
 
               ! Sample decay time
               decay_T = timeIncrement * (t + pRNG % get())
