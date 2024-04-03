@@ -88,14 +88,13 @@ contains
 
     ! Check that MT number is valid
     select case(MT)
-      case(macroTotal, macroCapture, macroFission, macroNuFission, macroAbsorbtion)
+    case(macroTotal, macroCapture, macroFission, macroNuFission, macroAbsorbtion, &
+         macroEscatter, macroIEscatter, macroPromptNuFission, macroDelayedNuFission)
         ! Do nothing. MT is Valid
-
-      case(macroEscatter)
-        call fatalError(Here,'Macroscopic Elastic scattering is not implemented yet')
 
       case default
         call fatalError(Here,'Unrecognised MT number: '// numToChar(self % MT))
+
     end select
 
     ! Load MT
@@ -122,15 +121,16 @@ contains
     val = ZERO
 
     ! Return 0.0 if particle is not neutron
-    if(p % type /= P_NEUTRON) return
+    if (p % type /= P_NEUTRON) return
 
     ! Get pointer to active material data
     mat => neutronMaterial_CptrCast(xsData % getMaterial(p % matIdx()))
 
     ! Return if material is not a neutronMaterial
-    if(.not.associated(mat)) return
+    if (.not.associated(mat)) return
 
     call mat % getMacroXSs(xss, p)
+
     val = xss % get(self % MT)
 
   end function get

@@ -78,6 +78,7 @@ module aceNeutronNuclide_class
   !!   eGrid          -> Energy grid for the XSs
   !!   mainData       -> Array of XSs that are required in ceNeutronMicroXSs, that is
   !!     (total, capture, escatter, iescatter, fission, nuFission)
+  !!   promptNuFiss   -> prompt nuFission cross section for dynamic calculations
   !!   MTdata         -> array of 'reactionMT's with data for all MT reactions in the nuclide
   !!     only reactions 1:nMT are active, that is can be sampled during tracking
   !!   nMT            -> number of active MT reactions that produce 2nd-ary neutrons
@@ -110,6 +111,7 @@ module aceNeutronNuclide_class
     character(nameLen)                          :: ZAID    = ''
     real(defReal), dimension(:), allocatable    :: eGrid
     real(defReal), dimension(:,:), allocatable  :: mainData
+    real(defReal), dimension(:), allocatable    :: promptNuFiss
     type(reactionMT), dimension(:), allocatable :: MTdata
     integer(shortInt)                           :: nMT     = 0
     type(intMap)                                :: idxMT
@@ -283,7 +285,7 @@ contains
     call self % elasticScatter % kill()
     call self % fission % kill()
 
-    if(allocated(self % MTdata)) then
+    if (allocated(self % MTdata)) then
       do i=1,size(self % MTdata)
         call self % MTdata(i) % kinematics % kill()
       end do
@@ -292,9 +294,9 @@ contains
     ! Local killing
     self % ZAID = ''
     self % nMT  = 0
-    if(allocated(self % MTdata))   deallocate(self % MTdata)
-    if(allocated(self % mainData)) deallocate(self % mainData)
-    if(allocated(self % eGrid))    deallocate(self % eGrid)
+    if (allocated(self % MTdata))   deallocate(self % MTdata)
+    if (allocated(self % mainData)) deallocate(self % mainData)
+    if (allocated(self % eGrid))    deallocate(self % eGrid)
     call self % idxMT % kill()
 
   end subroutine kill
@@ -389,10 +391,13 @@ contains
       if (self % isFissile()) then
         xss % fission   = data(FISSION_XS, 2) * f + (ONE-f) * data(FISSION_XS, 1)
         xss % nuFission = data(NU_FISSION, 2) * f + (ONE-f) * data(NU_FISSION, 1)
+        xss % promptNuFission = self % promptNuFiss(idx + 1) * f + (ONE-f) * self % promptNuFiss(idx)
       else
         xss % fission   = ZERO
         xss % nuFission = ZERO
+        xss % promptNuFission = ZERO
       end if
+
     end associate
 
   end subroutine microXSs
@@ -429,9 +434,11 @@ contains
       if (self % isFissile()) then
         xss % fission   = data(FISSION_XS, 2) * f + (ONE-f) * data(FISSION_XS, 1)
         xss % nuFission = data(NU_FISSION, 2) * f + (ONE-f) * data(NU_FISSION, 1)
+        xss % promptNuFission = self % promptNuFiss(idx + 1) * f + (ONE-f) * self % promptNuFiss(idx)
       else
         xss % fission   = ZERO
         xss % nuFission = ZERO
+        xss % promptNuFission = ZERO
       end if
 
       ! Read S(a,b) tables for elastic scatter: return zero if eleastic scatter is off
@@ -493,9 +500,11 @@ contains
       if (self % isFissile()) then
         xss % fission   = data(FISSION_XS, 2) * f + (ONE-f) * data(FISSION_XS, 1)
         xss % nuFission = data(NU_FISSION, 2) * f + (ONE-f) * data(NU_FISSION, 1)
+        xss % promptNuFission = self % promptNuFiss(idx + 1) * f + (ONE-f) * self % promptNuFiss(idx)
       else
         xss % fission   = ZERO
         xss % nuFission = ZERO
+        xss % promptNuFission = ZERO
       end if
 
       ! Check if flag for multiplication factor (IFF) is true, and apply it to elastic scattering,
@@ -525,6 +534,7 @@ contains
 
     if(self % isFissile()) then
       xss % nuFission = xss % nuFission/xss % fission * val(3)
+      xss % promptNuFission = xss % promptNuFission/xss % fission * val(3)
       xss % fission   = val(3)
     end if
 
@@ -571,7 +581,9 @@ contains
     Ngrid = ACE % gridSize()
 
     ! Allocate space for main XSs
-    if(self % isFissile()) then
+    if (self % isFissile()) then
+      allocate(self % promptNuFiss(Ngrid))
+      self % promptNuFiss = ZERO
       N = 6
     else
       N = 4
@@ -638,6 +650,11 @@ contains
       do i = bottom, Ngrid
         self % mainData(NU_FISSION,i) = self % mainData(FISSION_XS,i) * &
                                         self % fission % release(self % eGrid(i))
+
+        ! Prompt nu fission for dynamic calculations
+        self % promptNuFiss(i) = self % mainData(FISSION_XS,i) * &
+                                        self % fission % releasePrompt(self % eGrid(i))
+
       end do
 
     end if
