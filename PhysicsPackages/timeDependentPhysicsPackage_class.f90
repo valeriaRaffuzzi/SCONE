@@ -199,12 +199,14 @@ contains
           bufferLoop: do
 
             if ((p % fate == aged_FATE) .or. (p % fate == no_FATE)) then
+              if (p % fate == no_FATE) call tally % reportHittingProbIn(p)
               p % fate = no_FATE
               p % isdead = .false.
               call tally % reportTemporalPopIn(p)
             else
               p % isdead = .true.
               call tally % reportTemporalPopOut(p)
+              call tally % reportHittingProbOut(p)
             end if
 
             call self % geom % placeCoord(p % coords)
@@ -217,6 +219,7 @@ contains
               call transOp % transport(p, tally, buffer, buffer)
               if(p % isDead) then
                 call tally % reportTemporalPopOut(p)
+                call tally % reportHittingProbOut(p)
                 exit history
               end if
               if(p % fate == AGED_FATE) then
@@ -230,6 +233,7 @@ contains
               end if
               if(p % isDead) then
                 call tally % reportTemporalPopOut(p)
+                call tally % reportHittingProbOut(p)
                 exit history
               end if
             end do history
@@ -256,10 +260,12 @@ contains
 
               if (p % time > t*timeIncrement) then
                 call tally % reportTemporalPopIn(p)
+                call tally % reportHittingProbIn(p)
               end if
 
               if ((p % time <= t*timeIncrement) .and. (p % time > (t-1)*timeIncrement)) then
                 call tally % reportTemporalPopOut(p)
+                call tally % reportHittingProbOut(p)
                 p % type = P_NEUTRON
                 pRNG = self % pRNG
                 p % pRNG => pRNG
@@ -267,12 +273,14 @@ contains
                 bufferLoopDelayed: do
 
                   if ((p % fate == aged_FATE) .or. (p % fate == no_FATE)) then
+                    if (p % fate == no_FATE) call tally % reportHittingProbIn(p)
                     p % fate = no_FATE
                     p % isdead = .false.
                     call tally % reportTemporalPopIn(p)
                   else
                     p % isdead = .true.
                     call tally % reportTemporalPopOut(p)
+                    call tally % reportHittingProbOut(p)
                   end if
 
                   call self % geom % placeCoord(p % coords)
@@ -285,6 +293,7 @@ contains
                     call transOp % transport(p, tally, buffer, buffer)
                     if(p % isDead) then
                       call tally % reportTemporalPopOut(p)
+                      call tally % reportHittingProbOut(p)
                       exit historyDelayed
                     end if
                     if(p % fate == AGED_FATE) then
@@ -294,6 +303,7 @@ contains
                     call collOp % collide(p, tally, self % precursorDungeons(i), buffer)
                     if(p % isDead) then
                       call tally % reportTemporalPopOut(p)
+                      call tally % reportHittingProbOut(p)
                       exit historyDelayed
                     end if
                   end do historyDelayed
@@ -326,8 +336,8 @@ contains
             do n = 1, nDelayedParticles
               call self % precursorDungeons(i) % copy(p_d, n)
               p_d % timeBinIdx = t
-
               call tally % reportTemporalPopIn(p_d)
+              call tally % reportHittingProbIn(p_d)
 
               ! Sample decay time
               decay_T = timeIncrement * (t + pRNG % get())
@@ -367,6 +377,7 @@ contains
           call self % nextTime(i) % combing(self % pop, pRNG)
         end if
 
+        !call fatalError(Here, 'trolololol')
       end do
 
       self % tempTime  => self % nextTime
@@ -389,7 +400,6 @@ contains
       print *, 'End time:     ', trim(secToChar(end_T))
       print *, 'Time to end:  ', trim(secToChar(T_toEnd))
       call tally % display()
-
       call tally % setNumBatchesPerTimeStep(N_cycles)
     end do
 
@@ -550,15 +560,15 @@ contains
     allocate(self % nextTime(self % N_cycles))
 
     do i = 1, self % N_cycles
-      call self % currentTime(i) % init(3 * self % pop)
-      call self % nextTime(i) % init(3 * self % pop)
+      call self % currentTime(i) % init(10 * self % pop)
+      call self % nextTime(i) % init(10 * self % pop)
     end do
 
     ! Size precursor dungeon
     if (self % usePrecursors) then
       allocate(self % precursorDungeons(self % N_cycles))
       do i = 1, self % N_cycles
-        call self % precursorDungeons(i) % init(3 * self % pop)
+        call self % precursorDungeons(i) % init(10 * self % pop)
       end do
     end if
 

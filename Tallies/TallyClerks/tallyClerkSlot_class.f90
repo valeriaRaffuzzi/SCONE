@@ -50,6 +50,8 @@ module tallyClerkSlot_class
     procedure :: reportCycleEnd
     procedure :: reportTemporalPopIn
     procedure :: reportTemporalPopOut
+    procedure :: reportHittingProbIn
+    procedure :: reportHittingProbOut
     procedure :: isConverged
 
     ! Output procedures
@@ -308,7 +310,37 @@ contains
   end subroutine reportTemporalPopOut
 
   !!
-  !! Perform convergance check in the Clerk
+  !! Process temporal population report
+  !!
+  !! See tallyClerk_inter for details
+  !!
+  subroutine reportHittingProbIn(self, p, mem)
+    class(tallyClerkSlot), intent(inout) :: self
+    class(particle), intent(in)          :: p
+    type(scoreMemory), intent(inout)     :: mem
+
+    ! Pass call to instance in the slot
+    call self % slot % reportHittingProbIn(p, mem)
+
+  end subroutine reportHittingProbIn
+
+  !!
+  !! Process hitting probability report
+  !!
+  !! See tallyClerk_inter for details
+  !!
+  subroutine reportHittingProbOut(self, p, mem)
+    class(tallyClerkSlot), intent(inout) :: self
+    class(particle), intent(in)          :: p
+    type(scoreMemory), intent(inout)     :: mem
+
+    ! Pass call to instance in the slot
+    call self % slot % reportHittingProbOut(p, mem)
+
+  end subroutine reportHittingProbOut
+
+  !!
+  !! Process hitting probability report
   !!
   !! See tallyClerk_inter for details
   !!

@@ -23,9 +23,6 @@ module temporalPopClerk_class
   ! Tally Responses
   use tallyResponseSlot_class,    only : tallyResponseSlot
 
-  ! Particle Dungeon
-  use particleDungeon_class,  only : particleDungeon
-
   ! Nuclear Data Interface
   use nuclearDataReg_mod,     only : ndReg_get => get
   implicit none
@@ -64,7 +61,6 @@ module temporalPopClerk_class
 
     ! Useful data
     integer(shortInt)  :: width = 0
-    logical(defBool)   :: virtual = .false.
 
   contains
     ! Procedures used during build

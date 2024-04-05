@@ -17,7 +17,8 @@ module tallyCodes
                                         hist_CODE        = 1004 ,&
                                         cycleStart_CODE  = 1005 ,&
                                         cycleEnd_CODE    = 1006 ,&
-                                        temporalPop_CODE = 1007
+                                        temporalPop_CODE = 1007 ,&
+                                        hittingProb_CODE = 1008
 
   ! List of codes for different particle fates
   integer(shortInt),parameter,public :: no_FATE   = 5000, &
