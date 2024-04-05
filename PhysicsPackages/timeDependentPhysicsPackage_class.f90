@@ -199,10 +199,10 @@ contains
           bufferLoop: do
 
             if ((p % fate == aged_FATE) .or. (p % fate == no_FATE)) then
-              if (p % fate == no_FATE) call tally % reportHittingProbIn(p)
               p % fate = no_FATE
               p % isdead = .false.
               call tally % reportTemporalPopIn(p)
+              call tally % reportHittingProbIn(p)
             else
               p % isdead = .true.
               call tally % reportTemporalPopOut(p)
@@ -273,10 +273,10 @@ contains
                 bufferLoopDelayed: do
 
                   if ((p % fate == aged_FATE) .or. (p % fate == no_FATE)) then
-                    if (p % fate == no_FATE) call tally % reportHittingProbIn(p)
                     p % fate = no_FATE
                     p % isdead = .false.
                     call tally % reportTemporalPopIn(p)
+                    call tally % reportHittingProbIn(p)
                   else
                     p % isdead = .true.
                     call tally % reportTemporalPopOut(p)

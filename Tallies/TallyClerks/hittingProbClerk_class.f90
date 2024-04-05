@@ -4,7 +4,7 @@ module hittingProbClerk_class
   use tallyCodes
   use genericProcedures,          only : fatalError
   use dictionary_class,           only : dictionary
-  use particle_class,             only : particle, particleState, P_NEUTRON, P_PRECURSOR
+  use particle_class,             only : particle, particleState, P_NEUTRON
   use outputFile_class,           only : outputFile
   use scoreMemory_class,          only : scoreMemory
   use tallyClerk_inter,           only : tallyClerk, kill_super => kill
@@ -63,12 +63,11 @@ module hittingProbClerk_class
     type(tallyResponseSlot),dimension(:),allocatable :: response
     real(defReal)                                    :: maxT
     integer(shortInt)                                :: maxPop
-    logical(defBool), dimension(:), allocatable      :: firstHitsNeutron, firstHitsPrecursor
-    real(defReal), dimension(:), allocatable         :: hittingTimesNeutron, hittingTimesPrecursor
-    real(defReal), dimension(:), allocatable         :: currentNeutronPops, currentPrecursorPops
+    logical(defBool), dimension(:), allocatable      :: firstHitsNeutron
+    real(defReal), dimension(:), allocatable         :: hittingTimesNeutron
+    real(defReal), dimension(:), allocatable         :: currentNeutronPops
     integer(shortInt)                                :: cycles
     type(particleDungeon), allocatable               :: neutrons
-    type(particleDungeon), allocatable               :: precursors
 
     ! Useful data
     integer(shortInt)  :: width = 0
@@ -81,7 +80,6 @@ module hittingProbClerk_class
     procedure  :: getSize
 
     ! File reports and check status -> run-time procedures
-    procedure  :: placeParticleSorted
     procedure  :: reportHittingProbIn
     procedure  :: reportHittingProbOut
     procedure  :: reportCycleEnd
@@ -110,9 +108,14 @@ contains
     ! Assign name
     call self % setName(name)
 
-    ! Load filetr
+    ! Load filter
     if( dict % isPresent('filter')) then
       call new_tallyFilter(self % filter, dict % getDictPtr('filter'))
+    end if
+
+    ! Load map
+    if( dict % isPresent('map')) then
+      call new_tallyMap(self % map, dict % getDictPtr('map'))
     end if
 
     ! Get max time to consider
@@ -145,18 +148,6 @@ contains
           self % currentNeutronPops(j) = ZERO
           self % firstHitsNeutron(j) = .true.
           self % hittingTimesNeutron(j) = -ONE
-        end do
-
-      else if (type == "precursorResponse") then
-        allocate(self % precursors)
-        call self % precursors % init(5 * self % maxPop)
-        allocate(self % currentPrecursorPops(self % cycles))
-        allocate(self % firstHitsPrecursor(self % cycles))
-        allocate(self % hittingTimesPrecursor(self % cycles))
-        do j=1, self % cycles
-          self % currentPrecursorPops(j) = ZERO
-          self % firstHitsPrecursor(j) = .true.
-          self % hittingTimesPrecursor(j) = -ONE
         end do
       end if
     end do
@@ -222,43 +213,6 @@ contains
 
   end function getSize
 
-  subroutine placeParticleSorted(self, p, particles, score)
-    class(hittingProbClerk), intent(inout) :: self
-    class(particle), intent(in)            :: p
-    type(particleDungeon), intent(inout)   :: particles
-    real(defReal), intent(in)              :: score
-    real(defReal)                          :: lowestTime
-    type(particle)                         :: p_pre, p_temp
-    integer(shortInt)                      :: k
-
-    p_pre = p
-    p_pre % w = score
-
-    if (particles % popSize() == 0) then
-      call particles % detain(p_pre)
-      lowestTime = p_pre % time
-    
-    else
-      k = 1
-      sortLoop: do
-        call particles % copy(p_temp, k)
-
-        if (p_pre % time <= p_temp % time) then
-          if (k == 1) lowestTime = p_pre % time
-          call particles % replace(p_pre, k)
-          p_pre = p_temp
-        end if
-        k = k + 1
-        if (k > particles % popSize()) then
-          call particles % detain(p_pre)
-          exit sortLoop
-        end if
-      end do sortLoop
-
-    end if
-  end subroutine placeParticleSorted
-
-
   !!
   !! Process temporal population report
   !!
@@ -269,22 +223,19 @@ contains
     class(particle), intent(in)            :: p
     type(scoreMemory), intent(inout)       :: mem
     class(nuclearDatabase), pointer        :: xsData
-    integer(shortInt)                      :: i, k, batchIdx
+    integer(shortInt)                      :: i, batchIdx, binIdx
     real(defReal)                          :: scoreVal
     type(particleState)                    :: state 
     type(particle)                         :: p_pre, p_temp
+    integer(longInt)                       :: adrr
     character(100), parameter :: Here =' reporthittingProbIn (hittingProbClerk_class.f90)'
 
     batchIdx = mod(mem % batchN, self % cycles) + 1
     if (self % firstHitsNeutron(batchIdx) .eqv. .false.) return
-    if (p % time == ZERO) then 
-      self % currentNeutronPops(batchIdx) = self % currentNeutronPops(batchIdx) + ONE
-      return
-    end if
 
     if (p % time <= self % maxT) then
       ! Append all bins
-      !do i=1, self % width
+      do i=1, self % width
 
         ! Get current particle state
         state = p
@@ -294,22 +245,28 @@ contains
           if(self % filter % isFail(state)) return
         end if
 
+        ! Find bin index
+        if(allocated(self % map)) then
+          binIdx = self % map % map(state)
+        else
+          binIdx = 1
+        end if
+
+        ! Return if invalid bin index
+        if (binIdx == 0) return
+
+        ! Calculate bin address
+        adrr = self % getMemAddress() + self % width * (binIdx - 1) - 1
+
         xsData => ndReg_get(p % getType(), where = Here)
-        scoreVal = self % response(1) % get(p, xsData) !self % response(i) % get(p, xsData) 
+        scoreVal = self % response(i) % get(p, xsData) !self % response(i) % get(p, xsData) 
 
         if (scoreVal == ZERO) return
         if (allocated(self % neutrons) .and. p % type == P_NEUTRON) then
-          !$OMP CRITICAL
-          call self % placeParticleSorted(p, self % neutrons, 1.0_defReal)
-          !$OMP END CRITICAL
+          call mem % score(scoreVal, adrr + i)
         end if
 
-      !  if (allocated(self % precursors) .and. p % type == P_PRECURSOR) then
-      !    !$OMP CRITICAL
-      !    call self % placeParticleSorted(p, self % precursors, 1.0_defReal)
-      !    !$OMP END CRITICAL
-      !  end if
-      !end do
+      end do
     end if
 
   end subroutine reportHittingProbIn
@@ -324,10 +281,11 @@ contains
     class(particle), intent(in)            :: p
     type(scoreMemory), intent(inout)       :: mem
     class(nuclearDatabase), pointer        :: xsData
-    integer(shortInt)                      :: i, k, batchIdx
+    integer(shortInt)                      :: i, batchIdx, binIdx
     real(defReal)                          :: scoreVal, lowestTime
     type(particleState)                    :: state 
     type(particle)                         :: p_pre, p_temp
+    integer(longInt)                       :: adrr
     character(100), parameter :: Here =' reporthittingProbOut (hittingProbClerk_class.f90)'
 
     batchIdx = mod(mem % batchN, self % cycles) + 1
@@ -335,7 +293,7 @@ contains
 
     if (p % time <= self % maxT) then
       ! Append all bins
-      !do i=1, self % width
+      do i=1, self % width
 
         ! Get current particle state
         state = p
@@ -345,24 +303,28 @@ contains
           if(self % filter % isFail(state)) return
         end if
 
-        xsData => ndReg_get(p % getType(), where = Here)
-        scoreVal = -self % response(1) % get(p, xsData) !-self % response(i) % get(p, xsData)
-
-        if (scoreVal == ZERO) return
-
-        if (allocated(self % neutrons) .and. p % type == P_NEUTRON) then
-          !$OMP CRITICAL
-          call self % placeParticleSorted(p, self % neutrons, -1.0_defReal)
-          !$OMP END CRITICAL
+        ! Find bin index
+        if(allocated(self % map)) then
+          binIdx = self % map % map(state)
+        else
+          binIdx = 1
         end if
 
-        !if (allocated(self % precursors) .and. p % type == P_PRECURSOR) then
-        !  !$OMP CRITICAL
-        !  call self % placeParticleSorted(p, self % precursors, -1.0_defReal)
-        !  !$OMP END CRITICAL
-        !end if
+        ! Return if invalid bin index
+        if (binIdx == 0) return
 
-      !end do
+        ! Calculate bin address
+        adrr = self % getMemAddress() + self % width * (binIdx - 1) - 1
+
+        xsData => ndReg_get(p % getType(), where = Here)
+        scoreVal = -self % response(i) % get(p, xsData)
+
+        if (scoreVal == ZERO) return
+        if (allocated(self % neutrons) .and. p % type == P_NEUTRON) then
+          call mem % score(scoreVal, adrr + i)
+        end if
+
+      end do
     end if
 
   end subroutine reportHittingProbOut
@@ -376,49 +338,30 @@ contains
     class(hittingProbClerk), intent(inout)  :: self
     class(particleDungeon), intent(in)      :: end
     type(scoreMemory), intent(inout)        :: mem
-    integer(shortInt)                       :: batchIdx, i, binIdx = 1
+    integer(shortInt)                       :: batchIdx, i
     type(particle)                          :: p_temp
     integer(longInt)                        :: adrr
+    real(defReal)                           :: accScore
+    integer(shortInt),dimension(:),allocatable :: resArrayShape
 
-    adrr = self % getMemAddress() + self % width * (binIdx - 1)  - 1
     batchIdx = mod(mem % batchN, self % cycles) + 1
-    !if (batchIdx == 1)  print *, self % neutrons % popSize()
-
-    if (allocated(self % neutrons)) then
-      if (self % firstHitsNeutron(batchIdx) .eqv. .true.) then
-        do i = 1, self % neutrons % popSize()
-          call self % neutrons % copy(p_temp, i)
-          self % currentNeutronPops(batchIdx) = self % currentNeutronPops(batchIdx) + p_temp % w
-          if (self % currentNeutronPops(batchIdx) >= self % maxPop) then
-            self % firstHitsNeutron(batchIdx) = .false.
-            self % hittingTimesNeutron(batchIdx) = p_temp % time
-            call mem % score(ONE, adrr + 1)
-            exit
-          end if
-          !print *, p_temp % w, self % currentNeutronPops(batchIdx)
-        end do
-      end if
-      call self % neutrons % cleanPop()
-      !print *, '---', self % currentNeutronPops(batchIdx)
-      !self % currentNeutronPops(batchIdx) = ZERO
-    !if (batchIdx == 1) print *, '---', self % currentNeutronPops(1)
-    !if (batchIdx == 1)  print *, self % neutrons % popSize()
+    
+    if(allocated(self % map)) then
+      resArrayShape = [size(self % response), self % map % binArrayShape()]
+    else
+      resArrayShape = [size(self % response)]
     end if
 
-    !if (allocated(self % precursors)) then
-    !  if (self % firstHitsPrecursor(batchIdx) .eqv. .true.) then
-    !    do i = 1, self % precursors % popSize()
-    !      call self % precursors % copy(p_temp, i)
-    !      self % currentPrecursorPops(batchIdx) = self % currentPrecursorPops(batchIdx) + p_temp % w
-    !      if (self % currentPrecursorPops(batchIdx) >= self % maxPop) then
-    !        self % firstHitsPrecursor(batchIdx) = .false.
-    !        self % hittingTimesPrecursor(batchIdx) = p_temp % time
-    !        exit
-    !      end if
-    !    end do
-    !  end if
-    !  call self % precursors % cleanPop()
-    !end if
+    do i = 1, product(resArrayShape)
+      adrr = self % getMemAddress() + self % width * (i - 1) - 1 
+      accScore = mem % getScore(adrr)
+      self % currentNeutronPops(batchIdx) = accScore
+      if (self % currentNeutronPops(batchIdx) >= self % maxPop) then
+        self % firstHitsNeutron(batchIdx) = .false.
+        self % hittingTimesNeutron(batchIdx) = i
+      end if
+
+    end do
 
   end subroutine reportCycleEnd
 
@@ -452,6 +395,11 @@ contains
     ! Begin block
     call outFile % startBlock(self % getName())
 
+    ! If temporal population clerk has map print map information
+    if( allocated(self % map)) then
+      call self % map % print(outFile)
+    end if
+
     ! Write results.
     ! Get shape of result array
 
@@ -462,22 +410,43 @@ contains
     call outFile % startArray(name, resArrayShape)
 
     ! Print results to the file
-    do i=1,product(resArrayShape)
-      call mem % getResult(val, self % getMemAddress() - 1 + 1)
-      call outFile % addValue(val)
+    val = ZERO
+    do i=1, self % cycles
+      if (self % hittingTimesNeutron(i) >= ZERO) val = val + ONE
     end do
-
+    val = val / self % cycles
+    call outFile % addValue(val)
     call outFile % endArray()
 
     ! Start array
     resArrayShape = [self % cycles]
-    name ='HittingTimes'
+    name ='HittingTimeIdxs'
     call outFile % startArray(name, resArrayShape)
 
     ! Print results to the file
     do i=1, product(resArrayShape)
       val = self % hittingTimesNeutron(i)
       call outFile % addValue(val)
+    end do
+
+    call outFile % endArray()
+
+    ! Write results.
+    ! Get shape of result array
+    if(allocated(self % map)) then
+      resArrayShape = [size(self % response), self % map % binArrayShape()]
+    else
+      resArrayShape = [size(self % response)]
+    end if
+
+    ! Start array
+    name ='pop'
+    call outFile % startArray(name, resArrayShape)
+
+    ! Print results to the file
+    do i=1, product(resArrayShape)
+      call mem % getResult(val, std, self % getMemAddress() - 1 + i)
+      call outFile % addResult(val, std)
     end do
 
     call outFile % endArray()
