@@ -326,8 +326,6 @@ contains
             else
               nPrecuCount = nDelayedParticles + 1
               nDelayedParticles = self % precursorDungeons(i) % popSize()
-            print *, nPrecuCount, nDelayedParticles
-
             end if
           end do superGenDelayed
             
