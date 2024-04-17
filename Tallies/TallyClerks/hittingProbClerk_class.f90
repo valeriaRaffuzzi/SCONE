@@ -62,7 +62,7 @@ module hittingProbClerk_class
     class(tallyMap), allocatable                     :: map
     type(tallyResponseSlot),dimension(:),allocatable :: response
     real(defReal)                                    :: maxT
-    integer(shortInt)                                :: maxPop
+    integer(shortInt)                                :: maxPop, minPop
     logical(defBool), dimension(:), allocatable      :: firstHitsNeutron
     real(defReal), dimension(:), allocatable         :: hittingTimesNeutron
     real(defReal), dimension(:), allocatable         :: currentNeutronPops
@@ -121,8 +121,11 @@ contains
     ! Get max time to consider
     call dict % get(self % maxT,'maxT')
 
-    ! Get population threshold
+    ! Get population max threshold
     call dict % get(self % maxPop,'maxPop')
+    
+    ! Get population min threshold
+    call dict % get(self % minPop, 'minPop')
 
     ! Get population threshold
     call dict % get(self % cycles,'cycles')
@@ -359,6 +362,9 @@ contains
       if (self % currentNeutronPops(batchIdx) >= self % maxPop) then
         self % firstHitsNeutron(batchIdx) = .false.
         self % hittingTimesNeutron(batchIdx) = i
+      !else if (self % currentNeutronPops(batchIdx) == self % minPop) then
+      !  self % firstHitsNeutron(batchIdx) = .false.
+      !  self % hittingTimesNeutron(batchIdx) = i
       end if
 
     end do

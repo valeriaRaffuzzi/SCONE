@@ -5,6 +5,7 @@ module collisionClerk_class
   use genericProcedures,          only : fatalError
   use dictionary_class,           only : dictionary
   use particle_class,             only : particle, particleState
+  use particleDungeon_class,      only : particleDungeon
   use outputFile_class,           only : outputFile
   use scoreMemory_class,          only : scoreMemory
   use tallyClerk_inter,           only : tallyClerk, kill_super => kill
@@ -58,6 +59,8 @@ module collisionClerk_class
     type(tallyResponseSlot),dimension(:),allocatable :: response
 
     ! Useful data
+    logical(defBool)   :: normByPop = .false.
+    real(defReal)      :: invPopSize = ONE ! 1 so that without normalization it behaves as usual
     integer(shortInt)  :: width = 0
     logical(defBool)   :: virtual = .false.
 
@@ -70,6 +73,7 @@ module collisionClerk_class
 
     ! File reports and check status -> run-time procedures
     procedure  :: reportInColl
+    procedure  :: reportCycleStart
 
     ! Output procedures
     procedure  :: display
@@ -112,6 +116,12 @@ contains
     do i=1, size(responseNames)
       call self % response(i) % init(dict % getDictPtr( responseNames(i) ))
     end do
+
+    ! Check if normalize by end of cycle pop size
+
+    if (dict % isPresent('norm')) then
+      call dict % get(self % normByPop, 'norm')
+    end if
 
     ! Set width
     self % width = size(responseNames)
@@ -159,7 +169,7 @@ contains
     class(collisionClerk),intent(in)           :: self
     integer(shortInt),dimension(:),allocatable :: validCodes
 
-    validCodes = [inColl_CODE]
+    validCodes = [cycleStart_CODE, inColl_CODE]
 
   end function validReports
 
@@ -176,6 +186,19 @@ contains
     if(allocated(self % map)) S = S * self % map % bins(0)
 
   end function getSize
+
+  subroutine reportCycleStart(self, start, mem)
+    class(collisionClerk), intent(inout)     :: self
+    class(particleDungeon), intent(in)    :: start
+    type(scoreMemory), intent(inout)      :: mem
+    
+    if (self % normByPop) then
+      self % invPopSize = ONE/start % popSize()
+    else
+      self % invPopSize = ONE
+    end if
+
+  end subroutine reportCycleStart
 
   !!
   !! Process incoming collision report
@@ -225,7 +248,7 @@ contains
 
     ! Append all bins
     do i=1,self % width
-      scoreVal = self % response(i) % get(p, xsData) * p % w * flx
+      scoreVal = self % response(i) % get(p, xsData) * p % w * flx * self % invPopSize
       call mem % score(scoreVal, adrr + i)
 
     end do
