@@ -23,6 +23,7 @@ module collisionClerk_class
 
   ! Tally Responses
   use tallyResponseSlot_class,    only : tallyResponseSlot
+  use tallyResult_class,          only : tallyResult
 
   implicit none
   private
@@ -77,8 +78,20 @@ module collisionClerk_class
     ! Output procedures
     procedure  :: display
     procedure  :: print
+    procedure  :: getResult
 
   end type collisionClerk
+
+  !!
+  !! Tally result class
+  !!
+  !! Public Members:
+  !!   resOut -> array containing the average of the calculate tally
+  !!   size   -> array containing the size of the tally map used
+  !!
+  type, public, extends(tallyResult) :: collClerkResult
+    real(defReal), dimension(:), allocatable  :: resOut
+  end type collClerkResult
 
 contains
 
@@ -251,6 +264,33 @@ contains
   end subroutine display
 
   !!
+  !! Outputs results
+  !!
+  !! See tallyClerk_inter for details
+  !!
+  pure subroutine getResult(self, res, mem)
+    class(collisionClerk), intent(in)              :: self
+    class(tallyResult), allocatable, intent(inout) :: res
+    type(scoreMemory), intent(in)                  :: mem
+    integer(shortInt),dimension(:),allocatable     :: mapShape
+    real(defReal),dimension(:),allocatable         :: resOut
+    integer(shortInt)                              :: i
+    real(defReal)                                  :: val, std
+
+    ! Allocate results
+    if (allocated(self % map)) mapShape = self % map % binArrayShape()
+    allocate(resOut(product(mapShape)))
+
+    do i = 1,product(mapShape)
+      call mem % getResult(val, std, self % getMemAddress() - 1 + i)
+      resOut(i) = val
+    end do
+
+    allocate(res, source = collClerkResult(resOut = resOut))
+
+  end subroutine getResult
+
+  !!
   !! Write contents of the clerk to output file
   !!
   !! See tallyClerk_inter for details
@@ -274,7 +314,7 @@ contains
 
     ! Write results.
     ! Get shape of result array
-    if(allocated(self % map)) then
+    if (allocated(self % map)) then
       resArrayShape = [size(self % response), self % map % binArrayShape()]
     else
       resArrayShape = [size(self % response)]

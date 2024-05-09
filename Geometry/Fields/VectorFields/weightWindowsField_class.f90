@@ -78,10 +78,19 @@ contains
     integer(shortInt), parameter  :: ALL = 0
     character(100), parameter :: Here = 'init (weightWindowsField_class.f90)'
 
-    call dict % get(path,'file')
+    if (dict % isPresent('file')) then
 
-    ! Load dictionary
-    call fileToDict(dict2, path)
+      call dict % get(path,'file')
+      ! Load dictionary
+      call fileToDict(dict2, path)
+
+    elseif (dict % isPresent('ww')) then
+      call dict % get(dict2,'ww')
+
+    else
+      call fatalError(Here, 'Either "file" or "ww" has to be provided')
+
+    end if
 
     ! Initialise overlay map
     call new_tallyMap(self % net, dict2 % getDictPtr('map'))

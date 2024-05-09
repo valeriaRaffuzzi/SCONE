@@ -2,7 +2,7 @@ module neutronCEimp_class
 
   use numPrecision
   use endfConstants
-  use universalVariables,            only : nameUFS, nameWW
+  use universalVariables,            only : nameUFS, nameWW, NOT_FOUND
   use genericProcedures,             only : fatalError, rotateVector, numToChar
   use dictionary_class,              only : dictionary
   use RNG_class,                     only : RNG
@@ -100,6 +100,7 @@ module neutronCEimp_class
     class(ceNeutronMaterial), pointer, public :: mat     => null()
     class(ceNeutronNuclide),  pointer, public :: nuc     => null()
     class(uniFissSitesField), pointer :: ufsField => null()
+    type(weightWindowsField), pointer :: weightWindowsMap
 
     !! Settings - private
     real(defReal) :: minE
@@ -121,8 +122,6 @@ module neutronCEimp_class
     logical(defBool)  :: implicitSites ! Generates fission sites on every fissile collision
     logical(defBool)  :: uniFissSites
 
-    type(weightWindowsField), pointer :: weightWindowsMap
-
   contains
     ! Initialisation procedure
     procedure :: init
@@ -135,6 +134,7 @@ module neutronCEimp_class
     procedure :: capture
     procedure :: fission
     procedure :: cutoffs
+    procedure :: updateFieldWW
 
     ! Local procedures
     procedure,private :: scatterFromFixed
@@ -144,6 +144,7 @@ module neutronCEimp_class
     ! Variance reduction procedures
     procedure, private :: split
     procedure, private :: russianRoulette
+
   end type neutronCEimp
 
 contains
@@ -192,6 +193,20 @@ contains
     call dict % getOrDefault(self % DBRCeMin,'DBRCeMin', (1.0E-8_defReal))
     call dict % getOrDefault(self % DBRCeMax,'DBRCeMax', (200E-6_defReal))
 
+    ! Verify if the weight window field exist
+    idx = gr_fieldIdx(nameWW, .false.)
+    if (idx == NOT_FOUND) then
+      if (self % weightWindows) print*, 'WARNING: Weigth windows are switched off'
+      self % weightWindows = .false.
+
+    else
+      ! Retrieve weight window field
+      self % weightWindowsMap => weightWindowsField_TptrCast(gr_fieldPtr(idx))
+      self % weightWindows = .true.
+
+    end if
+
+    ! Check settings
     if (self % splitting) then
       if (self % maxWgt < 2 * self % minWgt) call fatalError(Here,&
               'Upper weight bound must be at least twice the lower weight bound')
@@ -210,13 +225,31 @@ contains
       self % ufsField => uniFissSitesField_TptrCast(gr_fieldPtr(idx))
     end if
 
-    ! Sets up the weight windows field
-    if (self % weightWindows) then
-      idx = gr_fieldIdx(nameWW)
+  end subroutine init
+
+  !!
+  !!
+  !!
+  subroutine updateFieldWW(self)
+    class(neutronCEimp), intent(inout) :: self
+    integer(shortInt)                  :: idx
+
+    ! Verify if the weight window field exist
+    idx = gr_fieldIdx(nameWW, .false.)
+
+    if (idx == NOT_FOUND) then
+      print*, 'WARNING: Weigth windows are switched off'
+      self % weightWindows = .false.
+
+    else
+
+      self % weightWindows = .true.
+      ! Retrieve weight window field
       self % weightWindowsMap => weightWindowsField_TptrCast(gr_fieldPtr(idx))
+
     end if
 
-  end subroutine init
+  end subroutine updateFieldWW
 
   !!
   !! Samples collision without any implicit treatment
@@ -545,6 +578,7 @@ contains
 
     ! Weight Windows treatment
     elseif (self % weightWindows) then
+
       val = self % weightWindowsMap % at(p)
       minWgt = val(1)
       maxWgt = val(2)

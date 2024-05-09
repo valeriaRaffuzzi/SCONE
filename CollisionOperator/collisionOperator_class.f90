@@ -60,7 +60,7 @@ module collisionOperator_class
 
     ! Use procedures
     procedure :: collide
-
+    procedure :: updateFieldWW
 
   end type collisionOperator
 
@@ -73,12 +73,12 @@ contains
     class(collisionOperator), intent(inout) :: self
     class(dictionary), intent(in)           :: dict
 
-    if(dict % isPresent('neutronCE')) then
+    if (dict % isPresent('neutronCE')) then
       call new_collisionProcessor(self % physicsTable(1) % proc, dict % getDictPtr('neutronCE'))
       self % lookupTable(P_CE, P_NEUTRON) = 1
     end if
 
-    if(dict % isPresent('neutronMG')) then
+    if (dict % isPresent('neutronMG')) then
       call new_collisionProcessor(self % physicsTable(2) % proc, dict % getDictPtr('neutronMG'))
       self % lookupTable(P_MG, P_NEUTRON) = 2
     end if
@@ -96,9 +96,9 @@ contains
     self % lookupTable = UNDEF_PHYSICS
 
     ! Deallocate collision processors
-    do i=1,size(self % physicsTable)
-      if(allocated(self % physicsTable(i) % proc)) then
-        deallocate( self % physicsTable(i) % proc)
+    do i = 1,size(self % physicsTable)
+      if (allocated(self % physicsTable(i) % proc)) then
+        deallocate (self % physicsTable(i) % proc)
       end if
     end do
 
@@ -117,14 +117,14 @@ contains
     character(100), parameter :: Here = 'collide (collisionOperator_class.f90)'
 
     ! Select processing index with ternary expression
-    if(p % isMG) then
+    if (p % isMG) then
       procType = P_MG
     else
       procType = P_CE
     end if
 
     ! Varify that type is valid
-    if( p % type <= 0 .or. p % type > MAX_P_ID) then
+    if (p % type <= 0 .or. p % type > MAX_P_ID) then
       call fatalError(Here, 'Type of the particle is invalid: ' // numToChar(p % type))
     end if
 
@@ -132,7 +132,7 @@ contains
     idx = self % lookupTable(procType, p % type)
 
     ! Verify index
-    if(idx == UNDEF_PHYSICS) then
+    if (idx == UNDEF_PHYSICS) then
       call fatalError(Here,'Physics is not defined for particle of type : '// p % typeToChar())
     end if
 
@@ -140,5 +140,21 @@ contains
     call self % physicsTable(idx) % proc % collide(p, tally, thisCycle, nextCycle)
 
   end subroutine collide
-    
+
+  !!
+  !! Extendable initialisation procedure
+  !!
+  subroutine updateFieldWW(self)
+    class(collisionOperator), intent(inout) :: self
+    integer(shortInt)                       :: idx
+
+    ! If a processor exists, call updateWW procedure
+    idx = self % lookupTable(P_CE, P_NEUTRON)
+    if (idx /= UNDEF_PHYSICS) call self % physicsTable(idx) % proc % updateFieldWW()
+
+    idx = self % lookupTable(P_MG, P_NEUTRON)
+    if (idx /= UNDEF_PHYSICS) call self % physicsTable(idx) % proc % updateFieldWW()
+
+  end subroutine updateFieldWW
+
 end module collisionOperator_class

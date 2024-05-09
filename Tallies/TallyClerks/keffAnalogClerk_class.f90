@@ -49,6 +49,7 @@ module keffAnalogClerk_class
     procedure  :: display
     procedure  :: print
     procedure  :: getResult
+
   end type keffAnalogClerk
 
   !!
@@ -57,7 +58,7 @@ module keffAnalogClerk_class
   !! Public Members:
   !!   keff -> Result, keff(1) is criticality, keff(2) is STD
   !!
-  type,public, extends(tallyResult) :: keffResult
+  type, public, extends(tallyResult) :: keffResult
     real(defReal), dimension(2) :: keff = [ONE, ZERO]
   end type keffResult
 

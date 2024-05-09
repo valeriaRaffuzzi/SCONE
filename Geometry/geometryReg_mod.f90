@@ -28,15 +28,16 @@
 module geometryReg_mod
 
   use numPrecision
-  use genericProcedures, only : fatalError, numToChar
-  use dictionary_class,  only : dictionary
-  use charMap_class,     only : charMap
+  use universalVariables, only : NOT_FOUND
+  use genericProcedures,  only : fatalError, numToChar
+  use dictionary_class,   only : dictionary
+  use charMap_class,      only : charMap
 
   ! Geometry
-  use geometry_inter,    only : geometry
+  use geometry_inter,     only : geometry
 
   ! Fields
-  use field_inter,       only : field
+  use field_inter,        only : field
 
   implicit none
   private
@@ -64,6 +65,7 @@ module geometryReg_mod
   public :: geomPtr
   public :: geomNum
   public :: addField
+  public :: popField
   public :: fieldIdx
   public :: fieldPtr
   public :: kill
@@ -98,13 +100,12 @@ contains
     class(geometry), allocatable, intent(inout) :: geom
     character(nameLen), intent(in)              :: name
     integer(shortInt)                           :: idx
-    integer(shortInt), parameter :: NOT_PRESENT = -7
     character(100), parameter    :: Here = 'addGeom (geometryReg_mod.f90)'
 
     ! Get free index
-    idx = geometryNameMap % getOrDefault(name, NOT_PRESENT)
+    idx = geometryNameMap % getOrDefault(name, NOT_FOUND)
 
-    if (idx /= NOT_PRESENT) then
+    if (idx /= NOT_FOUND) then
       call fatalError(Here, 'Geometry with name: '//trim(name)//' has already been defined with &
                             &idx: '//numToChar(idx))
     else
@@ -136,11 +137,10 @@ contains
   function geomIdx(name) result(idx)
     character(nameLen), intent(in) :: name
     integer(shortInt)              :: idx
-    integer(shortInt), parameter   :: NOT_PRESENT = -8
     character(*), parameter :: Here = 'geomIdx (geometryReg_mod.f90)'
 
-    idx = geometryNameMap % getOrDefault(name, NOT_PRESENT)
-    if (idx == NOT_PRESENT) then
+    idx = geometryNameMap % getOrDefault(name, NOT_FOUND)
+    if (idx == NOT_FOUND) then
       call fatalError(Here, 'Geometry: '//trim(name)//' was not found.')
     end if
 
@@ -208,13 +208,12 @@ contains
     class(field), allocatable, intent(inout) :: kentta
     character(nameLen), intent(in)           :: name
     integer(shortInt)                        :: idx
-    integer(shortInt), parameter :: NOT_PRESENT = -7
     character(100), parameter    :: Here = 'addField (geometryReg_mod.f90)'
 
     ! Get free index
-    idx = fieldNameMap % getOrDefault(name, NOT_PRESENT)
+    idx = fieldNameMap % getOrDefault(name, NOT_FOUND)
 
-    if (idx /= NOT_PRESENT) then
+    if (idx /= NOT_FOUND) then
       call fatalError(Here, 'Field with name: '//trim(name)//' has already been defined with &
                             &idx: '//numToChar(idx))
     else
@@ -232,6 +231,62 @@ contains
   end subroutine addField
 
   !!
+  !! Remove Field definition
+  !!
+  !! Args:
+  !!   name [in]   -> Name of the field
+  !!
+  subroutine popField(name)
+    character(nameLen), intent(in)            :: name
+    integer(shortInt)                         :: idx, i, j, N
+    type(fieldBox), dimension(:), allocatable :: temp
+
+    ! Get free index
+    idx = fieldNameMap % getOrDefault(name, NOT_FOUND)
+
+    if (idx == NOT_FOUND) return
+
+    ! Kill field and remove name from the map
+    call fieldNameMap % del(name)
+    call fields(idx) % kentta % kill()
+
+    ! Deallocate one field spot
+    if (fieldTop > 1) then
+
+      ! Get current field size
+      N = size(fields)
+
+      ! Allocate temporary
+      allocate(temp(N - 1))
+
+      ! Move values to temporary (smaller) variable
+      ! Define additional counter to make sure the allocation to temp is correct
+      j = 0
+      do i = 1, fieldTop
+
+        if (i /= idx) then
+          j = j + 1
+          temp(i) % name = fields(i) % name
+          call move_alloc(fields(i) % kentta, temp(i) % kentta)
+        end if
+
+      end do
+
+      ! Switch allocation
+      call move_alloc(temp, fields)
+
+    else
+
+      deallocate(fields)
+
+    end if
+
+    ! Decrement counter
+    fieldTop = fieldTop - 1
+
+  end subroutine popField
+
+  !!
   !! Get index of a field given its name
   !!
   !! Args:
@@ -243,14 +298,17 @@ contains
   !! Errors:
   !!   fatalError if name was not defined
   !!
-  function fieldIdx(name) result(idx)
-    character(nameLen), intent(in) :: name
-    integer(shortInt)              :: idx
-    integer(shortInt), parameter   :: NOT_PRESENT = -8
-    character(*), parameter :: Here = 'fieldIdx (geometryReg_mod.f90)'
+  function fieldIdx(name, error) result(idx)
+    character(nameLen), intent(in)         :: name
+    logical(defBool), intent(in), optional :: error
+    logical(defBool)                       :: giveError = .true.
+    integer(shortInt)                      :: idx
+    character(*), parameter      :: Here = 'fieldIdx (geometryReg_mod.f90)'
 
-    idx = fieldNameMap % getOrDefault(name, NOT_PRESENT)
-    if (idx == NOT_PRESENT) then
+    if (present(error)) giveError = error
+
+    idx = fieldNameMap % getOrDefault(name, NOT_FOUND)
+    if (idx == NOT_FOUND .and. giveError) then
       call fatalError(Here, 'Field: '//trim(name)//' was not found.')
     end if
 

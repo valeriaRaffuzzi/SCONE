@@ -65,6 +65,7 @@ module collisionProcessor_inter
 
     ! Extendable initialisation procedure
     procedure :: init
+    procedure :: updateFieldWW
 
     ! Customisable deffered procedures
     procedure(collisionAction),deferred  :: sampleCollision
@@ -182,5 +183,15 @@ contains
     ! For now does nothing
 
   end subroutine init
+
+  !!
+  !! Extendable initialisation procedure
+  !!
+  subroutine updateFieldWW(self)
+    class(collisionProcessor), intent(inout) :: self
+
+    ! For now does nothing
+
+  end subroutine updateFieldWW
 
 end module collisionProcessor_inter

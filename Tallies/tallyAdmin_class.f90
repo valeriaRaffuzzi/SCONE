@@ -123,6 +123,7 @@ module tallyAdmin_class
     ! Build procedures
     procedure :: init
     procedure :: kill
+    procedure :: resetMemory
 
     ! Attachment procedures
     procedure :: push   ! Add attachment to the end of the list
@@ -276,6 +277,17 @@ contains
     call self % mem % kill()
 
   end subroutine kill
+
+  !!
+  !! Reset all memory bins
+  !!
+  recursive subroutine resetMemory(self)
+    class(tallyAdmin), intent(inout) :: self
+
+    ! Kill score memory
+    call self % mem % reset()
+
+  end subroutine resetMemory
 
   !!
   !! Add an attachment to the end of the list
