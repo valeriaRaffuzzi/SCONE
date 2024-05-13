@@ -7,7 +7,7 @@ module neutronCEkineticstd_class
   use RNG_class,                     only : RNG
 
   ! Particle types
-  use particle_class,                only : particle, particleState, printType, P_NEUTRON
+  use particle_class,                only : particle, particleState, printType, P_NEUTRON, P_PRECURSOR
   use particleDungeon_class,         only : particleDungeon
 
   ! Abstarct interface
@@ -235,7 +235,7 @@ contains
 
     ! Get fission Reaction
     fiss => fissionCE_TptrCast(self % xsData % getReaction(N_FISSION, collDat % nucIdx))
-    if(.not.associated(fiss)) call fatalError(Here, "Failed to get fissionCE")
+    if (.not.associated(fiss)) call fatalError(Here, "Failed to get fissionCE")
     sig_nufiss = fiss % releasePrompt(p % E) * microXSs % fission
 
     n = fiss % sampleNPromptPoisson(p % E, p % pRNG)
@@ -259,19 +259,26 @@ contains
         pTemp % dir = dir
         pTemp % E   = E_out
         pTemp % wgt = wgt
-        pTemp % time = p % time
+        pTemp % timeBirth = p % time
 
         call nextCycle % detain(pTemp)
+
+        ! Report birth of new particle
+        call tally % reportSpawn(N_FISSION, p, pTemp)
+
       end do
     end if
 
     if (self % usePrecursors) then
+
       n = fiss % sampleNDelayedPoisson(p % E, p % pRNG)
 
       if (n >= 1) then
         wgt =  sign(w0, wgt)
         r   = p % rGlobal()
+
         do i = 1, n
+
           call fiss % sampleDelayed(mu, phi, E_out, p % E, p % pRNG, lambda)
           dir = rotateVector(p % dirGlobal(), mu, phi)
           call fiss % samplePrecursorDecayT(lambda, p % pRNG, decayT)
@@ -282,14 +289,22 @@ contains
           pTemp       = p
 
           ! Overwrite position, direction, energy and weight
-          pTemp % r   = r
-          pTemp % dir = dir
-          pTemp % E   = E_out
-          pTemp % wgt = wgt
-          pTemp % time = pTemp % time + decayT
-          pTemp % type = 3
+          pTemp % r    = r
+          pTemp % dir  = dir
+          pTemp % E    = E_out
+          pTemp % wgt  = wgt
+          pTemp % time = p % time + decayT
+          pTemp % timeBirth = pTemp % time
+          pTemp % type = P_PRECURSOR
+
+          ! Store lambda
+          pTemp % lambda = lambda
 
           call thisCycle % detain(pTemp)
+
+          ! Report birth of new particle
+          call tally % reportSpawn(N_FISSION, p, pTemp)
+
         end do
       end if
     end if

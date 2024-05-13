@@ -13,9 +13,9 @@ module particle_class
   !!
   !! Particle types paramethers
   !!
-  integer(shortInt), parameter,public :: P_NEUTRON   = 1,&
-                                         P_PHOTON    = 2,&
-                                         P_PRECURSOR = 3
+  integer(shortInt), parameter, public :: P_NEUTRON   = 1, &
+                                          P_PHOTON    = 2, &
+                                          P_PRECURSOR = 3
 
   !!
   !! Public particle type procedures
@@ -58,6 +58,7 @@ module particle_class
     integer(shortInt)          :: fate = no_FATE    !Neutron's fate after being subjected to an operator
     integer(shortInt)          :: type = P_NEUTRON  ! Particle physical type
     real(defReal)              :: time = ZERO       ! Particle time position
+    real(defReal)              :: timeBirth = ZERO
     integer(shortInt)          :: timeBinIdx
     real(defReal)              :: lambda            ! Precursor decay constant
     integer(shortInt)          :: matIdx   = -1     ! Material index where particle is
@@ -113,6 +114,7 @@ module particle_class
     real(defReal)              :: w         ! Particle Weight
     real(defReal)              :: time      ! Particle time point
     integer(shortInt)          :: timeBinIdx
+    real(defReal)              :: timeBirth = ZERO
 
     ! Precursor particle data
     real(defReal)              :: lambda    ! Precursor decay constant
@@ -219,10 +221,12 @@ contains
     self % isDead = .false.
     self % isMG   = .false.
 
-    if(present(t)) then
+    if (present(t)) then
       self % time = t
+      self % timeBirth = t
     else
       self % time = ZERO
+      self % timeBirth = ZERO
     end if
 
     if(present(type)) then
@@ -261,10 +265,12 @@ contains
     self % isDead = .false.
     self % isMG   = .true.
 
-    if(present(t)) then
+    if (present(t)) then
       self % time = t
+      self % timeBirth = t
     else
       self % time = ZERO
+      self % timeBirth = ZERO
     end if
 
     if(present(type)) then
@@ -294,6 +300,7 @@ contains
     LHS % type                  = RHS % type
     LHS % time                  = RHS % time
     LHS % timeBinIdx            = RHS % timeBinIdx
+    LHS % timeBirth             = RHS % timeBirth
     LHS % lambda                = RHS % lambda
     LHS % fate                  = RHS % fate
     LHS % collisionN            = RHS % collisionN
@@ -710,6 +717,7 @@ contains
     LHS % type       = RHS % type
     LHS % time       = RHS % time
     LHS % timeBinIdx = RHS % timeBinIdx
+    LHS % timeBirth  = RHS % timeBirth
     LHS % fate       = RHS % fate
 
     ! Save all indexes
@@ -735,6 +743,7 @@ contains
     isEqual = isEqual .and. all(LHS % dir == RHS % dir)
     isEqual = isEqual .and. LHS % time == RHS % time
     isEqual = isEqual .and. LHS % timeBinIdx == RHS % timeBinIdx
+    isEqual = isEqual .and. LHS % timeBirth == RHS % timeBirth
     isEqual = isEqual .and. LHS % isDead .eqv. RHS % isDead
     isEqual = isEqual .and. LHS % isMG .eqv. RHS % isMG
     isEqual = isEqual .and. LHS % type == RHS % type

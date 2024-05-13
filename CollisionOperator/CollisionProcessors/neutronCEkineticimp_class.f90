@@ -8,7 +8,7 @@ module neutronCEkineticimp_class
   use RNG_class,                     only : RNG
 
   ! Particle types
-  use particle_class,                only : particle, particleState, printType, P_NEUTRON
+  use particle_class,                only : particle, particleState, printType, P_NEUTRON, P_PRECURSOR
   use particleDungeon_class,         only : particleDungeon
 
   ! Abstarct interface
@@ -287,16 +287,20 @@ contains
           if (E_out > self % maxE) E_out = self % maxE
 
           ! Copy extra detail from parent particle (i.e. time, flags ect.)
-          pTemp       = p
+          pTemp = p
 
           ! Overwrite position, direction, energy and weight
           pTemp % r   = r
           pTemp % dir = dir
           pTemp % E   = E_out
           pTemp % wgt = wgt
-          pTemp % time = p % time
+          pTemp % timeBirth = p % time
 
           call nextCycle % detain(pTemp)
+
+          ! Report birth of new particle
+          call tally % reportSpawn(N_FISSION, p, pTemp)
+
         end do
       end if
 
@@ -307,8 +311,10 @@ contains
         n = int(abs( (wgt * sig_nuDelayedfiss) / (w0 * sig_tot * k_eff)) + p % pRNG % get(), shortInt)
 
         if (n >= 1) then
+
           wgt =  sign(w0, wgt)
           r   = p % rGlobal()
+
           do i = 1, n
             call fiss % sampleDelayed(mu, phi, E_out, p % E, p % pRNG, lambda)
 
@@ -323,12 +329,16 @@ contains
             pTemp % r   = r
             pTemp % dir = dir
             pTemp % E   = E_out
-            pTemp % type = 3
             pTemp % wgt = wgt
-            pTemp % time = p % time
-            pTemp % lambda = lambda
+            pTemp % type      = P_PRECURSOR
+            pTemp % lambda    = lambda
+            pTemp % timeBirth = p % time
 
             call thisCycle % detain(pTemp)
+
+            ! Report birth of new particle
+            call tally % reportSpawn(N_FISSION, p, pTemp)
+
           end do
         end if
       end if
@@ -369,6 +379,7 @@ contains
     character(100),parameter                  :: Here = 'fission (neutronCEkineticimp_class.f90)'
 
     if ((self % branchless .eqv. .true.) .and. (self % nuc % isFissile() .eqv. .true.)) then
+
       wgt   = p % w                ! Current weight
       w0    = p % preHistory % wgt ! Starting weight
       k_eff = p % k_eff            ! k_eff for normalisation
@@ -396,9 +407,12 @@ contains
         pTemp % r   = r
         pTemp % dir = dir
         pTemp % E   = E_out
-        pTemp % time = p % time
+        pTemp % timeBirth = p % time
 
         call nextCycle % detain(pTemp)
+
+        ! Report birth of new particle
+        call tally % reportSpawn(N_FISSION, p, pTemp)
 
       else if (self % usePrecursors) then
 
@@ -415,11 +429,14 @@ contains
         pTemp % r   = r
         pTemp % dir = dir
         pTemp % E   = E_out
-        pTemp % type = 3
-        pTemp % time = p % time
-        pTemp % lambda = lambda
+        pTemp % type      = P_PRECURSOR
+        pTemp % lambda    = lambda
+        pTemp % timeBirth = p % time
 
         call thisCycle % detain(pTemp)
+
+        ! Report birth of new particle
+        call tally % reportSpawn(N_FISSION, p, pTemp)
 
       end if
     end if
