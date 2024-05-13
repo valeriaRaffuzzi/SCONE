@@ -98,6 +98,8 @@ module tallyClerk_inter
     procedure :: reportCycleEnd
     procedure :: reportTemporalPopIn
     procedure :: reportTemporalPopOut
+    procedure :: reportHittingProbIn
+    procedure :: reportHittingProbOut
     procedure :: isConverged
 
     ! Output procedures
@@ -424,7 +426,7 @@ contains
   !!
   !! Assumptions:
   !!   Particle is provided as it affects (+ve) the temporal population.
-  !!   E.g. as it is born or crosses time-boundary
+  !!   E.g. as it is born or crosses the time-boundary
   !!
   !! Args:
   !!   p [in]       -> Particle
@@ -464,6 +466,52 @@ contains
     call fatalError(Here,'Report was send to an instance that does not support it.')
 
   end subroutine reportTemporalPopOut
+
+  !!
+  !! Process hitting probability report
+  !!
+  !! Assumptions:
+  !!   Particle is provided as it affects (+ve) the temporal population.
+  !!   E.g. as it is born or crosses the time-boundary
+  !!
+  !! Args:
+  !!   p [in]       -> Particle
+  !!
+  !! Errors:
+  !!   Depend on specific Clerk
+  !!
+  subroutine reportHittingProbIn(self, p, mem)
+    class(tallyClerk), intent(inout) :: self
+    class(particle), intent(in)      :: p
+    type(scoreMemory), intent(inout) :: mem
+    character(100), parameter :: Here = "reportHittingProbIn (tallyAdmin_class.f90)"
+
+    call fatalError(Here,'Report was send to an instance that does not support it.')
+
+  end subroutine reportHittingProbIn
+
+  !!
+  !! Process hitting probability report
+  !!
+  !! Assumptions:
+  !!   Particle is provided as it affects (-ve) the temporal population.
+  !!   E.g. as it dies or is converted to a different particle type.
+  !!
+  !! Args:
+  !!   p [in]       -> Particle
+  !!
+  !! Errors:
+  !!   Depend on specific Clerk
+  !!
+  subroutine reportHittingProbOut(self, p, mem)
+    class(tallyClerk), intent(inout) :: self
+    class(particle), intent(in)      :: p
+    type(scoreMemory), intent(inout) :: mem
+    character(100), parameter :: Here = "reportHittingProbOut (tallyAdmin_class.f90)"
+
+    call fatalError(Here,'Report was send to an instance that does not support it.')
+
+  end subroutine reportHittingProbOut
 
   !!
   !! Perform convergence check in the Clerk

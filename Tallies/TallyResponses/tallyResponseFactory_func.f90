@@ -25,10 +25,12 @@ module tallyResponseFactory_func
   ! It is printed if type was unrecognised
   ! NOTE:
   ! For now  it is necessary to adjust trailing blanks so all enteries have the same length
-  character(nameLen),dimension(*),parameter :: AVALIBLE_tallyResponses = ['fluxResponse  ',&
-                                                                          'macroResponse ',&
-                                                                          'microResponse ',&
-                                                                          'weightResponse']
+  character(nameLen),dimension(*),parameter :: AVALIBLE_tallyResponses = ['fluxResponse     ',&
+                                                                          'macroResponse    ',&
+                                                                          'microResponse    ',&
+                                                                          'weightResponse   ',&
+                                                                          'neutronResponse  ',&
+                                                                          'precursorResponse']
 
 contains
 

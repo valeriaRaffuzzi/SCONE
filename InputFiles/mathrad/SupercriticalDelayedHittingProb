@@ -1,0 +1,85 @@
+type timeDependentPhysicsPackage;
+
+pop      5000; //200000
+timeSteps   200; //200
+XSdata   ce;
+dataType ce;
+timeIncrement 1.E-1; //1.E-1
+cycles 1;
+buffer 1000;
+
+combing 0;
+precursors 1;
+//useForcedPrecursorDecay 1;
+
+outputFormat asciiJSON;
+collisionOperator { neutronCE {type neutronCEkineticstd; minEnergy 1.0e-11; maxEnergy 20; precursors 1;}} //precursors 1;
+
+transportOperator { type transportOperatorDT; //currently will only support this
+                  }
+
+source {
+  type pointSource;
+  r (0 0 0);
+  particle neutron;
+  E 0.025E-06;
+}
+
+tally  {
+  hittingProbability { type hittingProbClerk;
+    response (pop); pop {type neutronResponse;}
+    maxT 20;
+    maxPop 5500;
+    cycles 1;
+    map { type timeMap; grid lin; min 0.0; max 20.0; N 2000;}
+    }
+
+  neutronPop { type temporalPopClerk;
+    map { type timeMap; grid lin; min 0.0; max 20.0; N 200;}
+    response (pop); pop {type neutronResponse;}
+    }
+  }
+
+geometry {
+    type geometryStd;
+    boundary (1 1 1 1 1 1);
+    graph {type shrunk;}
+
+    surfaces
+    {
+      squareBound { id 1; type box; origin ( 0.0  0.0  0.0); halfwidth (10.0 10.0 10.0); }
+    }
+
+
+    cells
+    {
+    }
+
+    universes
+    {
+
+      root
+      {
+	  id 1;
+	  type rootUniverse;
+	  border 1;
+	  fill hydrogen_with_uranium;
+      }
+    }
+}
+
+nuclearData {
+  handles {
+    ce { type aceNeutronDatabase; aceLibrary $SCONE_ACE;}}
+  materials {
+
+    hydrogen_with_uranium {
+      temp 12345;
+      composition {
+      1001.03    2.0E-05;
+      92235.03   9.3472E-09;	}
+      }
+
+}
+
+}

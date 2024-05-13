@@ -19,6 +19,7 @@ module tallyClerkFactory_func
   use centreOfMassClerk_class,         only : centreOfMassClerk
   use mgXsClerk_class,                 only : mgXsClerk
   use temporalPopClerk_class,          only : temporalPopClerk
+  use hittingProbClerk_class,          only : hittingProbClerk
 
   implicit none
   private
@@ -39,7 +40,8 @@ module tallyClerkFactory_func
                                                                         'centreOfMassClerk        ',&
                                                                         'dancoffBellClerk         ',&
                                                                         'mgXsClerk                ',&
-                                                                        'temporalPopClerk         ']
+                                                                        'temporalPopClerk         ',&
+                                                                        'hittingProbClerk         ']
 
 contains
 
@@ -94,6 +96,9 @@ contains
       
      case('temporalPopClerk')
       allocate(temporalPopClerk :: new)
+
+     case('hittingProbClerk')
+      allocate(hittingProbClerk :: new)
 
       case default
         print *, AVALIBLE_tallyClerks

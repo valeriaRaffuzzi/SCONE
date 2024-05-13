@@ -56,6 +56,8 @@ module tallyAdmin_class
   !!   histClerks       -> List of indices of all clerks that require histReport
   !!   cycleStartClerks -> List of indices of all clerks that require cycleStartReport
   !!   cycleEndClerks   -> List of indices of all clerks that require cycleEndReport
+  !!   temporalPopClerks -> List of indices of all Clerks that require temporalPopReport
+  !!   hittingProbClerks -> List of indices of all Clerks that require temporalProbReport
   !!   displayList      -> List of indices of all clerks that are registered for display
   !!   mem              -> Score Memory for all defined clerks
   !!
@@ -116,6 +118,7 @@ module tallyAdmin_class
     type(dynIntArray)  :: cycleStartClerks
     type(dynIntArray)  :: cycleEndClerks
     type(dynIntArray)  :: temporalPopClerks
+    type(dynIntArray)  :: hittingProbClerks
 
     ! List of clerks to display
     type(dynIntArray)  :: displayList
@@ -144,6 +147,8 @@ module tallyAdmin_class
     procedure :: reportCycleEnd
     procedure :: reportTemporalPopIn
     procedure :: reportTemporalPopOut
+    procedure :: reportHittingProbIn
+    procedure :: reportHittingProbOut
 
     ! Interaction procedures
     procedure :: getResult
@@ -281,6 +286,7 @@ contains
     call self % cycleStartClerks % kill()
     call self % cycleEndClerks % kill()
     call self % temporalPopClerks % kill()
+    call self % hittingProbClerks % kill()
 
     ! Kill score memory
     call self % mem % kill()
@@ -789,7 +795,7 @@ contains
   !!
   !! Assumptions:
   !!   Particle is provided as it affects (+ve) the temporal population.
-  !!   E.g. as it is born or crosses time-boundary
+  !!   E.g. as it is born or crosses the time-boundary
   !!
   !! Args:
   !!   p [in]       -> Particle
@@ -847,6 +853,70 @@ contains
     end do
 
   end subroutine reportTemporalPopOut
+
+  !!
+  !! Process hitting probability report
+  !!
+  !! Assumptions:
+  !!   Particle is provided as it affects (+ve) the temporal population.
+  !!   E.g. as it is born or crosses the time-boundary
+  !!
+  !! Args:
+  !!   p [in]       -> Particle
+  !!
+  !! Errors:
+  !!   None
+  !!
+  recursive subroutine reportHittingProbIn(self, p)
+    class(tallyAdmin), intent(inout) :: self
+    class(particle), intent(in)      :: p
+    integer(shortInt)                :: i, idx
+    character(100), parameter :: Here = "reportHittingProbIn (tallyAdmin_class.f90)"
+
+    ! Call attachment
+    if(associated(self % atch)) then
+      call reportHittingProbIn(self % atch, p)
+    end if
+
+    ! Go through all clerks that request the report
+    do i=1,self % hittingProbClerks % getSize()
+      idx = self % hittingProbClerks % get(i)
+      call self % tallyClerks(idx) % reportHittingProbIn(p, self % mem)
+    end do
+
+  end subroutine reportHittingProbIn
+
+  !!
+  !! Process hitting probability report
+  !!
+  !! Assumptions:
+  !!   Particle is provided as it affects (-ve) the temporal population.
+  !!   E.g. as it dies or is converted to a different particle type.
+  !!
+  !! Args:
+  !!   p [in]       -> Particle
+  !!
+  !! Errors:
+  !!   None
+  !!
+  recursive subroutine reportHittingProbOut(self, p)
+    class(tallyAdmin), intent(inout) :: self
+    class(particle), intent(in)      :: p
+    integer(shortInt)                :: i, idx
+    character(100), parameter :: Here = "reportHittingProbOut (tallyAdmin_class.f90)"
+
+    ! Call attachment
+    if(associated(self % atch)) then
+      call reportHittingProbOut(self % atch, p)
+    end if
+
+    ! Go through all clerks that request the report
+    do i=1,self % hittingProbClerks % getSize()
+      idx = self % hittingProbClerks % get(i)
+      call self % tallyClerks(idx) % reportHittingProbOut(p, self % mem)
+    end do
+
+  end subroutine reportHittingProbOut
 
   !!
   !! Get result from the clerk defined by name
@@ -930,6 +1000,9 @@ contains
 
       case(temporalPop_CODE)
         call self % temporalPopClerks % add(idx)
+
+      case(hittingProb_CODE)
+        call self % hittingProbClerks % add(idx)
 
       case default
         call fatalError(Here, 'Undefined reportCode')

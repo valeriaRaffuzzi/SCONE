@@ -32,6 +32,10 @@ module neutronCEkineticstd_class
   ! Scattering procedures
   use scatteringKernels_func, only : asymptoticScatter, targetVelocity_constXS, &
                                      asymptoticInelasticScatter
+
+  ! Tally interfaces
+  use tallyAdmin_class,       only : tallyAdmin
+
   implicit none
   private
 
@@ -134,14 +138,15 @@ contains
   !!
   !! Samples collision without any implicit treatment
   !!
-  subroutine sampleCollision(self, p, collDat, thisCycle, nextCycle)
-    class(neutronCEkineticstd), intent(inout)   :: self
-    class(particle), intent(inout)       :: p
-    type(collisionData), intent(inout)   :: collDat
-    class(particleDungeon),intent(inout) :: thisCycle
-    class(particleDungeon),intent(inout) :: nextCycle
-    type(neutronMicroXSs)                :: microXSs
-    real(defReal)                        :: r
+  subroutine sampleCollision(self, p, tally, collDat, thisCycle, nextCycle)
+    class(neutronCEkineticstd), intent(inout) :: self
+    class(particle), intent(inout)            :: p
+    type(tallyAdmin), intent(inout)           :: tally
+    type(collisionData), intent(inout)        :: collDat
+    class(particleDungeon),intent(inout)      :: thisCycle
+    class(particleDungeon),intent(inout)      :: nextCycle
+    type(neutronMicroXSs)                     :: microXSs
+    real(defReal)                             :: r
     character(100),parameter :: Here = 'sampleCollision (neutronCEkineticstd_class.f90)'
 
     ! Verify that particle is CE neutron
@@ -173,13 +178,14 @@ contains
   !!
   !! Perform implicit treatment
   !!
-  subroutine implicit(self, p, collDat, thisCycle, nextCycle)
-    class(neutronCEkineticstd), intent(inout)   :: self
-    class(particle), intent(inout)       :: p
-    type(collisionData), intent(inout)   :: collDat
-    class(particleDungeon),intent(inout) :: thisCycle
-    class(particleDungeon),intent(inout) :: nextCycle
-    character(100),parameter             :: Here = 'implicit (neutronCEkineticstd_class.f90)'
+  subroutine implicit(self, p, tally, collDat, thisCycle, nextCycle)
+    class(neutronCEkineticstd), intent(inout) :: self
+    class(particle), intent(inout)            :: p
+    type(tallyAdmin), intent(inout)           :: tally
+    type(collisionData), intent(inout)        :: collDat
+    class(particleDungeon),intent(inout)      :: thisCycle
+    class(particleDungeon),intent(inout)      :: nextCycle
+    character(100),parameter :: Here = 'implicit (neutronCEkineticstd_class.f90)'
 
     ! Do nothing
 
@@ -188,12 +194,13 @@ contains
   !!
   !! Process capture reaction
   !!
-  subroutine capture(self, p, collDat, thisCycle, nextCycle)
-    class(neutronCEkineticstd), intent(inout)   :: self
-    class(particle), intent(inout)       :: p
-    type(collisionData), intent(inout)   :: collDat
-    class(particleDungeon),intent(inout) :: thisCycle
-    class(particleDungeon),intent(inout) :: nextCycle
+  subroutine capture(self, p, tally, collDat, thisCycle, nextCycle)
+    class(neutronCEkineticstd), intent(inout) :: self
+    class(particle), intent(inout)            :: p
+    type(tallyAdmin), intent(inout)           :: tally
+    type(collisionData), intent(inout)        :: collDat
+    class(particleDungeon),intent(inout)      :: thisCycle
+    class(particleDungeon),intent(inout)      :: nextCycle
 
     p % isDead =.true.
 
@@ -202,20 +209,21 @@ contains
   !!
   !! Process fission reaction
   !!
-  subroutine fission(self, p, collDat, thisCycle, nextCycle)
-    class(neutronCEkineticstd), intent(inout)   :: self
-    class(particle), intent(inout)       :: p
-    type(collisionData), intent(inout)   :: collDat
-    class(particleDungeon),intent(inout) :: thisCycle
-    class(particleDungeon),intent(inout) :: nextCycle
-    type(fissionCE), pointer             :: fiss
-    type(neutronMicroXSs)                :: microXSs
-    type(particleState)                  :: pTemp
-    real(defReal),dimension(3)           :: r, dir
-    integer(shortInt)                    :: n, i
-    real(defReal)                        :: wgt, w0, E_out, mu, phi, lambda, decayT
-    real(defReal)                        :: sig_nufiss, k_eff, sig_fiss
-    character(100),parameter             :: Here = 'fission (neutronCEkineticstd_class.f90)'
+  subroutine fission(self, p, tally, collDat, thisCycle, nextCycle)
+    class(neutronCEkineticstd), intent(inout) :: self
+    class(particle), intent(inout)            :: p
+    type(tallyAdmin), intent(inout)           :: tally
+    type(collisionData), intent(inout)        :: collDat
+    class(particleDungeon),intent(inout)      :: thisCycle
+    class(particleDungeon),intent(inout)      :: nextCycle
+    type(fissionCE), pointer                  :: fiss
+    type(neutronMicroXSs)                     :: microXSs
+    type(particleState)                       :: pTemp
+    real(defReal),dimension(3)                :: r, dir
+    integer(shortInt)                         :: n, i
+    real(defReal)                             :: wgt, w0, E_out, mu, phi, lambda, decayT
+    real(defReal)                             :: sig_nufiss, k_eff, sig_fiss
+    character(100),parameter :: Here = 'fission (neutronCEkineticstd_class.f90)'
 
     ! Obtain required data
     wgt   = p % w                ! Current weight
@@ -295,14 +303,15 @@ contains
   !!
   !! All CE elastic scattering happens in the CM frame
   !!
-  subroutine elastic(self, p, collDat, thisCycle, nextCycle)
-    class(neutronCEkineticstd), intent(inout)   :: self
-    class(particle), intent(inout)       :: p
-    type(collisionData), intent(inout)   :: collDat
-    class(particleDungeon),intent(inout) :: thisCycle
-    class(particleDungeon),intent(inout) :: nextCycle
-    class(uncorrelatedReactionCE), pointer :: reac
-    logical(defBool)                       :: isFixed
+  subroutine elastic(self, p, tally, collDat, thisCycle, nextCycle)
+    class(neutronCEkineticstd), intent(inout) :: self
+    class(particle), intent(inout)            :: p
+    type(tallyAdmin), intent(inout)           :: tally
+    type(collisionData), intent(inout)        :: collDat
+    class(particleDungeon),intent(inout)      :: thisCycle
+    class(particleDungeon),intent(inout)      :: nextCycle
+    class(uncorrelatedReactionCE), pointer    :: reac
+    logical(defBool)                          :: isFixed
     character(100),parameter :: Here = 'elastic (neutronCEkineticstd_class.f90)'
 
     ! Get reaction
@@ -329,14 +338,15 @@ contains
   !!
   !! Process inelastic scattering
   !!
-  subroutine inelastic(self, p, collDat, thisCycle, nextCycle)
-    class(neutronCEkineticstd), intent(inout)     :: self
-    class(particle), intent(inout)         :: p
-    type(collisionData), intent(inout)     :: collDat
-    class(particleDungeon),intent(inout)   :: thisCycle
-    class(particleDungeon),intent(inout)   :: nextCycle
-    class(uncorrelatedReactionCE), pointer :: reac
-    character(100),parameter  :: Here =' inelastic (neutronCEkineticstd_class.f90)'
+  subroutine inelastic(self, p, tally, collDat, thisCycle, nextCycle)
+    class(neutronCEkineticstd), intent(inout) :: self
+    class(particle), intent(inout)            :: p
+    type(tallyAdmin), intent(inout)           :: tally
+    type(collisionData), intent(inout)        :: collDat
+    class(particleDungeon),intent(inout)      :: thisCycle
+    class(particleDungeon),intent(inout)      :: nextCycle
+    class(uncorrelatedReactionCE), pointer    :: reac
+    character(100),parameter :: Here =' inelastic (neutronCEkineticstd_class.f90)'
 
     ! Invert inelastic scattering and Get reaction
     collDat % MT = self % nuc % invertInelastic(p % E, p % pRNG)
@@ -359,12 +369,13 @@ contains
   !!
   !! Apply cutoffs
   !!
-  subroutine cutoffs(self, p, collDat, thisCycle, nextCycle)
-    class(neutronCEkineticstd), intent(inout)   :: self
-    class(particle), intent(inout)       :: p
-    type(collisionData), intent(inout)   :: collDat
-    class(particleDungeon),intent(inout) :: thisCycle
-    class(particleDungeon),intent(inout) :: nextCycle
+  subroutine cutoffs(self, p, tally, collDat, thisCycle, nextCycle)
+    class(neutronCEkineticstd), intent(inout) :: self
+    class(particle), intent(inout)            :: p
+    type(tallyAdmin), intent(inout)           :: tally
+    type(collisionData), intent(inout)        :: collDat
+    class(particleDungeon),intent(inout)      :: thisCycle
+    class(particleDungeon),intent(inout)      :: nextCycle
 
     if (p % E < self % minE ) p % isDead = .true.
 
