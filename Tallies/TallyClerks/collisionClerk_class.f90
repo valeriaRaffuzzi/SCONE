@@ -62,9 +62,6 @@ module collisionClerk_class
     integer(shortInt)  :: width = 0
     logical(defBool)   :: virtual = .false.
 
-    ! Settings
-    logical(defBool)   :: virtual = .false.
-
   contains
     ! Procedures used during build
     procedure  :: init

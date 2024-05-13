@@ -27,7 +27,6 @@ module particle_class
   !! Particle compressed for storage
   !!
   !! Public Members:
-<<<<<<< HEAD
   !!   wgt        -> Weight of the particle
   !!   r          -> Global Position of the particle [cm]
   !!   dir        -> Direction vector of the particle (normalised to 1.0)
