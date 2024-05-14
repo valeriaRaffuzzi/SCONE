@@ -294,6 +294,7 @@ contains
           pTemp % dir = dir
           pTemp % E   = E_out
           pTemp % wgt = wgt
+          pTemp % type      = P_NEUTRON
           pTemp % timeBirth = p % time
 
           call nextCycle % detain(pTemp)
