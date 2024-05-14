@@ -179,7 +179,7 @@ contains
   subroutine score_defReal(self, score, idx)
     class(scoreMemory), intent(inout) :: self
     real(defReal), intent(in)         :: score
-    integer(longInt), intent(in)      :: idx 
+    integer(longInt), intent(in)      :: idx
     integer(shortInt)                 :: thread_idx
     character(100),parameter :: Here = 'score_defReal (scoreMemory_class.f90)'
 
@@ -281,18 +281,18 @@ contains
     self % cycles = self % cycles + 1
 
     if(mod(self % cycles, self % batchSize) == 0) then ! Close Batch
-      
+
       !$omp parallel do
       do i = 1, self % N
-        
+
         ! Normalise scores
         self % parallelBins(i,:) = self % parallelBins(i,:) * normFactor
         res = sum(self % parallelBins(i,:))
-        
+
         ! Zero all score bins
         self % parallelBins(i,:) = ZERO
-       
-        ! Increment cumulative sums 
+
+        ! Increment cumulative sums
         self % bins(i,CSUM)  = self % bins(i,CSUM) + res
         self % bins(i,CSUM2) = self % bins(i,CSUM2) + res * res
 
@@ -368,7 +368,7 @@ contains
   !! Errors:
   !!   None
   !!
-  subroutine setNumBatchesPerTimeStep(self, batchN) 
+  subroutine setNumBatchesPerTimeStep(self, batchN)
     class(scoreMemory), intent(inout) :: self
     integer(shortInt), intent(in)     :: batchN
 
@@ -414,6 +414,7 @@ contains
     else
       inv_Nm1 = ONE
     end if
+
     STD = self % bins(idx, CSUM2) *inv_N * inv_Nm1 - mean * mean * inv_Nm1
     STD = sqrt(STD)
 

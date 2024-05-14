@@ -21,10 +21,9 @@ module lifetimeClerk_class
   private
 
   !! Locations of diffrent bins wrt memory address of the clerk
-  integer(shortInt), parameter :: MEM_SIZE = 3
+  integer(shortInt), parameter :: MEM_SIZE = 2
   integer(longInt), parameter  :: TIME   = 0, &  ! Lifetime score
-                                  EVENT  = 1, &  ! Number of particle death events
-                                  LIFETIME_MEAN = 2 ! Averaged value
+                                  EVENT  = 1     ! Number of particle death events
 
   !!
   !! Analog estimator for average neutron lifetime
@@ -33,10 +32,16 @@ module lifetimeClerk_class
   !!
   !! myClerk {
   !!   type lifetimeClerk;
+  !!   #batches 20000;#
+  !!   #map { <tallyMap definition> }#
   !! }
+  !!
+  !! NOTE: when results are integrated over all time steps, batches has to be provided
+  !! otherwise the STD is NaN. Batches needs to be cycles * timeSteps
   !!
   type, public,extends(tallyClerk) :: lifetimeClerk
     private
+    integer(shortInt) :: batches = 0
     class(tallyMap), allocatable :: map
   contains
     ! Procedures used during build
@@ -47,7 +52,6 @@ module lifetimeClerk_class
 
     ! File reports and check status -> run-time procedures
     procedure :: reportHist
-    procedure :: reportCycleEnd
 
     ! Output procedures
     procedure  :: display
@@ -69,6 +73,9 @@ contains
 
     ! Needs no settings, just load name
     call self % setName(name)
+
+    ! User provided number of batches to get accurate std
+    call dict % getOrDefault(self % batches, 'batches', 0)
 
     ! Load map
     if (dict % isPresent('map')) then
@@ -92,6 +99,8 @@ contains
       deallocate(self % map)
     end if
 
+    self % batches = 0
+
   end subroutine kill
 
   !!
@@ -103,7 +112,7 @@ contains
     class(lifetimeClerk),intent(in)            :: self
     integer(shortInt),dimension(:),allocatable :: validCodes
 
-    validCodes = [ hist_CODE, cycleEnd_CODE ]
+    validCodes = [ hist_CODE ]
 
   end function validReports
 
@@ -161,48 +170,6 @@ contains
   end subroutine reportHist
 
   !!
-  !! Process end of the cycle
-  !!
-  !! See tallyClerk_inter for details
-  !!
-  subroutine reportCycleEnd(self, end, mem)
-    class(lifetimeClerk), intent(inout) :: self
-    class(particleDungeon), intent(in)  :: end
-    type(scoreMemory), intent(inout)    :: mem
-    integer(longInt)                    :: addr
-    integer(shortInt)                   :: i, N
-    real(defReal)                       :: life, events, time_score
-
-    ! Score average number of neutrons produced by fission
-    if (mem % lastCycle()) then
-
-      if (allocated(self % map)) then
-        N = self % map % bins(0)
-      else
-        N = 1
-      end if
-
-      ! Loop over map bins
-      do i = 1, N
-
-        ! Calculate bin address
-        addr = self % getMemAddress() + MEM_SIZE * (i - 1)
-
-        life   = mem % getScore(addr + TIME)
-        events = mem % getScore(addr + EVENT)
-
-        if (events /= ZERO) then
-          time_score = life/events
-          call mem % accumulate(time_score, addr + LIFETIME_MEAN)
-        end if
-
-      end do
-
-    end if
-
-  end subroutine reportCycleEnd
-
-  !!
   !! Display convergance progress on the console
   !!
   !! See tallyClerk_inter for details
@@ -224,7 +191,7 @@ contains
     class(lifetimeClerk), intent(in) :: self
     class(outputFile), intent(inout) :: outFile
     type(scoreMemory), intent(in)    :: mem
-    real(defReal)                    :: life, STD
+    real(defReal)                    :: life, events, life_score, STD, STDlife, STDevents
     character(nameLen)               :: name
     integer(shortInt)                :: i
     integer(longInt)                 :: addr
@@ -247,9 +214,26 @@ contains
 
     ! Print results to the file
     do i = 1, product(resArrayShape)
+
       addr = self % getMemAddress() + MEM_SIZE * (i - 1)
-      call mem % getResult(life, STD, addr + LIFETIME_MEAN)
-      call outFile % addResult(life, STD)
+
+      ! NOTE: In time dependent calculations, when results are integrated over all time,
+      ! the number of batches used to average the results is the number of cycles
+      ! times the number of time steps. This must be provided by the user otherwise
+      ! the STD will be NaN
+      if (self % batches /= 0) then
+        call mem % getResult(life, STDlife, addr + TIME, self % batches)
+        call mem % getResult(events, STDevents, addr + EVENT, self % batches)
+      else
+        call mem % getResult(life, STDlife, addr + TIME)
+        call mem % getResult(events, STDevents, addr + EVENT)
+      end if
+
+      life_score = life/events
+      STD = life_score * sqrt((STDlife/life)**2 + (STDevents/events)**2)
+
+      call outFile % addResult(life_score, STD)
+
     end do
 
     call outFile % endArray()

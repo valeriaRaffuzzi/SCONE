@@ -320,14 +320,15 @@ contains
     real(defReal), intent(in)            :: E_in
     class(RNG), intent(inout)            :: rand
     character(100),parameter :: Here = 'samplePrompt (fissionCE_class.f90)'
-    
+
     ! Sample mu
     mu = TWO * rand % get() - ONE
 
     ! Sample Phi
     phi = TWO_PI * rand % get()
-    
+
     E_out = self % eLawPrompt % sample(E_in, rand)
+
   end subroutine samplePrompt
 
   !!
@@ -345,7 +346,7 @@ contains
     real(defReal)                                          :: r2
     integer(shortInt)                                      :: i, N
     character(100),parameter :: Here = 'sampleDelayed (fissionCE_class.f90)'
-  
+
     r2 = rand % get()
 
     ! Sample mu
@@ -353,7 +354,7 @@ contains
 
     ! Sample Phi
     phi = TWO_PI * rand % get()
-    
+
     ! Calculate delayed neutron probability (needed by neutronCEtime)
     !if(present (p_del)) p_del = self % releaseDelayed(E_in) / self % release(E_in)
 

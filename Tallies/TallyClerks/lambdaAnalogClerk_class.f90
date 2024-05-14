@@ -12,8 +12,8 @@ module lambdaAnalogClerk_class
   use tallyClerk_inter,      only : tallyClerk, kill_super => kill
 
   ! Tally Maps
-  use tallyMap_inter,             only : tallyMap
-  use tallyMapFactory_func,       only : new_tallyMap
+  use tallyMap_inter,        only : tallyMap
+  use tallyMapFactory_func,  only : new_tallyMap
 
   ! Nuclear Data Interfaces
   use nuclearDatabase_inter, only : nuclearDatabase
@@ -22,10 +22,9 @@ module lambdaAnalogClerk_class
   private
 
   !! Locations of diffrent bins wrt memory address of the clerk
-  integer(shortInt), parameter :: MEM_SIZE = 3
+  integer(shortInt), parameter :: MEM_SIZE = 2
   integer(longInt), parameter  :: LAMBDA = 0, &  ! Individual score of lambda
-                                  EVENT  = 1, &  ! Number of fission events
-                                  LAMBDA_MEAN = 2 ! Averaged value
+                                  EVENT  = 1     ! Number of fission events
 
   !!
   !! Analog estimator for average lambda (precursors decay constant)
@@ -34,11 +33,16 @@ module lambdaAnalogClerk_class
   !!
   !! myClerk {
   !!   type lambdaAnalogClerk;
+  !!   #batches 20000;#
   !!   #map { <tallyMap definition> }#
   !! }
   !!
+  !! NOTE: when results are integrated over all time steps, batches has to be provided
+  !! otherwise the STD is NaN. Batches needs to be cycles * timeSteps
+  !!
   type, public,extends(tallyClerk) :: lambdaAnalogClerk
     private
+    integer(shortInt) :: batches = 0
     class(tallyMap), allocatable :: map
   contains
     ! Procedures used during build
@@ -49,7 +53,6 @@ module lambdaAnalogClerk_class
 
     ! File reports and check status -> run-time procedures
     procedure :: reportSpawn
-    procedure :: reportCycleEnd
 
     ! Output procedures
     procedure  :: display
@@ -71,6 +74,9 @@ contains
 
     ! Needs no settings, just load name
     call self % setName(name)
+
+    ! User provided number of batches to get accurate std
+    call dict % getOrDefault(self % batches, 'batches', 0)
 
     ! Load map
     if (dict % isPresent('map')) then
@@ -94,6 +100,8 @@ contains
       deallocate(self % map)
     end if
 
+    self % batches = 0
+
   end subroutine kill
 
   !!
@@ -105,7 +113,7 @@ contains
     class(lambdaAnalogClerk),intent(in)           :: self
     integer(shortInt),dimension(:),allocatable :: validCodes
 
-    validCodes = [ spawn_CODE, cycleEnd_CODE ]
+    validCodes = [ spawn_CODE ]
 
   end function validReports
 
@@ -135,7 +143,6 @@ contains
     class(particleState), intent(in)        :: pNew
     class(nuclearDatabase), intent(inout)   :: xsData
     type(scoreMemory), intent(inout)        :: mem
-    type(particleState)                     :: state
     integer(shortInt)                       :: binIdx
     integer(longInt)                        :: addr
 
@@ -143,11 +150,13 @@ contains
     if (pNew % type == P_PRECURSOR) then
 
       ! Get current particle state
-      state = pOld
+      !state = pOld
 
       ! Find bin index
       if (allocated(self % map)) then
-        binIdx = self % map % map(state)
+        !binIdx = self % map % map(state)
+        ! Map time bin according to precursor time
+        binIdx = self % map % map(pNew)
       else
         binIdx = 1
       end if
@@ -165,52 +174,6 @@ contains
     end if
 
   end subroutine reportSpawn
-
-  !!
-  !! Process end of the cycle
-  !!
-  !! See tallyClerk_inter for details
-  !!
-  subroutine reportCycleEnd(self, end, mem)
-    class(lambdaAnalogClerk), intent(inout) :: self
-    class(particleDungeon), intent(in)  :: end
-    type(scoreMemory), intent(inout)    :: mem
-    integer(longInt)                    :: addr
-    integer(shortInt)                   :: i, N
-    real(defReal)                       :: lam, events, lambda_score
-
-    ! Score average
-    if (mem % lastCycle()) then
-
-      if (allocated(self % map)) then
-        N = self % map % bins(0)
-      else
-        N = 1
-      end if
-
-      ! Loop over map bins
-      do i = 1, N
-
-        ! Calculate bin address
-        addr = self % getMemAddress() + MEM_SIZE * (i - 1)
-
-        lam    = mem % getScore(addr + LAMBDA)
-        events = mem % getScore(addr + EVENT)
-
-        ! Calculate average lambda
-        if (events == ZERO) then
-          lambda_score = ZERO
-        else
-          lambda_score = lam/events
-        end if
-
-        call mem % accumulate(lambda_score, addr + LAMBDA_MEAN)
-
-      end do
-
-    end if
-
-  end subroutine reportCycleEnd
 
   !!
   !! Display convergance progress on the console
@@ -234,7 +197,7 @@ contains
     class(lambdaAnalogClerk), intent(in) :: self
     class(outputFile), intent(inout)     :: outFile
     type(scoreMemory), intent(in)        :: mem
-    real(defReal)                        :: lam, STD
+    real(defReal)                        :: lam, events, lam_score, STD, STDlam, STDevents
     character(nameLen)                   :: name
     integer(shortInt)                    :: i
     integer(longInt)                     :: addr
@@ -257,9 +220,26 @@ contains
 
     ! Print results to the file
     do i = 1, product(resArrayShape)
+
       addr = self % getMemAddress() + MEM_SIZE * (i - 1)
-      call mem % getResult(lam, STD, addr + LAMBDA_MEAN)
-      call outFile % addResult(lam, STD)
+
+      ! NOTE: In time dependent calculations, when results are integrated over all time,
+      ! the number of batches used to average the results is the number of cycles
+      ! times the number of time steps. This must be provided by the user otherwise
+      ! the STD will be NaN
+      if (self % batches /= 0) then
+        call mem % getResult(lam, STDlam, addr + LAMBDA, self % batches)
+        call mem % getResult(events, STDevents, addr + EVENT, self % batches)
+      else
+        call mem % getResult(lam, STDlam, addr + LAMBDA)
+        call mem % getResult(events, STDevents, addr + EVENT)
+      end if
+
+      lam_score = lam/events
+      STD = lam_score * sqrt((STDlam/lam)**2 + (STDevents/events)**2)
+
+      call outFile % addResult(lam_score, STD)
+
     end do
 
     call outFile % endArray()
