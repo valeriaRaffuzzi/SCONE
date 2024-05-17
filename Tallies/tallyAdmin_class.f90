@@ -18,7 +18,7 @@ module tallyAdmin_class
   use nuclearDataReg_mod,     only : ndReg_get => get
   use nuclearDatabase_inter,  only : nuclearDatabase
 
-  use RNG_class,                      only : RNG
+  use RNG_class,              only : RNG
 
   implicit none
   private
@@ -530,7 +530,7 @@ contains
     character(100), parameter :: Here = "reportOutColl (tallyAdmin_class.f90)"
 
     ! Call attachment
-    if(associated(self % atch)) then
+    if (associated(self % atch)) then
       call reportOutColl(self % atch, p, MT, muL)
     end if
 
