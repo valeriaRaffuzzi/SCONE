@@ -1,6 +1,6 @@
 type timeDependentPhysicsPackage;
 
-pop      20000; //200000
+pop      5000; //200000
 timeSteps   200; //200
 XSdata   ce;
 dataType ce;
@@ -10,10 +10,9 @@ buffer 1000;
 
 combing 0;
 precursors 1;
-//useForcedPrecursorDecay 1;
 
 outputFormat asciiJSON;
-collisionOperator { neutronCE {type neutronCEkineticstd; minEnergy 1.0e-11; maxEnergy 20; precursors 1;}} //precursors 1;
+collisionOperator { neutronCE {type neutronCEkineticstd; minEnergy 1.0e-11; maxEnergy 20;precursors 1;}}
 
 transportOperator { type transportOperatorDT; //currently will only support this
                   }
@@ -28,7 +27,7 @@ source {
 tally  {
   flux_time { type temporalPopClerk;
     map { type timeMap; grid lin; min 0.0; max 20.0; N 200;} // map { type timeMap; grid lin; min 0.0; max 20.0; N 200;}
-    response (pop); pop {type precursorResponse;}
+    response (pop); pop {type neutronResponse;}
     //handleVirtual 1;
     }
   }
