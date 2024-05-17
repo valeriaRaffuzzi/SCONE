@@ -11,6 +11,7 @@ module collisionProcessorFactory_func
   use neutronCEstd_class,        only  : neutronCEstd
   use neutronCEimp_class,        only  : neutronCEimp
   use neutronMGstd_class,        only  : neutronMGstd
+  use neutronMGimp_class,        only : neutronMGimp
   use neutronCEkineticstd_class, only  : neutronCEkineticstd
   use neutronCEkineticimp_class, only  : neutronCEkineticimp
 
@@ -26,6 +27,7 @@ module collisionProcessorFactory_func
   character(nameLen),dimension(*),parameter :: AVALIBLE_collisionProcessors = [ 'neutronCEstd        ',&
                                                                                 'neutronCEimp        ',&
                                                                                 'neutronMGstd        ',&
+                                                                                'neutronMGimp        ',&
                                                                                 'neutronCEkineticstd ',&
                                                                                 'neutronCEkineticimp ']
 
@@ -57,6 +59,9 @@ contains
 
       case('neutronMGstd')
         allocate(neutronMGstd :: new)
+
+      case('neutronMGimp')
+        allocate(neutronMGimp :: new)
 
       case('neutronCEkineticstd')
         allocate(neutronCEkineticstd :: new)

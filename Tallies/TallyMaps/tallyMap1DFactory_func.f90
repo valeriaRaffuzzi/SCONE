@@ -33,6 +33,7 @@ module tallyMap1DFactory_func
   use cellMap_class,     only : cellMap
   use testMap_class,     only : testMap
   use timeMap_class,     only : timeMap
+  use collNumMap_class,  only : collNumMap
 
   implicit none
   private
@@ -52,7 +53,8 @@ module tallyMap1DFactory_func
                                                                                 'weightMap  ',&
                                                                                 'cellMap    ',&
                                                                                 'testMap    ',&
-                                                                                'timeMap    ']
+                                                                                'timeMap    ',&
+                                                                                'collNumMap ']
 
 contains
 
@@ -105,6 +107,9 @@ contains
 
       case('timeMap')
         allocate(timeMap :: new)
+
+      case('collNumMap')
+        allocate(collNumMap :: new)
 
       case default
         print *, AVALIBLE_tallyMaps1D

@@ -6,7 +6,7 @@ module tallyAdmin_class
   use dictionary_class,       only : dictionary
   use dynArray_class,         only : dynIntArray
   use charMap_class,          only : charMap
-  use particle_class,         only : particle
+  use particle_class,         only : particle, particleState
   use particleDungeon_class,  only : particleDungeon
   use tallyClerk_inter,       only : tallyClerk
   use tallyClerkSlot_class,   only : tallyClerkSlot
@@ -44,21 +44,22 @@ module tallyAdmin_class
   !! Private Members:
   !!   atch -> Pointer to an attachment tallyClerk (implements linked-list)
   !!   normBinAddr   -> Address of a bin used for normalisation
-  !!   normValue     -> Target Value for normalisation
-  !!   normClerkName -> Name of a Clerk used for normalisation
-  !!   tallyClerks   -> Array of all defined tally Clerks
-  !!   clerksNameMap -> CharMap that maps Clerk Name to its index in tallyClerks
-  !!   inCollClerks      -> List of indices of all Clerks that require inCollReport
-  !!   outCollClerks     -> List of indices of all Clerks that require outCollReport
-  !!   pathClerks        -> List of indices of all Clerks that require pathReport
-  !!   transClerks       -> List of indices of all Clerks that require transReport
-  !!   histClerks        -> List of indices of all Clerks that require histReport
-  !!   cycleStartClerks  -> List of indices of all Clerks that require cycleStartReport
-  !!   cycleEndClerks    -> List of indices of all Clerks that require cycleEndReport
+  !!   normValue     -> Target value for normalisation
+  !!   normClerkName -> Name of a clerk used for normalisation
+  !!   tallyClerks   -> Array of all defined tally clerks
+  !!   clerksNameMap -> CharMap that maps clerk name to its index in tallyClerks
+  !!   inCollClerks     -> List of indices of all clerks that require inCollReport
+  !!   outCollClerks    -> List of indices of all clerks that require outCollReport
+  !!   pathClerks       -> List of indices of all clerks that require pathReport
+  !!   transClerks      -> List of indices of all clerks that require transReport
+  !!   spawnClerks      -> List of indices of all clerks that require spawnReport
+  !!   histClerks       -> List of indices of all clerks that require histReport
+  !!   cycleStartClerks -> List of indices of all clerks that require cycleStartReport
+  !!   cycleEndClerks   -> List of indices of all clerks that require cycleEndReport
   !!   temporalPopClerks -> List of indices of all Clerks that require temporalPopReport
   !!   hittingProbClerks -> List of indices of all Clerks that require temporalProbReport
-  !!   displayList       -> List of indices of all Clerks that are registered for display
-  !!   mem               -> Score Memory for all defined Clerks
+  !!   displayList      -> List of indices of all clerks that are registered for display
+  !!   mem              -> Score Memory for all defined clerks
   !!
   !! Interface:
   !!   init   -> Initialise from dictionary
@@ -70,11 +71,12 @@ module tallyAdmin_class
   !!   reportOutColl    -> Process post-collision reports in all clerks
   !!   reportPath       -> Process pathlength reports in all clerks
   !!   reportTrans      -> Process transition reports in all clerks
-  !!   reportHist       -> Process History reports in all clerks
-  !!   reportCycleStart -> Process Start Of Cycle reports in all clerks
-  !!   reportCycleEnd   -> Process End of Cycle reports in all clerks
+  !!   reportSpawn      -> Process particle generation reports in all clerks
+  !!   reportHist       -> Process history reports in all clerks
+  !!   reportCycleStart -> Process start of cycle reports in all clerks
+  !!   reportCycleEnd   -> Process end of cycle reports in all clerks
   !!   getResult        -> Return tallyResult object from a named Clerk
-  !!   display     -> Call "display" on all Clerks registered to display
+  !!   display     -> Call "display" on all clerks registered to display
   !!   isConverged -> Return .true. if all convergance targets have been reached
   !!   setNumBatchesPerTimeStep -> sets batchN in scoreMemory
   !!   print       -> Prints results to an output file object
@@ -111,6 +113,7 @@ module tallyAdmin_class
     type(dynIntArray)  :: outCollClerks
     type(dynIntArray)  :: pathClerks
     type(dynIntArray)  :: transClerks
+    type(dynIntArray)  :: spawnClerks
     type(dynIntArray)  :: histClerks
     type(dynIntArray)  :: cycleStartClerks
     type(dynIntArray)  :: cycleEndClerks
@@ -138,6 +141,7 @@ module tallyAdmin_class
     procedure :: reportOutColl
     procedure :: reportPath
     procedure :: reportTrans
+    procedure :: reportSpawn
     procedure :: reportHist
     procedure :: reportCycleStart
     procedure :: reportCycleEnd
@@ -277,6 +281,7 @@ contains
     call self % outCollClerks % kill()
     call self % pathClerks % kill()
     call self % transClerks % kill()
+    call self % spawnClerks % kill()
     call self % histClerks % kill()
     call self % cycleStartClerks % kill()
     call self % cycleEndClerks % kill()
@@ -429,7 +434,7 @@ contains
   !! Errors:
   !!   None
   !!
-  subroutine setNumBatchesPerTimeStep(self, batchN) 
+  subroutine setNumBatchesPerTimeStep(self, batchN)
     class(tallyAdmin), intent(inout) :: self
     integer(shortInt), intent(in) :: batchN
 
@@ -477,11 +482,11 @@ contains
   !!   None
   !!
   recursive subroutine reportInColl(self, p, virtual)
-    class(tallyAdmin), intent(inout)        :: self
-    class(particle), intent(in)             :: p
-    logical(defBool), intent(in)            :: virtual
-    integer(shortInt)                       :: i, idx
-    class(nuclearDatabase),pointer          :: xsData
+    class(tallyAdmin), intent(inout) :: self
+    class(particle), intent(in)      :: p
+    logical(defBool), intent(in)     :: virtual
+    integer(shortInt)                :: i, idx
+    class(nuclearDatabase),pointer   :: xsData
     character(100), parameter :: Here = "reportInColl (tallyAdmin_class.f90)"
 
     ! Call attachment
@@ -505,7 +510,7 @@ contains
   !! Process post-collision report
   !!
   !! Assumptions:
-  !!   PreCollision state in partice is set to just before this collision
+  !!   PreCollision state in particle is set to just before this collision
   !!
   !! Args:
   !!   p [in]   -> Particle
@@ -615,6 +620,46 @@ contains
     end do
 
   end subroutine reportTrans
+
+  !!
+  !! Process report for the creation of a new particle
+  !!
+  !! Assumptions:
+  !!    It should be sent each time a new particle is created in the simulation
+  !!    by a nuclear reaction or some other mechanism (e.g. splitting)
+  !!
+  !! Args:
+  !!   MT [in]   -> MT number of the reaction the particle has undergone
+  !!   pOld [in] -> Particle that caused the branching event
+  !!   pNew [in] -> Particle state of the newly created neutron
+  !!
+  !! Errors:
+  !!   None
+  !!
+  recursive subroutine reportSpawn(self, MT, pOld, pNew)
+    class(tallyAdmin), intent(inout) :: self
+    integer(shortInt), intent(in)    :: MT
+    class(particle), intent(in)      :: pOld
+    class(particleState), intent(in) :: pNew
+    integer(shortInt)                :: i, idx
+    class(nuclearDatabase),pointer   :: xsData
+    character(100), parameter :: Here = "reportSpwan (tallyAdmin_class.f90)"
+
+    ! Call attachment
+    if(associated(self % atch)) then
+      call reportSpawn(self % atch, MT, pOld, pNew)
+    end if
+
+    ! Get Data
+    xsData => ndReg_get(pOld % getType(), where = Here)
+
+    ! Go through all clerks that request the report
+    do i=1,self % spawnClerks % getSize()
+      idx = self % spawnClerks % get(i)
+      call self % tallyClerks(idx) % reportSpawn(MT, pOld, pNew, xsData, self % mem)
+    end do
+
+  end subroutine reportSpawn
 
   !!
   !! Process history report
@@ -941,6 +986,9 @@ contains
       case(trans_CODE)
         call self % transClerks % add(idx)
 
+      case(spawn_CODE)
+        call self % spawnClerks % add(idx)
+
       case(hist_CODE)
         call self % histClerks % add(idx)
 
@@ -952,7 +1000,7 @@ contains
 
       case(temporalPop_CODE)
         call self % temporalPopClerks % add(idx)
-      
+
       case(hittingProb_CODE)
         call self % hittingProbClerks % add(idx)
 

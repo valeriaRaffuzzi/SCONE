@@ -95,7 +95,7 @@ module timeDependentPhysicsPackage_class
     type(particleDungeon), pointer, dimension(:) :: currentTime       => null()
     type(particleDungeon), pointer, dimension(:) :: nextTime          => null()
     type(particleDungeon), pointer, dimension(:) :: tempTime          => null()
-    type(particleDungeon), pointer, dimension(:) :: precursorDungeons => null() 
+    type(particleDungeon), pointer, dimension(:) :: precursorDungeons => null()
     real(defReal), dimension(:), allocatable :: precursorWeights
     class(source), allocatable     :: fixedSource
 
@@ -140,7 +140,7 @@ contains
     type(tallyAdmin), pointer,intent(inout)           :: tally
     real(defReal), intent(inout)                      :: simTime
     integer(shortInt), intent(in)                     :: N_timeBins, N_cycles
-    integer(shortInt)                                 :: i, t, n, nParticles, nDelayedParticles
+    integer(shortInt)                                 :: i, t, n, nParticles, nDelayedParticles, nPrecuCount
     type(particle), save                              :: p, p_d
     type(particleDungeon), save                       :: buffer
     type(collisionOperator), save                     :: collOp
@@ -174,7 +174,7 @@ contains
     do t = 1, N_timeBins
       do i = 1, N_cycles
 
-        if (t == 1) then 
+        if (t == 1) then
           call self % fixedSource % generate(self % currentTime(i), nParticles, self % pRNG)
         end if
 
@@ -252,9 +252,11 @@ contains
         if (self % usePrecursors .and. (self % useForcedPrecursorDecay .eqv. .false.)) then
           ! Analog delayed neutron handling
           nDelayedParticles = self % precursorDungeons(i) % popSize()
+          nPrecuCount = 1
           if (nDelayedParticles > 0) then
+            superGenDelayed: do
             !$omp parallel do schedule(dynamic)
-            genDelayed: do n = 1, nDelayedParticles
+            genDelayed: do n = nPrecuCount, nDelayedParticles
               call self % precursorDungeons(i) % copy(p, n)
               p % timeBinIdx = t
 
@@ -319,6 +321,16 @@ contains
               end if
             end do genDelayed
             !$omp end parallel do
+            if (nDelayedParticles .eq. self % precursorDungeons(i) % popSize()) then
+               exit superGenDelayed
+            else
+              nPrecuCount = nDelayedParticles + 1
+              nDelayedParticles = self % precursorDungeons(i) % popSize()
+            print *, nPrecuCount, nDelayedParticles
+
+            end if
+          end do superGenDelayed
+
 
           end if
 
@@ -439,8 +451,7 @@ contains
 
     ! Print tally
     call self % tally % print(out)
-
-    call out % writeToFile(self % outputFile)
+    call out % endBlock()
 
   end subroutine collectResults
 

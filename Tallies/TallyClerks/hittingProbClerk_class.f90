@@ -62,7 +62,7 @@ module hittingProbClerk_class
     class(tallyMap), allocatable                     :: map
     type(tallyResponseSlot),dimension(:),allocatable :: response
     real(defReal)                                    :: maxT
-    integer(shortInt)                                :: maxPop
+    integer(shortInt)                                :: maxPop, minPop
     logical(defBool), dimension(:), allocatable      :: firstHitsNeutron
     real(defReal), dimension(:), allocatable         :: hittingTimesNeutron
     real(defReal), dimension(:), allocatable         :: currentNeutronPops
@@ -121,8 +121,11 @@ contains
     ! Get max time to consider
     call dict % get(self % maxT,'maxT')
 
-    ! Get population threshold
+    ! Get population max threshold
     call dict % get(self % maxPop,'maxPop')
+
+    ! Get population min threshold
+    call dict % get(self % minPop, 'minPop')
 
     ! Get population threshold
     call dict % get(self % cycles,'cycles')
@@ -225,8 +228,7 @@ contains
     class(nuclearDatabase), pointer        :: xsData
     integer(shortInt)                      :: i, batchIdx, binIdx
     real(defReal)                          :: scoreVal
-    type(particleState)                    :: state 
-    type(particle)                         :: p_pre, p_temp
+    type(particleState)                    :: state
     integer(longInt)                       :: adrr
     character(100), parameter :: Here =' reporthittingProbIn (hittingProbClerk_class.f90)'
 
@@ -259,7 +261,7 @@ contains
         adrr = self % getMemAddress() + self % width * (binIdx - 1) - 1
 
         xsData => ndReg_get(p % getType(), where = Here)
-        scoreVal = self % response(i) % get(p, xsData) !self % response(i) % get(p, xsData) 
+        scoreVal = self % response(i) % get(p, xsData) !self % response(i) % get(p, xsData)
 
         if (scoreVal == ZERO) return
         if (allocated(self % neutrons) .and. p % type == P_NEUTRON) then
@@ -282,9 +284,8 @@ contains
     type(scoreMemory), intent(inout)       :: mem
     class(nuclearDatabase), pointer        :: xsData
     integer(shortInt)                      :: i, batchIdx, binIdx
-    real(defReal)                          :: scoreVal, lowestTime
-    type(particleState)                    :: state 
-    type(particle)                         :: p_pre, p_temp
+    real(defReal)                          :: scoreVal
+    type(particleState)                    :: state
     integer(longInt)                       :: adrr
     character(100), parameter :: Here =' reporthittingProbOut (hittingProbClerk_class.f90)'
 
@@ -339,13 +340,12 @@ contains
     class(particleDungeon), intent(in)      :: end
     type(scoreMemory), intent(inout)        :: mem
     integer(shortInt)                       :: batchIdx, i
-    type(particle)                          :: p_temp
     integer(longInt)                        :: adrr
     real(defReal)                           :: accScore
     integer(shortInt),dimension(:),allocatable :: resArrayShape
 
     batchIdx = mod(mem % batchN, self % cycles) + 1
-    
+
     if(allocated(self % map)) then
       resArrayShape = [size(self % response), self % map % binArrayShape()]
     else
@@ -353,12 +353,15 @@ contains
     end if
 
     do i = 1, product(resArrayShape)
-      adrr = self % getMemAddress() + self % width * (i - 1) - 1 
+      adrr = self % getMemAddress() + self % width * (i - 1) - 1
       accScore = mem % getScore(adrr)
       self % currentNeutronPops(batchIdx) = accScore
       if (self % currentNeutronPops(batchIdx) >= self % maxPop) then
         self % firstHitsNeutron(batchIdx) = .false.
         self % hittingTimesNeutron(batchIdx) = i
+      !else if (self % currentNeutronPops(batchIdx) == self % minPop) then
+      !  self % firstHitsNeutron(batchIdx) = .false.
+      !  self % hittingTimesNeutron(batchIdx) = i
       end if
 
     end do
