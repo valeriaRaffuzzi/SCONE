@@ -70,7 +70,7 @@ module temporalPopClerk_class
     procedure  :: getSize
 
     ! File reports and check status -> run-time procedures
-    procedure  :: reportTemporalPopIn
+    procedure :: reportTemporalPopIn
     procedure :: reportTemporalPopOut
 
     ! Output procedures

@@ -95,7 +95,7 @@ module timeDependentPhysicsPackage_class
     type(particleDungeon), pointer, dimension(:) :: currentTime       => null()
     type(particleDungeon), pointer, dimension(:) :: nextTime          => null()
     type(particleDungeon), pointer, dimension(:) :: tempTime          => null()
-    type(particleDungeon), pointer, dimension(:) :: precursorDungeons => null() 
+    type(particleDungeon), pointer, dimension(:) :: precursorDungeons => null()
     real(defReal), dimension(:), allocatable :: precursorWeights
     class(source), allocatable     :: fixedSource
 
@@ -174,7 +174,7 @@ contains
     do t = 1, N_timeBins
       do i = 1, N_cycles
 
-        if (t == 1) then 
+        if (t == 1) then
           call self % fixedSource % generate(self % currentTime(i), nParticles, self % pRNG)
         end if
 
@@ -254,7 +254,7 @@ contains
           nDelayedParticles = self % precursorDungeons(i) % popSize()
           nPrecuCount = 1
           if (nDelayedParticles > 0) then
-            superGenDelayed: do 
+            superGenDelayed: do
             !$omp parallel do schedule(dynamic)
             genDelayed: do n = nPrecuCount, nDelayedParticles
               call self % precursorDungeons(i) % copy(p, n)
@@ -328,7 +328,7 @@ contains
               nDelayedParticles = self % precursorDungeons(i) % popSize()
             end if
           end do superGenDelayed
-            
+
 
           end if
 
@@ -423,7 +423,7 @@ contains
     type(outputFile)                                  :: out
     character(nameLen)                                :: name
 
-    call out % init(self % outputFormat)
+    call out % init(self % outputFormat, filename = self % outputFile)
 
     name = 'seed'
     call out % printValue(self % pRNG % getSeed(),name)
@@ -449,8 +449,6 @@ contains
 
     ! Print tally
     call self % tally % print(out)
-
-    call out % writeToFile(self % outputFile)
 
   end subroutine collectResults
 

@@ -2,6 +2,7 @@ module collisionClerk_class
 
   use numPrecision
   use tallyCodes
+  use universalVariables
   use genericProcedures,          only : fatalError
   use dictionary_class,           only : dictionary
   use particle_class,             only : particle, particleState
@@ -156,7 +157,8 @@ contains
       deallocate(self % response)
     end if
 
-    self % width = 0
+    self % width   = 0
+    self % virtual = .false.
 
   end subroutine kill
 
@@ -183,15 +185,18 @@ contains
     integer(shortInt)                 :: S
 
     S = size(self % response)
-    if(allocated(self % map)) S = S * self % map % bins(0)
+    if (allocated(self % map)) S = S * self % map % bins(0)
 
   end function getSize
 
+  !!
+  !!
+  !!
   subroutine reportCycleStart(self, start, mem)
-    class(collisionClerk), intent(inout)     :: self
+    class(collisionClerk), intent(inout)  :: self
     class(particleDungeon), intent(in)    :: start
     type(scoreMemory), intent(inout)      :: mem
-    
+
     if (self % normByPop) then
       self % invPopSize = ONE/start % popSize()
     else
@@ -206,23 +211,24 @@ contains
   !! See tallyClerk_inter for details
   !!
   subroutine reportInColl(self, p, xsData, mem, virtual)
-    class(collisionClerk), intent(inout)    :: self
-    class(particle), intent(in)             :: p
-    class(nuclearDatabase), intent(inout)   :: xsData
-    type(scoreMemory), intent(inout)        :: mem
-    logical(defBool), intent(in)            :: virtual
-    type(particleState)                     :: state
-    integer(shortInt)                       :: binIdx, i
-    integer(longInt)                        :: adrr
-    real(defReal)                           :: scoreVal, flx
-    character(100), parameter :: Here =' reportInColl (collisionClerk_class.f90)'
+    class(collisionClerk), intent(inout)  :: self
+    class(particle), intent(in)           :: p
+    class(nuclearDatabase), intent(inout) :: xsData
+    type(scoreMemory), intent(inout)      :: mem
+    logical(defBool), intent(in)          :: virtual
+    type(particleState)                   :: state
+    integer(shortInt)                     :: binIdx, i
+    integer(longInt)                      :: adrr
+    real(defReal)                         :: scoreVal, flux
+    character(100), parameter :: Here = 'reportInColl (collisionClerk_class.f90)'
 
-    ! Calculate flux sample based on physical or virtual collision
+    ! Return if collision is virtual but virtual collision handling is off
     if (self % virtual) then
-      flx = ONE / xsData % getMajorantXS(p)
+      ! Retrieve tracking cross section from cache
+      flux = p % w / xsData % getTrackingXS(p, p % matIdx(), TRACKING_XS)
     else
       if (virtual) return
-      flx = ONE / xsData % getTotalMatXS(p, p % matIdx())
+      flux = p % w / xsData % getTotalMatXS(p, p % matIdx())
     end if
 
     ! Get current particle state
@@ -244,13 +250,12 @@ contains
     if (binIdx == 0) return
 
     ! Calculate bin address
-    adrr = self % getMemAddress() + self % width * (binIdx - 1)  - 1
+    adrr = self % getMemAddress() + self % width * (binIdx -1)  - 1
 
     ! Append all bins
-    do i=1,self % width
-      scoreVal = self % response(i) % get(p, xsData) * p % w * flx * self % invPopSize
+    do i = 1,self % width
+      scoreVal = self % response(i) % get(p, xsData) * flux
       call mem % score(scoreVal, adrr + i)
-
     end do
 
   end subroutine reportInColl

@@ -20,6 +20,9 @@ module tallyClerkFactory_func
   use mgXsClerk_class,                 only : mgXsClerk
   use temporalPopClerk_class,          only : temporalPopClerk
   use hittingProbClerk_class,          only : hittingProbClerk
+  use nuAnalogClerk_class,             only : nuAnalogClerk
+  use lambdaAnalogClerk_class,         only : lambdaAnalogClerk
+  use lifetimeClerk_class,             only : lifetimeClerk
 
   implicit none
   private
@@ -41,7 +44,10 @@ module tallyClerkFactory_func
                                                                         'dancoffBellClerk         ',&
                                                                         'mgXsClerk                ',&
                                                                         'temporalPopClerk         ',&
-                                                                        'hittingProbClerk         ']
+                                                                        'hittingProbClerk         ',&
+                                                                        'nuAnalogClerk            ',&
+                                                                        'lambdaAnalogClerk        ',&
+                                                                        'lifetimeClerk            ']
 
 contains
 
@@ -93,16 +99,25 @@ contains
 
      case('mgXsClerk')
        allocate(mgXsClerk :: new)
-      
+
      case('temporalPopClerk')
-      allocate(temporalPopClerk :: new)
+       allocate(temporalPopClerk :: new)
 
      case('hittingProbClerk')
-      allocate(hittingProbClerk :: new)
+       allocate(hittingProbClerk :: new)
 
-      case default
-        print *, AVALIBLE_tallyClerks
-        call fatalError(Here, 'Unrecognised type of tallyClerk: ' // trim(type))
+     case('nuAnalogClerk')
+       allocate(nuAnalogClerk :: new)
+
+     case('lambdaAnalogClerk')
+       allocate(lambdaAnalogClerk :: new)
+
+     case('lifetimeClerk')
+       allocate(lifetimeClerk :: new)
+
+     case default
+       print *, AVALIBLE_tallyClerks
+       call fatalError(Here, 'Unrecognised type of tallyClerk: ' // trim(type))
 
     end select
 

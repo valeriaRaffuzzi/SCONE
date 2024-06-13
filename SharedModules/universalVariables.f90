@@ -72,6 +72,11 @@ module universalVariables
   ! Number of neutron precusor groups
   integer(shortInt), parameter :: precursorGroups = 8
 
+  ! Integer indexes for type of tracking cross section requested
+  integer(shortInt), parameter :: MATERIAL_XS = 1, &
+                                  MAJORANT_XS = 2, &
+                                  TRACKING_XS = 3
+
   ! Physical constants
   real(defReal), parameter :: neutronMass = 939.5654133_defReal, &   ! Neutron mass in MeV/c^2
                               lightSpeed  = 2.99792458e10_defReal, & ! Light speed in cm/s
@@ -82,7 +87,7 @@ module universalVariables
                               shake = 1.e-08_defReal
 
   ! Global name variables used to define specific geometry or field types
-  character(nameLen), parameter :: nameUFS = 'uniFissSites'
-  character(nameLen), parameter :: nameWW  = 'WeightWindows'  
+  character(nameLen), parameter :: nameUFS  = 'uniFissSites'
+  character(nameLen), parameter :: nameWW   = 'WeightWindows'
 
 end module universalVariables
