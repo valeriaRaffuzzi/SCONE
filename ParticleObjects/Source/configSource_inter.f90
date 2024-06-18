@@ -147,6 +147,7 @@ contains
     class(configSource), intent(inout) :: self
     class(RNG), intent(inout)          :: rand
     type(particleState)                :: p
+    logical(defBool)                   :: overshoot
 
     call self % sampleType(p, rand)
     call self % samplePosition(p, rand)

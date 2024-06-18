@@ -98,6 +98,7 @@ module timeDependentPhysicsPackage_class
     type(particleDungeon), pointer, dimension(:) :: precursorDungeons => null()
     real(defReal), dimension(:), allocatable :: precursorWeights
     class(source), allocatable     :: fixedSource
+    class(source), allocatable     :: poissonSource
 
     ! Timer bins
     integer(shortInt) :: timerMain
@@ -175,8 +176,11 @@ contains
       do i = 1, N_cycles
 
         if (t == 1) then
-          call self % fixedSource % generate(self % currentTime(i), nParticles, self % pRNG)
-        end if
+          call self % fixedSource % generate(self % currentTime(i), self % pop, self % pRNG)
+        if (allocated(self % poissonSource)) then
+            call self % poissonSource % generate(self % currentTime(i), nParticles, self % pRNG)
+         end if
+      end if
 
         call tally % reportCycleStart(self % currentTime(i))
         nParticles = self % currentTime(i) % popSize()
@@ -549,6 +553,12 @@ contains
     ! Read particle source definition
     tempDict => dict % getDictPtr('source')
     call new_source(self % fixedSource, tempDict, self % geom)
+    ! Check and eventually read poisson source
+    if (dict % isPresent("poissonSource")) then
+      tempDict => dict % getDictPtr('poissonSource')
+      call new_source(self % poissonSource, tempDict, self % geom)
+    end if
+    
 
     ! Build collision operator
     tempDict => dict % getDictPtr('collisionOperator')
@@ -568,15 +578,15 @@ contains
     allocate(self % nextTime(self % N_cycles))
 
     do i = 1, self % N_cycles
-      call self % currentTime(i) % init(10 * self % pop)
-      call self % nextTime(i) % init(10 * self % pop)
+      call self % currentTime(i) % init(self % bufferSize)
+      call self % nextTime(i) % init(self % bufferSize)
     end do
 
     ! Size precursor dungeon
     if (self % usePrecursors) then
       allocate(self % precursorDungeons(self % N_cycles))
       do i = 1, self % N_cycles
-        call self % precursorDungeons(i) % init(10 * self % pop)
+        call self % precursorDungeons(i) % init(self % bufferSize)
       end do
     end if
 
