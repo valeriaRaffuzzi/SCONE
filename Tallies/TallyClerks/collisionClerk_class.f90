@@ -231,6 +231,10 @@ contains
       flux = p % w / xsData % getTotalMatXS(p, p % matIdx())
     end if
 
+    ! Normalize by number of particles at start of timebin
+    if (self % normByPop) then
+      flux = flux * self %  invPopSize
+    end if
     ! Get current particle state
     state = p
 
