@@ -197,7 +197,7 @@ contains
     class(particleDungeon), intent(in)    :: start
     type(scoreMemory), intent(inout)      :: mem
 
-    if (self % normByPop) then
+    if (self % normByPop .and. start % popSize() > 0) then
       self % invPopSize = ONE/start % popSize()
     else
       self % invPopSize = ONE
