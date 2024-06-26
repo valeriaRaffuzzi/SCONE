@@ -13,9 +13,9 @@ module particle_class
   !!
   !! Particle types paramethers
   !!
-  integer(shortInt), parameter,public :: P_NEUTRON   = 1,&
-                                         P_PHOTON    = 2,&
-                                         P_PRECURSOR = 3
+  integer(shortInt), parameter, public :: P_NEUTRON   = 1, &
+                                          P_PHOTON    = 2, &
+                                          P_PRECURSOR = 3
 
   !!
   !! Public particle type procedures
@@ -40,6 +40,7 @@ module particle_class
   !!   matIdx     -> material Index in which particle is present
   !!   cellIdx    -> Cell Index at the lowest level in which particle is present
   !!   uniqueID   -> Unique ID of the cell at the lowest level in which particle is present
+  !!   collisionN -> Number of collisions the particle went through
   !!
   !! Interface:
   !!   assignemnt(=)  -> Build particleState from particle
@@ -57,11 +58,13 @@ module particle_class
     integer(shortInt)          :: fate = no_FATE    !Neutron's fate after being subjected to an operator
     integer(shortInt)          :: type = P_NEUTRON  ! Particle physical type
     real(defReal)              :: time = ZERO       ! Particle time position
+    real(defReal)              :: timeBirth = ZERO
     integer(shortInt)          :: timeBinIdx
     real(defReal)              :: lambda            ! Precursor decay constant
     integer(shortInt)          :: matIdx   = -1     ! Material index where particle is
     integer(shortInt)          :: cellIdx  = -1     ! Cell idx at the lowest coord level
     integer(shortInt)          :: uniqueID = -1     ! Unique id at the lowest coord level
+    integer(shortInt)          :: collisionN = 0    ! Number of collisions
   contains
     generic    :: assignment(=)  => fromParticle
     generic    :: operator(.eq.) => equal_particleState
@@ -111,6 +114,7 @@ module particle_class
     real(defReal)              :: w         ! Particle Weight
     real(defReal)              :: time      ! Particle time point
     integer(shortInt)          :: timeBinIdx
+    real(defReal)              :: timeBirth = ZERO
 
     ! Precursor particle data
     real(defReal)              :: lambda    ! Precursor decay constant
@@ -122,11 +126,13 @@ module particle_class
     real(defReal)              :: timeMax = ZERO ! Maximum neutron time before cut-off
     integer(shortInt)          :: fate = no_FATE ! Neutron's fate after being subjected to an operator
     integer(shortInt)          :: type           ! Particle type
+    integer(shortInt)          :: collisionN = 0 ! Index of the number of collisions the particle went through
 
     ! Particle processing information
     class(RNG), pointer        :: pRNG  => null()  ! Pointer to RNG associated with the particle
     real(defReal)              :: k_eff            ! Value of default keff for implicit source generation
     integer(shortInt)          :: geomIdx          ! Index of the geometry used by the particle
+    integer(shortInt)          :: splitCount = 0   ! Counter of number of splits
 
     ! Archived snapshots of previous states
     type(particleState)        :: preHistory
@@ -215,10 +221,12 @@ contains
     self % isDead = .false.
     self % isMG   = .false.
 
-    if(present(t)) then
+    if (present(t)) then
       self % time = t
+      self % timeBirth = t
     else
       self % time = ZERO
+      self % timeBirth = ZERO
     end if
 
     if(present(type)) then
@@ -257,10 +265,12 @@ contains
     self % isDead = .false.
     self % isMG   = .true.
 
-    if(present(t)) then
+    if (present(t)) then
       self % time = t
+      self % timeBirth = t
     else
       self % time = ZERO
+      self % timeBirth = ZERO
     end if
 
     if(present(type)) then
@@ -290,8 +300,11 @@ contains
     LHS % type                  = RHS % type
     LHS % time                  = RHS % time
     LHS % timeBinIdx            = RHS % timeBinIdx
+    LHS % timeBirth             = RHS % timeBirth
     LHS % lambda                = RHS % lambda
-    LHS % fate                  = RHS % fate    
+    LHS % fate                  = RHS % fate
+    LHS % collisionN            = RHS % collisionN
+    LHS % splitCount            = 0 ! Reinitialise counter for number of splits
 
   end subroutine particle_fromParticleState
 
@@ -704,12 +717,14 @@ contains
     LHS % type       = RHS % type
     LHS % time       = RHS % time
     LHS % timeBinIdx = RHS % timeBinIdx
+    LHS % timeBirth  = RHS % timeBirth
     LHS % fate       = RHS % fate
 
     ! Save all indexes
     LHS % matIdx   = RHS % coords % matIdx
     LHS % uniqueID = RHS % coords % uniqueId
     LHS % cellIdx  = RHS % coords % cell()
+    LHS % collisionN = RHS % collisionN
 
   end subroutine particleState_fromParticle
 
@@ -728,6 +743,7 @@ contains
     isEqual = isEqual .and. all(LHS % dir == RHS % dir)
     isEqual = isEqual .and. LHS % time == RHS % time
     isEqual = isEqual .and. LHS % timeBinIdx == RHS % timeBinIdx
+    isEqual = isEqual .and. LHS % timeBirth == RHS % timeBirth
     isEqual = isEqual .and. LHS % isDead .eqv. RHS % isDead
     isEqual = isEqual .and. LHS % isMG .eqv. RHS % isMG
     isEqual = isEqual .and. LHS % type == RHS % type
@@ -735,12 +751,14 @@ contains
     isEqual = isEqual .and. LHS % cellIdx  == RHS % cellIdx
     isEqual = isEqual .and. LHS % uniqueID == RHS % uniqueID
     isEqual = isEqual .and. LHS % fate == RHS % fate
+    isEqual = isEqual .and. LHS % collisionN == RHS % collisionN
 
     if( LHS % isMG ) then
       isEqual = isEqual .and. LHS % G == RHS % G
     else
       isEqual = isEqual .and. LHS % E == RHS % E
     end if
+
   end function equal_particleState
 
 !  !!
@@ -801,6 +819,7 @@ contains
     self % matIdx   = -1
     self % cellIdx  = -1
     self % uniqueID = -1
+    self % collisionN = 0
 
   end subroutine kill_particleState
 

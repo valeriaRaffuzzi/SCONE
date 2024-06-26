@@ -95,9 +95,10 @@ module timeDependentPhysicsPackage_class
     type(particleDungeon), pointer, dimension(:):: currentTime       => null()
     type(particleDungeon), pointer, dimension(:):: nextTime          => null()
     type(particleDungeon), pointer, dimension(:):: tempTime          => null()
-    type(particleDungeon), pointer, dimension(:):: precursorDungeons => null() 
+    type(particleDungeon), pointer, dimension(:):: precursorDungeons => null()
     real(defReal), dimension(:), allocatable:: precursorWeights
     class(source), allocatable     :: fixedSource
+    class(source), allocatable     :: poissonSource
 
     ! Timer bins
     integer(shortInt):: timerMain
@@ -174,9 +175,12 @@ contains
     do t = 1, N_timeBins
       do i = 1, N_cycles
 
-        if (t == 1) then 
-          call self % fixedSource % generate(self % currentTime(i), nParticles, self % pRNG)
-        end if
+        if (t == 1) then
+          call self % fixedSource % generate(self % currentTime(i), self % pop, self % pRNG)
+        if (allocated(self % poissonSource)) then
+            call self % poissonSource % generate(self % currentTime(i), nParticles, self % pRNG)
+         end if
+      end if
 
         call tally % reportCycleStart(self % currentTime(i))
         nParticles = self % currentTime(i) % popSize()
@@ -254,7 +258,7 @@ contains
           nDelayedParticles = self % precursorDungeons(i) % popSize()
           nPrecuCount = 1
           if (nDelayedParticles > 0) then
-            superGenDelayed: do 
+            superGenDelayed: do
             !$omp parallel do schedule(dynamic)
             genDelayed: do n = nPrecuCount, nDelayedParticles
               call self % precursorDungeons(i) % copy(p, n)
@@ -328,7 +332,7 @@ contains
               nDelayedParticles = self % precursorDungeons(i) % popSize()
             end if
           end do superGenDelayed
-            
+
 
           end if
 
@@ -423,7 +427,7 @@ contains
     type(outputFile)                                  :: out
     character(nameLen)                                :: name
 
-    call out % init(self % outputFormat)
+    call out % init(self % outputFormat, filename = self % outputFile)
 
     name = 'seed'
     call out % printValue(self % pRNG % getSeed(), name)
@@ -449,8 +453,6 @@ contains
 
     ! Print tally
     call self % tally % print(out)
-
-    call out % writeToFile(self % outputFile)
 
   end subroutine collectResults
 
@@ -551,6 +553,12 @@ contains
     ! Read particle source definition
     tempDict => dict % getDictPtr('source')
     call new_source(self % fixedSource, tempDict, self % geom)
+    ! Check and eventually read poisson source
+    if (dict % isPresent("poissonSource")) then
+      tempDict => dict % getDictPtr('poissonSource')
+      call new_source(self % poissonSource, tempDict, self % geom)
+    end if
+    
 
     ! Build collision operator
     tempDict => dict % getDictPtr('collisionOperator')
@@ -570,15 +578,15 @@ contains
     allocate(self % nextTime(self % N_cycles))
 
     do i = 1, self % N_cycles
-      call self % currentTime(i) % init(10*self % pop)
-      call self % nextTime(i) % init(10*self % pop)
+      call self % currentTime(i) % init(self % bufferSize)
+      call self % nextTime(i) % init(self % bufferSize)
     end do
 
     ! Size precursor dungeon
     if (self % usePrecursors) then
       allocate(self % precursorDungeons(self % N_cycles))
       do i = 1, self % N_cycles
-        call self % precursorDungeons(i) % init(10*self % pop)
+        call self % precursorDungeons(i) % init(self % bufferSize)
       end do
     end if
 

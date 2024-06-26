@@ -4,7 +4,7 @@ module tallyClerk_inter
   use tallyCodes
   use dictionary_class,      only : dictionary
   use genericProcedures,     only : fatalError
-  use particle_class,        only : particle
+  use particle_class,        only : particle, particleState
   use particleDungeon_class, only : particleDungeon
   use outputFile_class,      only : outputFile
 
@@ -57,6 +57,7 @@ module tallyClerk_inter
   !!   reportOutColl    -> Process an outgoing from collision report
   !!   reportPath       -> Process pathlength report
   !!   reportTrans      -> Process transition report
+  !!   reportSpawn      -> Process particle generation report
   !!   reportHist       -> Process history report
   !!   reportCycleStart -> Process beginning of a cycle report
   !!   reportCycleEnd   -> Process end of a cycle report (e.g. Calculate functions of scores like k-eff)
@@ -91,6 +92,7 @@ module tallyClerk_inter
     procedure :: reportOutColl
     procedure :: reportPath
     procedure :: reportTrans
+    procedure :: reportSpawn
     procedure :: reportHist
     procedure :: reportCycleStart
     procedure :: reportCycleEnd
@@ -121,6 +123,7 @@ module tallyClerk_inter
     !!     outColl_CODE
     !!     path_CODE
     !!     trans_CODE
+    !!     spawn_CODE
     !!     hist_CODE
     !!     cycleStart_CODE
     !!     cycleEnd_CODE
@@ -223,7 +226,7 @@ contains
   !! See tallyAdmin_class for implicit assumptions about the report.
   !!
   !! Args:
-  !!   p [in]         -> Partice
+  !!   p [in]         -> Particle
   !!   xsData [inout] -> Nuclear Database with XSs data
   !!   mem [inout]    -> Score Memory to put results on
   !!   virtual [in]   -> Flag indicating virtual collision
@@ -232,14 +235,14 @@ contains
   !!   Depend on specific Clerk
   !!
   subroutine reportInColl(self,p, xsData, mem, virtual)
-    class(tallyClerk), intent(inout)        :: self
-    class(particle), intent(in)             :: p
-    class(nuclearDatabase), intent(inout)   :: xsData
-    type(scoreMemory), intent(inout)        :: mem
-    logical(defBool), intent(in)            :: virtual
+    class(tallyClerk), intent(inout)      :: self
+    class(particle), intent(in)           :: p
+    class(nuclearDatabase), intent(inout) :: xsData
+    type(scoreMemory), intent(inout)      :: mem
+    logical(defBool), intent(in)          :: virtual
     character(100),parameter    :: Here = 'reportInColl (tallyClerk_inter.f90)'
 
-    call fatalError(Here,'Report was send to an instance that does not support it.')
+    call fatalError(Here,'Report was sent to an instance that does not support it.')
 
   end subroutine reportInColl
 
@@ -250,7 +253,7 @@ contains
   !! See tallyAdmin_class for implicit assumptionas about the report.
   !!
   !! Args:
-  !!   p [in]        -> Partice
+  !!   p [in]        -> Particle
   !!   MT [in]       -> MT number of reaction that partilce underwent in the collision
   !!   muL [in]      -> Cosine of the collision deflection angle in LAB frame
   !!   xsData [inout]-> Nuclear Database with XSs data
@@ -268,7 +271,7 @@ contains
     type(scoreMemory), intent(inout)      :: mem
     character(100),parameter  :: Here = 'reportOutColl (tallyClerk_inter.f90)'
 
-    call fatalError(Here,'Report was send to an instance that does not support it.')
+    call fatalError(Here,'Report was sent to an instance that does not support it.')
 
   end subroutine reportOutColl
 
@@ -278,7 +281,7 @@ contains
   !! See tallyAdmin_class for implicit assumptionas about the report.
   !!
   !! Args:
-  !!   p [in]         -> Partice
+  !!   p [in]         -> Particle
   !!   L [in]         -> Length of the path [cm]
   !!   xsData [inout] -> Nuclear Database with XSs data
   !!   mem [inout]    -> Score Memory to put results on
@@ -294,7 +297,7 @@ contains
     type(scoreMemory), intent(inout)      :: mem
     character(100),parameter  :: Here = 'reportPath (tallyClerk_inter.f90)'
 
-    call fatalError(Here,'Report was send to an instance that does not support it.')
+    call fatalError(Here,'Report was sent to an instance that does not support it.')
 
   end subroutine reportPath
 
@@ -304,7 +307,7 @@ contains
   !! See tallyAdmin_class for implicit assumptionas about the report.
   !!
   !! Args:
-  !!   p [in]         -> Partice
+  !!   p [in]         -> Particle
   !!   xsData [inout] -> Nuclear Database with XSs data
   !!   mem [inout]    -> Score Memory to put results on
   !!
@@ -318,9 +321,37 @@ contains
     type(scoreMemory), intent(inout)      :: mem
     character(100),parameter  :: Here = 'reportTrans (tallyClerk_inter.f90)'
 
-    call fatalError(Here,'Report was send to an instance that does not support it.')
+    call fatalError(Here,'Report was sent to an instance that does not support it.')
 
   end subroutine reportTrans
+
+  !!
+  !! Process particle creation report
+  !!
+  !! See tallyAdmin_class for implicit assumptionas about the report.
+  !!
+  !! Args:
+  !!   MT [in]   -> MT number of the reaction the particle has undergone
+  !!   pOld [in] -> Particle that caused the branching event
+  !!   pNew [in] -> Particle state of the newly created neutron
+  !!   xsData [inout] -> Nuclear Database with XSs data
+  !!   mem [inout]    -> Score Memory to put results on
+  !!
+  !! Errors:
+  !!   Depend on specific Clerk
+  !!
+  subroutine reportSpawn(self, MT, pOld, pNew, xsData, mem)
+    class(tallyClerk), intent(inout)      :: self
+    integer(shortInt), intent(in)         :: MT
+    class(particle), intent(in)           :: pOld
+    class(particleState), intent(in)      :: pNew
+    class(nuclearDatabase), intent(inout) :: xsData
+    type(scoreMemory), intent(inout)      :: mem
+    character(100),parameter  :: Here = 'reportSpawn (tallyClerk_inter.f90)'
+
+    call fatalError(Here,'Report was sent to an instance that does not support it.')
+
+  end subroutine reportSpawn
 
   !!
   !! Process history report
@@ -328,7 +359,7 @@ contains
   !! See tallyAdmin_class for implicit assumptionas about the report.
   !!
   !! Args:
-  !!   p [in]         -> Partice
+  !!   p [in]         -> Particle
   !!   xsData [inout] -> Nuclear Database with XSs data
   !!   mem [inout]    -> Score Memory to put results on
   !!
@@ -342,7 +373,7 @@ contains
     type(scoreMemory), intent(inout)      :: mem
     character(100),parameter  :: Here = 'reportHist (tallyClerk_inter.f90)'
 
-    call fatalError(Here,'Report was send to an instance that does not support it.')
+    call fatalError(Here,'Report was sent to an instance that does not support it.')
 
   end subroutine reportHist
 
@@ -364,7 +395,7 @@ contains
     type(scoreMemory), intent(inout)    :: mem
     character(100),parameter  :: Here = 'reportCycleStart (tallyClerk_inter.f90)'
 
-    call fatalError(Here,'Report was send to an instance that does not support it.')
+    call fatalError(Here,'Report was sent to an instance that does not support it.')
 
   end subroutine reportCycleStart
 
@@ -386,7 +417,7 @@ contains
     type(scoreMemory), intent(inout)   :: mem
     character(100),parameter  :: Here = 'reportCycleEnd (tallyClerk_inter.f90)'
 
-    call fatalError(Here,'Report was send to an instance that does not support it.')
+    call fatalError(Here,'Report was sent to an instance that does not support it.')
 
   end subroutine reportCycleEnd
 

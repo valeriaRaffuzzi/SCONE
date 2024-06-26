@@ -35,6 +35,9 @@ module source_inter
   type, public,abstract :: source
     private
     class(geometry), pointer, public       :: geom => null()
+    logical(defBool), public               :: isPoisson = .false.
+    real(defReal), public                  :: poissonTime
+    real(defReal), public                  :: finalPoissonTime = -ONE
   contains
     procedure, non_overridable             :: generate
     procedure(sampleParticle), deferred    :: sampleParticle
@@ -104,21 +107,32 @@ contains
       integer(shortInt)                    :: i
       !$omp threadprivate(pRand)
 
-      ! Set dungeon size to begin
-      call dungeon % setSize(n)
+      if (.not. self % isPoisson) then
+        ! Set dungeon size to begin
+        call dungeon % setSize(n)
 
-      ! Generate n particles to populate dungeon
-      ! TODO: advance the rand after source generation!
-      !       This should prevent reusing RNs during transport
-      !$omp parallel
-      pRand = rand
-      !$omp do
-      do i = 1, n
-        call pRand % stride(i)
-        call dungeon % replace(self % sampleParticle(pRand), i)
-      end do
-      !$omp end do
-      !$omp end parallel
+        ! Generate n particles to populate dungeon
+        ! TODO: advance the rand after source generation!
+        !       This should prevent reusing RNs during transport
+        !$omp parallel
+        pRand = rand
+        !$omp do
+        do i = 1, n
+          call pRand % stride(i)
+          call dungeon % replace(self % sampleParticle(pRand), i)
+        end do
+        !$omp end do
+        !$omp end parallel
+      else
+        pRand = rand
+        i = 1
+        do while (self % poissonTime < self % finalPoissonTime )
+          call pRand % stride(i)
+          call dungeon % detain(self % sampleParticle(pRand))
+          i = i + 1
+        end do
+        self % poissonTime = ZERO
+      end if
 
     end subroutine generate
 
