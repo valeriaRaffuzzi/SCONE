@@ -1,10 +1,10 @@
 type timeDependentPhysicsPackage;
 
-pop      10000; // 5000
-timeSteps   20000; 
+pop      1000; // 5000
+timeSteps   10000; 
 XSdata   ce;
 dataType ce;
-timeIncrement 0.001;
+timeIncrement 0.00001;
 cycles 100; //100
 buffer 100000;
 outputFormat asciiJSON;
@@ -27,69 +27,61 @@ source {
   E 0.025E-06;
 }
 
-poissonSource {
-  type pointSource;
-  r (0 0 0);
-  particle neutron;
-  E 0.025E-06;
-  poissonIntensity 10;
-  poissonSource 1;
-  finalTime 60;
-}
-
 tally  {
   hittingProbability1 { type hittingProbClerk;
     response (pop); pop {type neutronResponse;}
-    maxT 20;
+    maxT 0.1;
     minPop 0;
-    maxPop 11000;
+    maxPop 10500;
     cycles 100;
-    map { type timeMap; grid lin; min 0.0; max 20.0; N 20000;}
+    map { type timeMap; grid lin; min 0.0; max 0.1; N 10000;}
     }
   hittingProbability2 { type hittingProbClerk;
     response (pop); pop {type neutronResponse;}
-    maxT 20;
+    maxT 0.1;
     minPop 0;
-    maxPop 12000;
+    maxPop 11000;
     cycles 100;
-    map { type timeMap; grid lin; min 0.0; max 20.0; N 20000;}
+    map { type timeMap; grid lin; min 0.0; max 0.1; N 10000;}
     }
   hittingProbability3 { type hittingProbClerk;
     response (pop); pop {type neutronResponse;}
-    maxT 20;
+    maxT 0.1;
     minPop 0;
-    maxPop 15000;
+    maxPop 12000;
     cycles 100;
-    map { type timeMap; grid lin; min 0.0; max 20.0; N 20000;}
+    map { type timeMap; grid lin; min 0.0; max 0.1; N 10000;}
     }
   hittingProbability4 { type hittingProbClerk;
     response (pop); pop {type neutronResponse;}
-    maxT 20;
+    maxT 0.1;
     minPop 0;
-    maxPop 20000;
+    maxPop 15000;
     cycles 100;
-    map { type timeMap; grid lin; min 0.0; max 20.0; N 20000;}
+    map { type timeMap; grid lin; min 0.0; max 0.1; N 10000;}
     }
   
   fissionRate { type collisionClerk; response (fission); fission { type macroResponse; MT -6;}
-                map {type timeMap; grid lin; min 0.0; max 20.0; N 20000;}}
+                map {type timeMap; grid lin; min 0.0; max 0.1; N 10000;}
+                norm 1;}
 
   captureRate { type collisionClerk; response (capture); capture {type macroResponse; MT -2;}
-  map {type timeMap; grid lin; min 0.0; max 20.0; N 20000;}}
+  map {type timeMap; grid lin; min 0.0; max 0.1; N 10000;}
+  norm 1;}
 
   neutronPop { type temporalPopClerk;
-    map { type timeMap; grid lin; min 0.0; max 20.0; N 20000;}
+    map { type timeMap; grid lin; min 0.0; max 0.1; N 10000;}
     response (pop); pop {type neutronResponse;}
     }
   precuPop { type temporalPopClerk;
-    map { type timeMap; grid lin; min 0.0; max 20.0; N 20000;}
+    map { type timeMap; grid lin; min 0.0; max 0.1; N 10000;}
     response (pop); pop {type precursorResponse;}
     }
 
-    lambda { type lambdaAnalogClerk; batches 2000000;}
-    nuDelayed { type nuAnalogClerk; delayed 1; batches 2000000;}
-    nuPrompt { type nuAnalogClerk; batches 2000000;}
-    lifetime {type lifetimeClerk; batches 2000000;}
+    lambda { type lambdaAnalogClerk; batches 1000000;}
+    nuDelayed { type nuAnalogClerk; delayed 1; batches 1000000;}
+    nuPrompt { type nuAnalogClerk; batches 1000000;}
+    lifetime {type lifetimeClerk; batches 1000000;}
 
   }
 geometry {
@@ -122,7 +114,7 @@ geometry {
 
 nuclearData {
   handles {
-    ce { type aceNeutronDatabase; aceLibrary /home/tbonnet/code/SCONE_KIN/SCONE/scripts/endf_lib.xsfile;}}
+    ce { type aceNeutronDatabase; aceLibrary /home/tlfab2/code/SCONE/scripts/endf_lib.xsfile;}}
   materials {
 
     hydrogen_with_uranium {
@@ -130,10 +122,13 @@ nuclearData {
       composition {
       //1001.72    2.9623E-05;
       //1001.72    2.0E-05;
-      1001.72    2.11892E-05;
-      92235.72   9.3472E-09;	  }
+      1001.72    6.6856E-02;
+      8016.72    8.21578701E-02;
+      8017.72    3.129604E-05;
+      8018.72    1.688339E-04;
+      92235.72   2.73228041E-04;
+      92238.72  2.4197772E-02;}
       }
-
 }
 
 }
