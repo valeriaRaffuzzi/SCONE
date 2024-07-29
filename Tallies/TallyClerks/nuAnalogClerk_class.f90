@@ -156,17 +156,30 @@ contains
     type(particleState)                   :: state
     integer(shortInt)                     :: binIdx
     integer(longInt)                      :: addr
+    real(defReal)                         :: newScore
 
     ! Get current particle state
     state = pOld
+    newScore = ZERO
+    
+    ! Set state to account for delayed/prompt production
+    if (self % delayed .and. pNew % type == P_PRECURSOR) then
+      state % F = pNew % F
+      state % lambda = pNew % lambda
+      state % type = pNew % type
+      newScore = ONE
+    else if (.not. self % delayed .and. pNew % type == P_NEUTRON) then
+      newScore = ONE
+    else 
+      return
+    end if
 
-    ! Find bin index
+    ! Find bin index 
     if (allocated(self % map)) then
       binIdx = self % map % map(state)
     else
       binIdx = 1
     end if
-
     ! Return if invalid bin index
     if (binIdx == 0) return
 
@@ -177,7 +190,7 @@ contains
         & (.not. self % delayed .and. pNew % type == P_NEUTRON)) then
 
       ! Score nu
-      call mem % score(ONE, addr + NU_FISS)
+      call mem % score(newScore, addr + NU_FISS)
 
     end if
 
@@ -278,10 +291,10 @@ contains
       ! the STD will be NaN
       if (self % batches /= 0) then
         call mem % getResult(nu, STDnu, addr + NU_FISS, self % batches)
-        call mem % getResult(events, STDevents, addr + EVENT, self % batches)
+        call mem % getResult(events, STDevents, self % getMemAddress() + 1, self % batches)
       else
         call mem % getResult(nu, STDnu, addr + NU_FISS)
-        call mem % getResult(events, STDevents, addr + EVENT)
+        call mem % getResult(events, STDevents, self % getMemAddress() + 1)
       end if
 
       nu_score = nu/events

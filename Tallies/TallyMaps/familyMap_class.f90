@@ -140,7 +140,9 @@ module familyMap_class
         else
             idx = 0
         end if
-      else
+      else if (state % type == P_NEUTRON) then
+        idx = 1
+      else 
         idx = 0
       end if
     end function map
