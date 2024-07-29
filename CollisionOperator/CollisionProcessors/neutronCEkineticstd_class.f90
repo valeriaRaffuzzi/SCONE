@@ -220,7 +220,7 @@ contains
     type(neutronMicroXSs)                     :: microXSs
     type(particleState)                       :: pTemp
     real(defReal),dimension(3)                :: r, dir
-    integer(shortInt)                         :: n, i
+    integer(shortInt)                         :: n, i, family
     real(defReal)                             :: wgt, w0, E_out, mu, phi, lambda, decayT
     real(defReal)                             :: sig_nufiss, k_eff, sig_fiss
     character(100),parameter :: Here = 'fission (neutronCEkineticstd_class.f90)'
@@ -280,7 +280,7 @@ contains
 
         do i = 1, n
 
-          call fiss % sampleDelayed(mu, phi, E_out, p % E, p % pRNG, lambda)
+          call fiss % sampleDelayed(mu, phi, E_out, p % E, p % pRNG, lambda, family)
           dir = rotateVector(p % dirGlobal(), mu, phi)
           call fiss % samplePrecursorDecayT(lambda, p % pRNG, decayT)
 
@@ -300,6 +300,7 @@ contains
 
           ! Store lambda
           pTemp % lambda = lambda
+          pTemp % F = family
 
           call thisCycle % detain(pTemp)
 
