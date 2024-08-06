@@ -177,7 +177,7 @@ contains
 
         if (t == 1) then
           call self % fixedSource % generate(self % currentTime(i), self % pop, self % pRNG)
-        if (allocated(self % poissonSource)) then
+          if (allocated(self % poissonSource)) then
             call self % poissonSource % generate(self % currentTime(i), nParticles, self % pRNG)
          end if
       end if

@@ -158,6 +158,7 @@ contains
     integer(longInt)                      :: addr
     real(defReal)                         :: newScore
 
+    if (MT == N_FISSION) then
     ! Get current particle state
     state = pOld
     newScore = ZERO
@@ -193,6 +194,7 @@ contains
       call mem % score(newScore, addr + NU_FISS)
 
     end if
+  end if
 
   end subroutine reportSpawn
 
@@ -291,10 +293,10 @@ contains
       ! the STD will be NaN
       if (self % batches /= 0) then
         call mem % getResult(nu, STDnu, addr + NU_FISS, self % batches)
-        call mem % getResult(events, STDevents, self % getMemAddress() + 1, self % batches)
+        call mem % getResult(events, STDevents, addr + EVENT, self % batches)
       else
         call mem % getResult(nu, STDnu, addr + NU_FISS)
-        call mem % getResult(events, STDevents, self % getMemAddress() + 1)
+        call mem % getResult(events, STDevents, addr + EVENT)
       end if
 
       nu_score = nu/events

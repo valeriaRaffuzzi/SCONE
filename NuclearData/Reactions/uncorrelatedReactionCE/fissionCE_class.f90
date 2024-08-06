@@ -229,7 +229,6 @@ contains
     integer(shortInt)            :: N
 
     nuBarPrompt = self % releasePrompt(E)
-
     N = self % poissonPmf % sample(nuBarPrompt, rand)
 
   end function sampleNPromptPoisson
