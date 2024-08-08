@@ -303,6 +303,7 @@ contains
     call LHS % takeAboveGeom()
     LHS % coords % lvl(1) % r   = RHS % r
     LHS % coords % lvl(1) % dir = RHS % dir
+    LHS % coords % matIdx       = RHS % matIdx
     LHS % E                     = RHS % E
     LHS % G                     = RHS % G
     LHS % F                     = RHS % F
