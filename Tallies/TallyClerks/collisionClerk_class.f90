@@ -3,6 +3,7 @@ module collisionClerk_class
   use numPrecision
   use tallyCodes
   use universalVariables
+  use endfConstants
   use genericProcedures,          only : fatalError
   use dictionary_class,           only : dictionary
   use particle_class,             only : particle, particleState
@@ -74,6 +75,7 @@ module collisionClerk_class
 
     ! File reports and check status -> run-time procedures
     procedure  :: reportInColl
+    procedure  :: reportOutColl
     procedure  :: reportCycleStart
 
     ! Output procedures
@@ -129,7 +131,6 @@ contains
 
     ! Handle virtual collisions
     call dict % getOrDefault(self % virtual,'handleVirtual', .false.)
-
   end subroutine init
 
   !!
@@ -171,7 +172,7 @@ contains
     class(collisionClerk),intent(in)           :: self
     integer(shortInt),dimension(:),allocatable :: validCodes
 
-    validCodes = [cycleStart_CODE, inColl_CODE]
+    validCodes = [cycleStart_CODE, inColl_CODE, outColl_CODE]
 
   end function validReports
 
@@ -205,6 +206,49 @@ contains
 
   end subroutine reportCycleStart
 
+  subroutine reportOutColl(self, p, MT, muL, xsData, mem)
+    class(collisionClerk), intent(inout)  :: self
+    class(particle), intent(in)           :: p
+    integer(shortInt), intent(in)         :: MT
+    real(defReal), intent(in)             :: muL   
+    class(nuclearDatabase), intent(inout) :: xsData
+    type(scoreMemory), intent(inout)      :: mem
+    type(particle)                       :: pTemp
+    integer(shortInt)                     :: binIdx, i
+    integer(longInt)                      :: adrr
+    real(defReal)                         :: scoreVal, flux
+    character(100), parameter :: Here = 'reportOutColl (collisionClerk_class.f90)'
+
+    pTemp = p % preCollision
+    if (pTemp % w /= p % w) then 
+      do i = 1, self % width
+        if (self % response(i) % MT() == N_2N) then
+
+          flux = pTemp % w / xsData % getTotalMatXS(pTemp, pTemp % matIdx())
+
+         ! Check if within filter
+          if(allocated( self % filter)) then
+            if(self % filter % isFail(p % preCollision)) return
+          end if
+
+          ! Find bin index
+          if(allocated(self % map)) then
+            binIdx = self % map % map(p % preCollision)
+          else
+            binIdx = 1
+          end if
+
+          ! Return if invalid bin index
+          if (binIdx == 0) return
+
+          ! Calculate bin address
+          adrr = self % getMemAddress() + self % width * (binIdx -1)  - 1
+          scoreVal = self % response(i) % get(pTemp, xsData) * flux
+          call mem % score(scoreVal, adrr + i)
+        end if
+      end do
+    end if
+  end subroutine reportOutColl
   !!
   !! Process incoming collision report
   !!
@@ -237,7 +281,6 @@ contains
     end if
     ! Get current particle state
     state = p
-
     ! Check if within filter
     if(allocated( self % filter)) then
       if(self % filter % isFail(state)) return
@@ -258,6 +301,7 @@ contains
 
     ! Append all bins
     do i = 1,self % width
+      if (self % response(i) % MT() == N_2N) cycle
       scoreVal = self % response(i) % get(p, xsData) * flux
       call mem % score(scoreVal, adrr + i)
     end do

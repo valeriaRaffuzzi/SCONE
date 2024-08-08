@@ -94,6 +94,7 @@ module neutronCEkineticstd_class
     procedure :: capture
     procedure :: fission
     procedure :: cutoffs
+    procedure :: splitting
 
     ! Local procedures
     procedure,private :: scatterFromFixed
@@ -380,8 +381,30 @@ contains
 
     ! Apply weigth change
     p % w = p % w * reac % release(p % E)
+    !call splitting (self, p, thisCycle)
 
   end subroutine inelastic
+
+  ! Split particle to limit effect of non-analog scattering
+  ! Add split particle to this cycle
+  subroutine splitting(self, p, thisCycle)
+    class(neutronCEkineticstd), intent(inout) :: self
+    class(particle), intent(inout)            :: p
+    class(particleDungeon), intent(inout)     :: thisCycle
+    integer(shortInt)                         :: mult, i
+
+    ! This value is necessarily entire
+    mult = int(p % w)
+
+    ! Put back weight to unit
+    p % w = ONE
+
+    ! Add split particle's to the dungeon
+    do i = 1,mult-1
+      call thisCycle % detain(p)
+    end do
+
+  end subroutine splitting
 
   !!
   !! Apply cutoffs

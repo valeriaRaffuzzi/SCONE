@@ -76,7 +76,7 @@ contains
           else
             call self % geom % move(p % coords, dist, event)
           end if
-          return
+          exit STLoop
         end if 
         ! Should never happen! Catches NaN distances
         if (dist /= dist) call fatalError(Here, "Distance is NaN")

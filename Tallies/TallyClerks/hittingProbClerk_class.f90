@@ -319,7 +319,6 @@ contains
 
         xsData => ndReg_get(p % getType(), where = Here)
         scoreVal = - p % w * self % response(i) % get(p, xsData)
-
         if (scoreVal == ZERO) return
         if (allocated(self % neutrons) .and. p % type == P_NEUTRON) then
           call mem % score(scoreVal, adrr + i)
