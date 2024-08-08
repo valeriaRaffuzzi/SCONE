@@ -220,7 +220,7 @@ contains
     character(100), parameter :: Here = 'reportOutColl (collisionClerk_class.f90)'
 
     pTemp = p % preCollision
-    if (pTemp % w /= p % w) then 
+    if (p % hasN2N) then 
       do i = 1, self % width
         if (self % response(i) % MT() == N_2N) then
 

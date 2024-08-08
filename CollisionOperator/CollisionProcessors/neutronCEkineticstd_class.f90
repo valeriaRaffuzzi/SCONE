@@ -381,7 +381,8 @@ contains
 
     ! Apply weigth change
     p % w = p % w * reac % release(p % E)
-    !call splitting (self, p, thisCycle)
+    if (p % w /= ONE) p % hasN2N = .true.
+    call splitting (self, p, thisCycle)
 
   end subroutine inelastic
 
