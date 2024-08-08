@@ -238,7 +238,7 @@ contains
     if (.not.associated(fiss)) call fatalError(Here, "Failed to get fissionCE")
     sig_nufiss = fiss % releasePrompt(p % E) * microXSs % fission
 
-    n = fiss % sampleNPromptPoisson(p % E, p % pRNG)
+    n = fiss % sampleNPromptPoisson(p % E, p % pRNG) * p % w
 
     if (n >= 1) then
       ! Store new sites in the next cycle dungeon
@@ -258,7 +258,7 @@ contains
         pTemp % r   = r
         pTemp % dir = dir
         pTemp % E   = E_out
-        pTemp % wgt = wgt
+        pTemp % wgt = ONE
         pTemp % type = P_NEUTRON
         pTemp % timeBirth = p % time
 
@@ -272,7 +272,7 @@ contains
 
     if (self % usePrecursors) then
 
-      n = fiss % sampleNDelayedPoisson(p % E, p % pRNG)
+      n = fiss % sampleNDelayedPoisson(p % E, p % pRNG) * p % w
 
       if (n >= 1) then
         wgt =  sign(w0, wgt)
@@ -293,7 +293,7 @@ contains
           pTemp % r    = r
           pTemp % dir  = dir
           pTemp % E    = E_out
-          pTemp % wgt  = wgt
+          pTemp % wgt  = ONE
           pTemp % time = p % time + decayT
           pTemp % timeBirth = pTemp % time
           pTemp % type = P_PRECURSOR
