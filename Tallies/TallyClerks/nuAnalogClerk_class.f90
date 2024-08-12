@@ -293,10 +293,18 @@ contains
       ! the STD will be NaN
       if (self % batches /= 0) then
         call mem % getResult(nu, STDnu, addr + NU_FISS, self % batches)
-        call mem % getResult(events, STDevents, addr + EVENT, self % batches)
+        if (self % delayed) then 
+          call mem % getResult(events, STDevents, self % getMemAddress() + EVENT, self % batches)
+        else
+          call mem % getResult(events, STDevents, addr + EVENT, self % batches)
+        end if
       else
         call mem % getResult(nu, STDnu, addr + NU_FISS)
-        call mem % getResult(events, STDevents, addr + EVENT)
+        if (self % delayed) then 
+          call mem % getResult(events, STDevents, self % getMemAddress() + EVENT)
+        else
+          call mem % getResult(events, STDevents, addr + EVENT)
+        end if
       end if
 
       nu_score = nu/events
