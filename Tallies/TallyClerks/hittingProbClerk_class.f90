@@ -261,7 +261,7 @@ contains
         adrr = self % getMemAddress() + self % width * (binIdx - 1) - 1
 
         xsData => ndReg_get(p % getType(), where = Here)
-        scoreVal = self % response(i) % get(p, xsData) !self % response(i) % get(p, xsData)
+        scoreVal = p % w * self % response(i) % get(p, xsData) !self % response(i) % get(p, xsData)
 
         if (scoreVal == ZERO) return
         if (allocated(self % neutrons) .and. p % type == P_NEUTRON) then
@@ -318,8 +318,7 @@ contains
         adrr = self % getMemAddress() + self % width * (binIdx - 1) - 1
 
         xsData => ndReg_get(p % getType(), where = Here)
-        scoreVal = -self % response(i) % get(p, xsData)
-
+        scoreVal = - p % w * self % response(i) % get(p, xsData)
         if (scoreVal == ZERO) return
         if (allocated(self % neutrons) .and. p % type == P_NEUTRON) then
           call mem % score(scoreVal, adrr + i)

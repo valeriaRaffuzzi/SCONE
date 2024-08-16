@@ -25,7 +25,8 @@ module tallyResponse_inter
   !!   kill -> Return to uninitialised state
   !!
   type, public,abstract :: tallyResponse
-    private
+    integer(shortInt) :: MT = 0
+    
 
   contains
     procedure(init), deferred :: init

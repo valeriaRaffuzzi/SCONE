@@ -229,7 +229,6 @@ contains
     integer(shortInt)            :: N
 
     nuBarPrompt = self % releasePrompt(E)
-
     N = self % poissonPmf % sample(nuBarPrompt, rand)
 
   end function sampleNPromptPoisson
@@ -334,7 +333,7 @@ contains
   !!
   !! Samples mu, phi, E_out for a delayed neutron
   !!
-  subroutine sampleDelayed(self, mu, phi, E_out, E_in, rand, lambda) !p_del)
+  subroutine sampleDelayed(self, mu, phi, E_out, E_in, rand, lambda,family) !p_del)
     class(fissionCE), intent(in)                           :: self
     real(defReal), intent(out)                             :: mu
     real(defReal), intent(out)                             :: phi
@@ -342,6 +341,7 @@ contains
     real(defReal), intent(in)                              :: E_in
     class(RNG), intent(inout)                              :: rand
     real(defReal), intent(inout)                           :: lambda
+    integer(shortInt), intent(inout), optional             :: family
     !real(defReal), intent(out), optional                   :: p_del
     real(defReal)                                          :: r2
     integer(shortInt)                                      :: i, N
@@ -364,10 +364,12 @@ contains
       if( r2 < ZERO) then
         E_out = self % delayed(i) % eLaw % sample(E_in, rand)
         lambda = self % delayed(i) % lambda
+        if (present(family)) family = i
         !print *, 'lambda: ', numToChar(lambda)
         return
       end if
     end do precursors
+    print *, size(self % delayed)
 
     ! Sampling failed -> Choose top precursor group
     N = size(self % delayed)

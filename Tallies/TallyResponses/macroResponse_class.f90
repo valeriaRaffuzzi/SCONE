@@ -34,9 +34,7 @@ module macroResponse_class
   !!  }
   !!
   type, public,extends(tallyResponse) :: macroResponse
-    private
-    !! Response MT number
-    integer(shortInt) :: MT = 0
+
   contains
     ! Superclass Procedures
     procedure  :: init
@@ -89,7 +87,7 @@ contains
     ! Check that MT number is valid
     select case(MT)
     case(macroTotal, macroCapture, macroFission, macroNuFission, macroAbsorbtion, &
-         macroEscatter, macroIEscatter, macroPromptNuFission, macroDelayedNuFission)
+         macroEscatter, macroIEscatter, macroPromptNuFission, macroDelayedNuFission, N_2N)
         ! Do nothing. MT is Valid
 
       case default
@@ -131,8 +129,11 @@ contains
 
     call mat % getMacroXSs(xss, p)
 
-    val = xss % get(self % MT)
-
+    if (self % MT == N_2N) then 
+      val = xss % get(macroIEscatter)
+    else
+      val = xss % get(self % MT)
+    end if
   end function get
 
   !!

@@ -53,6 +53,7 @@ module particle_class
     real(defReal),dimension(3) :: dir  = ZERO       ! Global direction
     real(defReal)              :: E    = ZERO       ! Energy
     integer(shortInt)          :: G    = 0          ! Energy group
+    integer(shortInt)          :: F    = 0          ! Family group if precursor
     logical(defBool)           :: isDead
     logical(defBool)           :: isMG = .false.    ! Is neutron multi-group
     integer(shortInt)          :: fate = no_FATE    !Neutron's fate after being subjected to an operator
@@ -118,6 +119,7 @@ module particle_class
 
     ! Precursor particle data
     real(defReal)              :: lambda    ! Precursor decay constant
+    integer(shortInt)          :: F         ! Family group if precursor
 
     ! Particle flags
     real(defReal)              :: w0             ! Particle initial weight (for implicit, variance reduction...)
@@ -127,7 +129,7 @@ module particle_class
     integer(shortInt)          :: fate = no_FATE ! Neutron's fate after being subjected to an operator
     integer(shortInt)          :: type           ! Particle type
     integer(shortInt)          :: collisionN = 0 ! Index of the number of collisions the particle went through
-
+    logical(defBool)           :: hasN2N = .false.
     ! Particle processing information
     class(RNG), pointer        :: pRNG  => null()  ! Pointer to RNG associated with the particle
     real(defReal)              :: k_eff            ! Value of default keff for implicit source generation
@@ -204,7 +206,7 @@ contains
   !!   t        -> particle time (default = 0.0)
   !!   type     -> particle type (default = P_NEUTRON)
   !!
-  pure subroutine buildCE(self, r, dir, E, w, t, type)
+  pure subroutine buildCE(self, r, dir, E, w, t, type, family, lambda)
     class(particle), intent(inout)          :: self
     real(defReal),dimension(3),intent(in)   :: r
     real(defReal),dimension(3),intent(in)   :: dir
@@ -212,6 +214,8 @@ contains
     real(defReal),intent(in)                :: w
     real(defReal),optional,intent(in)       :: t
     integer(shortInt),intent(in),optional   :: type
+    integer(shortInt),intent(in),optional   :: family
+    real(defReal),intent(in), optional      :: lambda
 
     call self % coords % init(r, dir)
     self % E  = E
@@ -231,6 +235,8 @@ contains
 
     if(present(type)) then
       self % type = type
+      if (present(family)) self % F = family
+      if (present(lambda)) self % lambda = lambda
     else
       self % type = P_NEUTRON
     end if
@@ -248,7 +254,7 @@ contains
   !!   t   -> particle time (default = 0.0)
   !!   type-> particle type (default = P_NEUTRON)
   !!
-  subroutine buildMG(self, r, dir, G, w, t, type)
+  subroutine buildMG(self, r, dir, G, w, t, type, family, lambda)
     class(particle), intent(inout)          :: self
     real(defReal),dimension(3),intent(in)   :: r
     real(defReal),dimension(3),intent(in)   :: dir
@@ -256,6 +262,8 @@ contains
     integer(shortInt),intent(in)            :: G
     real(defReal),intent(in),optional       :: t
     integer(shortInt),intent(in),optional   :: type
+    integer(shortInt),intent(in),optional   :: family
+    real(defReal),intent(in), optional      :: lambda
 
     call self % coords % init(r, dir)
     self % G  = G
@@ -275,6 +283,8 @@ contains
 
     if(present(type)) then
       self % type = type
+      if (present(family)) self % F = family
+      if (present(lambda)) self % lambda = lambda
     else
       self % type = P_NEUTRON
     end if
@@ -293,8 +303,11 @@ contains
     call LHS % takeAboveGeom()
     LHS % coords % lvl(1) % r   = RHS % r
     LHS % coords % lvl(1) % dir = RHS % dir
+    LHS % coords % matIdx       = RHS % matIdx
     LHS % E                     = RHS % E
     LHS % G                     = RHS % G
+    LHS % F                     = RHS % F
+    LHS % lambda                = RHS % lambda
     LHS % isDead                = RHS % isDead
     LHS % isMG                  = RHS % isMG
     LHS % type                  = RHS % type
@@ -712,6 +725,8 @@ contains
     LHS % dir        = RHS % dirGlobal()
     LHS % E          = RHS % E
     LHS % G          = RHS % G
+    LHS % F          = RHS % F
+    LHS % lambda     = RHS % lambda
     LHS % isDead     = RHS % isDead
     LHS % isMG       = RHS % isMG
     LHS % type       = RHS % type
@@ -757,6 +772,11 @@ contains
       isEqual = isEqual .and. LHS % G == RHS % G
     else
       isEqual = isEqual .and. LHS % E == RHS % E
+    end if
+
+    if(LHS % type == P_PRECURSOR .and. RHS % type == P_PRECURSOR) then
+      isEqual = isEqual .and. LHS % F == RHS % F
+      isEqual = isEqual .and. LHS % lambda == RHS % lambda
     end if
 
   end function equal_particleState
@@ -813,6 +833,8 @@ contains
     self % dir  = ZERO
     self % E    = ZERO
     self % G    = 0
+    self % F    = 0
+    self % lambda = 0
     self % isMG = .false.
     self % type = P_NEUTRON
     self % time = ZERO
@@ -840,7 +862,7 @@ contains
     ! Check against particles types
     isValid = isValid .or. type == P_NEUTRON
     isValid = isValid .or. type == P_PHOTON
-
+    isValid = isValid .or. type == P_PRECURSOR
   end function verifyType
 
   !!
@@ -856,6 +878,9 @@ contains
 
       case(P_PHOTON)
         name = 'Photon'
+
+      case(P_PRECURSOR)
+        name = 'Precursor'
 
       case default
         name = 'INVALID PARTICLE TYPE'
