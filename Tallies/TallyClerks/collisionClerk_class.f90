@@ -185,12 +185,15 @@ contains
     integer(shortInt)                 :: S
 
     S = size(self % response)
-    if(allocated(self % map)) S = S * self % map % bins(0)
+    if (allocated(self % map)) S = S * self % map % bins(0)
 
   end function getSize
 
+  !!
+  !!
+  !!
   subroutine reportCycleStart(self, start, mem)
-    class(collisionClerk), intent(inout)     :: self
+    class(collisionClerk), intent(inout)  :: self
     class(particleDungeon), intent(in)    :: start
     type(scoreMemory), intent(inout)      :: mem
 
