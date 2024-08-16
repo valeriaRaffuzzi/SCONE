@@ -164,6 +164,9 @@ contains
     ! Report out-of-collision
     call tally % reportOutColl(p, collDat % MT, collDat % muL)
 
+    ! Reset flag for N2N scattering
+    p % hasN2N = .false.
+
     ! Report end-of-history if particle was killed
     if( p % isDead) then
       p % fate = ABS_FATE

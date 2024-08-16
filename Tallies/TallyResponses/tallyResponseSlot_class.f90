@@ -35,6 +35,7 @@ module tallyResponseSlot_class
     procedure :: init
     procedure :: get
     procedure :: kill
+    procedure :: MT
 
     ! Class specific procedures
     procedure :: moveAllocFrom
@@ -77,6 +78,12 @@ contains
 
   end function get
 
+  function MT(self) result(MTvalue)
+    class(tallyResponseSlot), intent(in) :: self
+    integer(shortInt)                    :: MTvalue
+
+    MTvalue = self % slot % MT
+  end function MT
   !!
   !! Move allocation from allocatable RHS into slot
   !!

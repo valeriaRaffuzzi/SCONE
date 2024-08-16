@@ -94,6 +94,7 @@ module neutronCEkineticstd_class
     procedure :: capture
     procedure :: fission
     procedure :: cutoffs
+    procedure :: splitting
 
     ! Local procedures
     procedure,private :: scatterFromFixed
@@ -220,7 +221,7 @@ contains
     type(neutronMicroXSs)                     :: microXSs
     type(particleState)                       :: pTemp
     real(defReal),dimension(3)                :: r, dir
-    integer(shortInt)                         :: n, i
+    integer(shortInt)                         :: n, i, family
     real(defReal)                             :: wgt, w0, E_out, mu, phi, lambda, decayT
     real(defReal)                             :: sig_nufiss, k_eff, sig_fiss
     character(100),parameter :: Here = 'fission (neutronCEkineticstd_class.f90)'
@@ -238,7 +239,7 @@ contains
     if (.not.associated(fiss)) call fatalError(Here, "Failed to get fissionCE")
     sig_nufiss = fiss % releasePrompt(p % E) * microXSs % fission
 
-    n = fiss % sampleNPromptPoisson(p % E, p % pRNG)
+    n = fiss % sampleNPromptPoisson(p % E, p % pRNG) * p % w
 
     if (n >= 1) then
       ! Store new sites in the next cycle dungeon
@@ -258,7 +259,7 @@ contains
         pTemp % r   = r
         pTemp % dir = dir
         pTemp % E   = E_out
-        pTemp % wgt = wgt
+        pTemp % wgt = ONE
         pTemp % type = P_NEUTRON
         pTemp % timeBirth = p % time
 
@@ -272,7 +273,7 @@ contains
 
     if (self % usePrecursors) then
 
-      n = fiss % sampleNDelayedPoisson(p % E, p % pRNG)
+      n = fiss % sampleNDelayedPoisson(p % E, p % pRNG) * p % w
 
       if (n >= 1) then
         wgt =  sign(w0, wgt)
@@ -280,7 +281,7 @@ contains
 
         do i = 1, n
 
-          call fiss % sampleDelayed(mu, phi, E_out, p % E, p % pRNG, lambda)
+          call fiss % sampleDelayed(mu, phi, E_out, p % E, p % pRNG, lambda, family)
           dir = rotateVector(p % dirGlobal(), mu, phi)
           call fiss % samplePrecursorDecayT(lambda, p % pRNG, decayT)
 
@@ -293,13 +294,14 @@ contains
           pTemp % r    = r
           pTemp % dir  = dir
           pTemp % E    = E_out
-          pTemp % wgt  = wgt
+          pTemp % wgt  = ONE
           pTemp % time = p % time + decayT
           pTemp % timeBirth = pTemp % time
           pTemp % type = P_PRECURSOR
 
           ! Store lambda
           pTemp % lambda = lambda
+          pTemp % F = family
 
           call thisCycle % detain(pTemp)
 
@@ -379,8 +381,31 @@ contains
 
     ! Apply weigth change
     p % w = p % w * reac % release(p % E)
+    if (p % w /= ONE) p % hasN2N = .true.
+    call splitting (self, p, thisCycle)
 
   end subroutine inelastic
+
+  ! Split particle to limit effect of non-analog scattering
+  ! Add split particle to this cycle
+  subroutine splitting(self, p, thisCycle)
+    class(neutronCEkineticstd), intent(inout) :: self
+    class(particle), intent(inout)            :: p
+    class(particleDungeon), intent(inout)     :: thisCycle
+    integer(shortInt)                         :: mult, i
+
+    ! This value is necessarily entire
+    mult = int(p % w)
+
+    ! Put back weight to unit
+    p % w = ONE
+
+    ! Add split particle's to the dungeon
+    do i = 1,mult-1
+      call thisCycle % detain(p)
+    end do
+
+  end subroutine splitting
 
   !!
   !! Apply cutoffs

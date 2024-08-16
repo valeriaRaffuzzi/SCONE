@@ -64,9 +64,7 @@ module pointSource_class
     integer(shortInt)                         :: particleType = P_NEUTRON
     logical(defBool)                          :: isMG         = .false.
     logical(defBool)                          :: isIsotropic  = .false.
-    real(defReal)                             :: poissonSource = -ONE
-    real(defReal)                             :: poissonSourceScale = -ONE
-    type(poissonPmf)                          :: poissonPmf
+    real(defReal)                             :: poissonIntensity
   contains
     procedure :: init
     procedure :: sampleType
@@ -145,12 +143,15 @@ contains
       self % dir = self % dir / norm2(self % dir)
     end if
 
-    call dict % getOrDefault(self % poissonSource, 'poissonSource', -ONE)
-    call dict % getOrDefault(self % poissonSourceScale, 'poissonScale', -ONE)
-    if ((self % poissonSource >= ZERO) .and. (self % poissonSourceScale == -ONE)) then 
-      call fatalError(Here, 'Poisson Source requires scale')
-    else if ((self % poissonSource == -ONE) .and. (self % poissonSourceScale > ZERO)) then
-      call fatalError(Here, 'Poisson Source needs to be defined')
+    call dict % getOrDefault(self % isPoisson, 'poissonSource', .false.)
+    call dict % getOrDefault(self % finalPoissonTime, 'finalTime', -ONE)
+    call dict % getOrDefault(self % poissonIntensity, 'poissonIntensity', -ONE)
+    if ((self % isPoisson) .and. (self % poissonIntensity == -ONE)) then 
+      call fatalError(Here, 'Poisson Source requires intensity')
+    else if ((self % isPoisson) .and. (self % finalPoissonTime == -ONE)) then
+      call fatalError(Here, 'Poisson Source final time needs to be defined')
+    else if ((.not. self % isPoisson) .and. ((self % poissonIntensity /= -ONE) .or. (self % finalPoissonTime /= -ONE))) then
+      call fatalError(Here, 'Poisson source needs to be defined')
     end if
 
     ! Get particle energy/group
@@ -290,9 +291,14 @@ contains
     class(pointSource), intent(inout)   :: self
     class(particleState), intent(inout) :: p
     class(RNG), intent(inout)           :: rand
+    real(defReal)                       :: r, nextTime
 
-    if ((self % poissonSource >= ZERO) .and. (self % poissonSourceScale > ZERO)) then
-      p % time = self % poissonPmf % sample(self % poissonSource, rand) * self % poissonSourceScale
+    if ((self % isPoisson)) then
+      r = rand % get()
+      nextTime = self % poissonTime - ONE / self % poissonIntensity * log(r)
+      p % time = nextTime
+      self % poissonTime = nextTime
+      if (nextTime > self % finalPoissonTime) p % isDead = .true.
     else
       p % time = ZERO
     end if

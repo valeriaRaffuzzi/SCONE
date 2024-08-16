@@ -414,7 +414,7 @@ contains
     else
       inv_Nm1 = ONE
     end if
-
+    
     STD = self % bins(idx, CSUM2) *inv_N * inv_Nm1 - mean * mean * inv_Nm1
     STD = sqrt(STD)
 
