@@ -6,15 +6,15 @@ XSdata   ce;
 dataType ce;
 timeIncrement 1.E-1; //1.E-1
 cycles 10;
-buffer 1000;
-combing 1; //toggle on or off
+buffer 100000;
 
-//precursors 1;
-//useForcedPrecursorDecay 1;
+combing 0; //toggle on or off, no combing when branchless
+precursors 0;
+useForcedPrecursorDecay 0;
 branchless 1;
 
 outputFormat asciiJSON;
-collisionOperator { neutronCE {type neutronCEkineticimp; minEnergy 1.0e-11; maxEnergy 20; branchless 1;}} //precursors 1;
+collisionOperator { neutronCE {type neutronCEkineticimp; minEnergy 1.0e-11; maxEnergy 20; branchless 1; precursors 0;}} //precursors 1;
 
 transportOperator { type transportOperatorDT; //currently will only support this
                   }

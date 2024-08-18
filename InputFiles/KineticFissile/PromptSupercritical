@@ -6,9 +6,9 @@ XSdata   ce;
 dataType ce;
 timeIncrement 0.025; //8.E-10
 cycles 10; //10
-buffer 1000;
-combing 1; //toggle on or off
-//precursors 1;
+buffer 1000000;
+combing 0; //toggle on or off
+branchless 1;
 
 outputFormat asciiJSON;
 collisionOperator { neutronCE {type neutronCEkineticimp; minEnergy 1.0e-11; maxEnergy 20;branchless 1;}} //precursors 1;
