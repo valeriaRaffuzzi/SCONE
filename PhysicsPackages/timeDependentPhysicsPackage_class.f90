@@ -141,7 +141,7 @@ contains
     type(tallyAdmin), pointer, intent(inout)           :: tally
     real(defReal), intent(inout)                      :: simTime
     integer(shortInt), intent(in)                     :: N_timeBins, N_cycles
-    integer(shortInt)                                 :: i, t, n, nParticles, nDelayedParticles, nPrecuCount, nPrecuCountImp
+    integer(shortInt)                                 :: i, t, n, nParticles, nDelayedParticles, nPrecuCount
     type(particle), save                              :: p, p_d
     type(particleDungeon), save                       :: buffer
     type(collisionOperator), save                     :: collOp
@@ -187,7 +187,7 @@ contains
         nParticles = self % currentTime(i) % popSize()
 
         if ((self % usePrecursors .eqv. .true.) .and. (self % useForcedPrecursorDecay .eqv. .true.)) then
-          nPrecuCountImp = self % precursorDungeons(i) % popSize()
+          nPrecuCount = self % precursorDungeons(i) % popSize() + 1
         end if
 
         !$omp parallel do schedule(dynamic)
@@ -340,9 +340,8 @@ contains
 
           ! Impliciy delayed neutron handling
           nDelayedParticles = self % precursorDungeons(i) % popSize()
-          nPrecuCount = nPrecuCountImp + 1
 
-          if (nDelayedParticles > nPrecuCountImp) then
+          if (nDelayedParticles > nPrecuCount - 1) then
             superGenDelayedImp: do
             !$omp parallel do schedule(dynamic)
             genDelayedImp: do n = nPrecuCount, nDelayedParticles
