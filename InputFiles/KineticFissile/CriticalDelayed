@@ -9,11 +9,11 @@ cycles 10;
 buffer 100000;
 
 combing 0; 
-precursors 1;
-useForcedPrecursorDecay 1;
-branchless 0;
+precursors 0;
+useForcedPrecursorDecay 0;
+branchless 1;
 outputFormat asciiJSON;
-collisionOperator { neutronCE {type neutronCEkineticimp; minEnergy 1.0e-11; maxEnergy 20;precursors 1;branchless 0;}}
+collisionOperator { neutronCE {type neutronCEkineticimp; minEnergy 1.0e-11; maxEnergy 20;precursors 0;branchless 1;}}
 
 transportOperator { type transportOperatorDT;
                   }

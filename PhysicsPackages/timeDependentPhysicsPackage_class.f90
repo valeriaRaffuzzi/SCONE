@@ -338,25 +338,113 @@ contains
 
         else if ((self % usePrecursors .eqv. .true.) .and. (self % useForcedPrecursorDecay .eqv. .true.)) then
 
-          ! Precursor population control
-          !if (self % precursorDungeons(i) % popSize() > 1000) then !            if (self % precursorDungeons(i) % popSize() > self % pop) then
-          !  print *, '------- PRECURSOR COMBING' 
-          !  call self % precursorDungeons(i) % precursorCombing(1000, pRNG, timeIncrement*(t)) ! self % pop
-          !end if
-
           ! Impliciy delayed neutron handling
           nDelayedParticles = self % precursorDungeons(i) % popSize()
-          nPrecuCount = 1
-          if (nDelayedParticles > 0) then
+          nPrecuCount = nPrecuCountImp + 1
+
+          if (nDelayedParticles > nPrecuCountImp) then
             superGenDelayedImp: do
             !$omp parallel do schedule(dynamic)
             genDelayedImp: do n = nPrecuCount, nDelayedParticles
+
+              ! Force decay at this time interval if generated in this time interval
+              call self % precursorDungeons(i) % copy(p, n)
+              p % timeBinIdx = t
+
+              decay_T = p % time + pRNG % get() * (t*timeIncrement - p % time)
+
+              ! Weight adjustment
+              w_d = p % forcedPrecursorDecayWgt(decay_T, t*timeIncrement - p % time)
+
+              pRNG = self % pRNG
+              p % pRNG => pRNG
+              call p % pRNG % stride(n)
+
+              ! Update parameters
+              p % type = P_NEUTRON
+              p % time = decay_T
+              p % w = w_d
+              p % fate = no_FATE
+
+              bufferLoopDelayedImp: do
+
+                if ((p % fate == aged_FATE) .or. (p % fate == no_FATE)) then
+                  p % fate = no_FATE
+                  p % isdead = .false.
+                  call tally % reportTemporalPopIn(p)
+                  call tally % reportHittingProbIn(p)
+                else
+                  p % isdead = .true.
+                  call tally % reportTemporalPopOut(p)
+                  call tally % reportHittingProbOut(p)
+                end if
+
+                call self % geom % placeCoord(p % coords)
+                p % timeMax = t*timeIncrement
+                call p % savePreHistory()
+
+                ! Transport particle until its death
+                historyDelayedImp: do
+                  if(p % isDead) exit historyDelayedImp
+                  call transOp % transport(p, tally, buffer, buffer)
+                  if(p % isDead) then
+                    call tally % reportTemporalPopOut(p)
+                    call tally % reportHittingProbOut(p)
+                    exit historyDelayedImp
+                  end if
+                  if(p % fate == AGED_FATE) then
+                    call self % nextTime(i) % detain(p)
+                    exit historyDelayedImp
+                  endif
+                  call collOp % collide(p, tally, self % precursorDungeons(i), buffer)
+                  if(p % isDead) then
+                    call tally % reportTemporalPopOut(p)
+                    call tally % reportHittingProbOut(p)
+                    exit historyDelayedImp
+                  end if
+                end do historyDelayedImp
+
+                ! Clear out buffer
+                if (buffer % isEmpty()) then
+                  exit bufferLoopDelayedImp
+                else
+                  call buffer % release(p)
+                end if
+
+              end do bufferLoopDelayedImp
+
+            end do genDelayedImp
+            !$omp end parallel do
+
+            if (nDelayedParticles .eq. self % precursorDungeons(i) % popSize()) then
+              exit superGenDelayedImp
+            else
+              nPrecuCount = nDelayedParticles+1
+              nDelayedParticles = self % precursorDungeons(i) % popSize()
+            end if
+            end do superGenDelayedImp
+
+          end if
+
+          nDelayedParticles = self % precursorDungeons(i) % popSize()
+
+          if (nDelayedParticles > 0) then
+
+            ! Precursor population control
+            if (nDelayedParticles > self % pop) then
+              call self % precursorDungeons(i) % precursorCombing(self % pop, pRNG, timeIncrement*t)
+            end if
+
+            nDelayedParticles = self % precursorDungeons(i) % popSize()
+
+            !$omp parallel do schedule(dynamic)
+            genDelayedImpNext: do n = 1, nDelayedParticles
+              ! pass to next time interval for Forced Precursor Decay
+
               call self % precursorDungeons(i) % copy(p, n)
               p % timeBinIdx = t
               call tally % reportTemporalPopIn(p)
               call tally % reportHittingProbIn(p)
-
-              ! pass to next time interval for Forced Precursor Decay
 
               ! Sample decay time
               decay_T = timeIncrement * (t+pRNG % get())
@@ -377,85 +465,10 @@ contains
               ! Add to current dungeon
               call self % nextTime(i) % detain(p)
 
-              ! Force decay of this time interval if generated in this time interval
-              if (n > nPrecuCountImp) then 
-                call self % precursorDungeons(i) % copy(p, n)
-
-                decay_T = p % time + pRNG % get() * (t*timeIncrement - p % time)
-
-                ! Weight adjustment
-                w_d = p % forcedPrecursorDecayWgt(decay_T, t*timeIncrement - p % time)
-
-                pRNG = self % pRNG
-                p % pRNG => pRNG
-                call p % pRNG % stride(n)
-
-                ! Update parameters
-                p % type = P_NEUTRON
-                p % time = decay_T
-                p % w = w_d
-                p % fate = no_FATE
-
-                bufferLoopDelayedImp: do
-
-                  if ((p % fate == aged_FATE) .or. (p % fate == no_FATE)) then
-                    p % fate = no_FATE
-                    p % isdead = .false.
-                    call tally % reportTemporalPopIn(p)
-                    call tally % reportHittingProbIn(p)
-                  else
-                    p % isdead = .true.
-                    call tally % reportTemporalPopOut(p)
-                    call tally % reportHittingProbOut(p)
-                  end if
-
-                  call self % geom % placeCoord(p % coords)
-                  p % timeMax = t*timeIncrement
-                  call p % savePreHistory()
-
-                  ! Transport particle until its death
-                  historyDelayedImp: do
-                    if(p % isDead) exit historyDelayedImp
-                    call transOp % transport(p, tally, buffer, buffer)
-                    if(p % isDead) then
-                      call tally % reportTemporalPopOut(p)
-                      call tally % reportHittingProbOut(p)
-                      exit historyDelayedImp
-                    end if
-                    if(p % fate == AGED_FATE) then
-                      call self % nextTime(i) % detain(p)
-                      exit historyDelayedImp
-                    endif
-                    call collOp % collide(p, tally, self % precursorDungeons(i), buffer)
-                    if(p % isDead) then
-                      call tally % reportTemporalPopOut(p)
-                      call tally % reportHittingProbOut(p)
-                      exit historyDelayedImp
-                    end if
-                  end do historyDelayedImp
-
-                  ! Clear out buffer
-                  if (buffer % isEmpty()) then
-                    exit bufferLoopDelayedImp
-                  else
-                    call buffer % release(p)
-                  end if
-
-                end do bufferLoopDelayedImp
-
-              end if
-            end do genDelayedImp
+            end do genDelayedImpNext
             !$omp end parallel do
-
-            if (nDelayedParticles .eq. self % precursorDungeons(i) % popSize()) then
-               exit superGenDelayedImp
-            else
-              nPrecuCount = nDelayedParticles+1
-              nDelayedParticles = self % precursorDungeons(i) % popSize()
-            end if
-            end do superGenDelayedImp
-
           end if
+
         end if
 
         ! Update RNG

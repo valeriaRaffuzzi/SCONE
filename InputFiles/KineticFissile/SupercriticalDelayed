@@ -8,13 +8,13 @@ timeIncrement 1.E-1; //1.E-1
 cycles 10;
 buffer 100000;
 
-combing 0; //toggle on or off, no combing when branchless
-precursors 0;
+combing 0;
+precursors 1;
 useForcedPrecursorDecay 0;
-branchless 1;
+branchless 0;
 
 outputFormat asciiJSON;
-collisionOperator { neutronCE {type neutronCEkineticimp; minEnergy 1.0e-11; maxEnergy 20; branchless 1; precursors 0;}} //precursors 1;
+collisionOperator { neutronCE {type neutronCEkineticstd; minEnergy 1.0e-11; maxEnergy 20; branchless 0; precursors 1;}} //precursors 1;
 
 transportOperator { type transportOperatorDT; //currently will only support this
                   }
