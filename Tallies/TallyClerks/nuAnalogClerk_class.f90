@@ -194,7 +194,7 @@ contains
 
       ! Score nu
       call mem % score(newScore, addr + NU_FISS)
-      if (.not. self % delayed) call mem % score(newScore, addr + TMP)
+      if (.not. self % delayed .and. pNew % type == P_NEUTRON) call mem % score(newScore, addr + TMP)
 
     end if
   end if
