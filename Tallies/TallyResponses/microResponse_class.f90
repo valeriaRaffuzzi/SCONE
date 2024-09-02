@@ -117,18 +117,34 @@ contains
 
     ! Check that MT number is valid and load MT
     select case(MT)
+
       case(N_TOTAL)
         self % MT = macroTotal
+
       case(N_N_ELASTIC)
         self % MT = macroEScatter
+
       case(N_GAMMA)
         self % MT = macroCapture
+
       case(N_FISSION)
         self % MT = macroFission
+
       case(N_ABSORPTION)
         self % MT = macroAbsorbtion
+
+      case(NU_FISS)
+        self % MT = macroNuFission
+
+      case(NU_FISS_PROMPT)
+        self % MT = macroPromptNuFission
+
+      case(NU_FISS_DELAYED)
+        self % MT = macroDelayedNuFission
+
       case default
         call fatalError(Here,'Unrecognised MT number: '// numToChar(MT))
+
     end select
 
   end subroutine build
