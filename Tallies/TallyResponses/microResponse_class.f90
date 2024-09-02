@@ -46,7 +46,6 @@ module microResponse_class
   type, public,extends(tallyResponse) :: microResponse
     private
     !! Response MT number
-    integer(shortInt)        :: MT
     integer(shortInt),public :: matIdx
     real(defReal)            :: dens
   contains

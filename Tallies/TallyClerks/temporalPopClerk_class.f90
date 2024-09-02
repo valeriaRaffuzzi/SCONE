@@ -217,7 +217,7 @@ contains
       adrr = self % getMemAddress() + self % width * (binIdx - 1) - 1
 
       xsData => ndReg_get(p % getType(), where = Here)
-      scoreVal = self % response(i) % get(p, xsData)
+      scoreVal = p % w * self % response(i) % get(p, xsData)
       call mem % score(scoreVal, adrr + i)
 
     end do
@@ -265,7 +265,7 @@ contains
       adrr = self % getMemAddress() + self % width * (binIdx - 1) - 1
 
       xsData => ndReg_get(p % getType(), where = Here)
-      scoreVal = -self % response(i) % get(p, xsData)
+      scoreVal = -p % w * self % response(i) % get(p, xsData)
       call mem % score(scoreVal, adrr + i)
 
     end do

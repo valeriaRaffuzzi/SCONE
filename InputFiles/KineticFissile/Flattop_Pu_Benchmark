@@ -6,7 +6,7 @@ XSdata   ce;
 dataType ce;
 timeIncrement 8.E-10; //8.E-10
 cycles 100; //100
-buffer 1000000;
+buffer 300000;
 combing 0; //toggle on or off
 //precursors 0; //toggle on or off
 // need to implement number of batches!! and compute statistics thereof, look at fixed source

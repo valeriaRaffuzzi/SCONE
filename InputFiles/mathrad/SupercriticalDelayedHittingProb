@@ -5,15 +5,14 @@ timeSteps   200; //200
 XSdata   ce;
 dataType ce;
 timeIncrement 1.E-1; //1.E-1
-cycles 1;
+cycles 100;
 buffer 1000;
 
 combing 0;
 precursors 1;
-//useForcedPrecursorDecay 1;
 
 outputFormat asciiJSON;
-collisionOperator { neutronCE {type neutronCEkineticstd; minEnergy 1.0e-11; maxEnergy 20; precursors 1;}} //precursors 1;
+collisionOperator { neutronCE {type neutronCEkineticstd; minEnergy 1.0e-11; maxEnergy 20; precursors 1;}}
 
 transportOperator { type transportOperatorDT; //currently will only support this
                   }
@@ -29,15 +28,15 @@ tally  {
   hittingProbability { type hittingProbClerk;
     response (pop); pop {type neutronResponse;}
     maxT 20;
-    maxPop 5500;
-    cycles 1;
+    maxPop 5100;
+    cycles 100;
     map { type timeMap; grid lin; min 0.0; max 20.0; N 2000;}
     }
 
-  neutronPop { type temporalPopClerk;
-    map { type timeMap; grid lin; min 0.0; max 20.0; N 200;}
-    response (pop); pop {type neutronResponse;}
-    }
+  //neutronPop { type temporalPopClerk;
+  //  map { type timeMap; grid lin; min 0.0; max 20.0; N 200;}
+  //  response (pop); pop {type neutronResponse;}
+  //  }
   }
 
 geometry {

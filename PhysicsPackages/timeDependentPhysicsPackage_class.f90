@@ -28,11 +28,11 @@ module timeDependentPhysicsPackage_class
 
   ! Nuclear Data
   use materialMenu_mod,               only : mm_nMat           => nMat
-  use nuclearDataReg_mod,             only : ndReg_init        => init ,&
-                                             ndReg_activate    => activate ,&
+  use nuclearDataReg_mod,             only : ndReg_init        => init, &
+                                             ndReg_activate    => activate, &
                                              ndReg_display     => display, &
                                              ndReg_kill        => kill, &
-                                             ndReg_get         => get ,&
+                                             ndReg_get         => get, &
                                              ndReg_getMatNames => getMatNames
   use nuclearDatabase_inter,          only : nuclearDatabase
   use neutronMaterial_inter,          only : neutronMaterial, neutronMaterial_CptrCast
@@ -63,7 +63,7 @@ module timeDependentPhysicsPackage_class
   !!
   !! Physics Package for time dependent calculations
   !!
-  type, public,extends(physicsPackage) :: timeDependentPhysicsPackage
+  type, public, extends(physicsPackage):: timeDependentPhysicsPackage
     private
     ! Building blocks
     class(nuclearDatabase), pointer        :: nucData => null()
@@ -72,14 +72,14 @@ module timeDependentPhysicsPackage_class
     type(collisionOperator)                :: collOp
     class(transportOperator), allocatable  :: transOp
     class(RNG), pointer                    :: pRNG    => null()
-    type(tallyAdmin),pointer               :: tally   => null()
+    type(tallyAdmin), pointer               :: tally   => null()
 
     ! Settings
     integer(shortInt)  :: N_cycles
     integer(shortInt)  :: N_timeBins
     integer(shortInt)  :: pop
-    character(pathLen) :: outputFile
-    character(nameLen) :: outputFormat
+    character(pathLen):: outputFile
+    character(nameLen):: outputFormat
     integer(shortInt)  :: printSource = 0
     integer(shortInt)  :: particleType
     integer(shortInt)  :: bufferSize
@@ -90,39 +90,40 @@ module timeDependentPhysicsPackage_class
     logical(defBool)   :: useForcedPrecursorDecay
     integer(shortInt), dimension(:), allocatable  :: batchPopulations
 
-    real(defReal) :: minWgt = 0.25
-    real(defReal) :: maxWgt = 1.25
-    real(defReal) :: avWgt = 0.5
+    real(defReal):: minWgt = 0.25
+    real(defReal):: maxWgt = 1.25
+    real(defReal):: avWgt = 0.5
 
     ! Calculation components
-    type(particleDungeon), pointer, dimension(:) :: currentTime       => null()
-    type(particleDungeon), pointer, dimension(:) :: nextTime          => null()
-    type(particleDungeon), pointer, dimension(:) :: tempTime          => null()
-    type(particleDungeon), pointer, dimension(:) :: precursorDungeons => null()
-    real(defReal), dimension(:), allocatable :: precursorWeights
+    type(particleDungeon), pointer, dimension(:):: currentTime       => null()
+    type(particleDungeon), pointer, dimension(:):: nextTime          => null()
+    type(particleDungeon), pointer, dimension(:):: tempTime          => null()
+    type(particleDungeon), pointer, dimension(:):: precursorDungeons => null()
+    real(defReal), dimension(:), allocatable:: precursorWeights
     class(source), allocatable     :: fixedSource
+    class(source), allocatable     :: poissonSource
 
     ! Timer bins
-    integer(shortInt) :: timerMain
+    integer(shortInt):: timerMain
     real (defReal)     :: CPU_time_start
     real (defReal)     :: CPU_time_end
 
   contains
-    procedure :: init
-    procedure :: printSettings
-    procedure :: cycles
-    procedure :: collectResults
-    procedure :: run
-    procedure :: kill
-    procedure :: russianRoulette
+    procedure:: init
+    procedure:: printSettings
+    procedure:: cycles
+    procedure:: collectResults
+    procedure:: run
+    procedure:: kill
+    procedure:: russianRoulette
 
   end type timeDependentPhysicsPackage
 
 contains
 
   subroutine run(self)
-    class(timeDependentPhysicsPackage), intent(inout) :: self
-    real(defReal) :: simTime
+    class(timeDependentPhysicsPackage), intent(inout):: self
+    real(defReal):: simTime
 
     print *, repeat("<>",50)
     print *, "/\/\ TIME DEPENDENT CALCULATION /\/\"
@@ -139,8 +140,8 @@ contains
   !!
   !!
   subroutine cycles(self, tally, N_cycles, N_timeBins, timeIncrement, simTime)
-    class(timeDependentPhysicsPackage), intent(inout) :: self
-    type(tallyAdmin), pointer,intent(inout)           :: tally
+    class(timeDependentPhysicsPackage), intent(inout):: self
+    type(tallyAdmin), pointer, intent(inout)           :: tally
     real(defReal), intent(inout)                      :: simTime
     integer(shortInt), intent(in)                     :: N_timeBins, N_cycles
     integer(shortInt)                                 :: i, t, n, nParticles, nDelayedParticles, nPrecuCount
@@ -149,10 +150,11 @@ contains
     type(collisionOperator), save                     :: collOp
     class(transportOperator), allocatable, save       :: transOp
     type(RNG), target, save                           :: pRNG
-    real(defReal)                                     :: elapsed_T, end_T, T_toEnd, decay_T, w_d
+    real(defReal) , save                              :: decay_T
+    real(defReal)                                     :: elapsed_T, end_T, T_toEnd, w_d
     real(defReal), intent(in)                         :: timeIncrement
-    character(100),parameter :: Here ='cycles (timeDependentPhysicsPackage_class.f90)'
-    !$omp threadprivate(p, p_d, buffer, collOp, transOp, pRNG)
+    character(100), parameter:: Here ='cycles (timeDependentPhysicsPackage_class.f90)'
+    !$omp threadprivate(p, p_d, buffer, collOp, transOp, pRNG, decay_T)
 
     !$omp parallel
     ! Create particle buffer
@@ -162,7 +164,7 @@ contains
     p % geomIdx = self % geomIdx
     p % k_eff = ONE
 
-    ! Create a collision + transport operator which can be made thread private
+    ! Create a collision+transport operator which can be made thread private
     collOp = self % collOp
     transOp = self % transOp
     !$omp end parallel
@@ -178,11 +180,18 @@ contains
       do i = 1, N_cycles
 
         if (t == 1) then
-          call self % fixedSource % generate(self % currentTime(i), nParticles, self % pRNG)
+          call self % fixedSource % generate(self % currentTime(i), self % pop, self % pRNG)
+          if (allocated(self % poissonSource)) then
+            call self % poissonSource % generate(self % currentTime(i), nParticles, self % pRNG)
+          end if
         end if
 
         call tally % reportCycleStart(self % currentTime(i))
         nParticles = self % currentTime(i) % popSize()
+
+        if ((self % usePrecursors .eqv. .true.) .and. (self % useForcedPrecursorDecay .eqv. .true.)) then
+          nPrecuCount = self % precursorDungeons(i) % popSize() + 1
+        end if
 
         !$omp parallel do schedule(dynamic)
         gen: do n = 1, nParticles
@@ -192,7 +201,7 @@ contains
           call self % currentTime(i) % copy(p, n)
 
           p % timeBinIdx = t
-          p % timeMax = t * timeIncrement
+          p % timeMax = t*timeIncrement
           if (p % time > p % timeMax) then
             p % fate = aged_FATE
             call self % nextTime(i) % detain(p)
@@ -213,7 +222,6 @@ contains
             end if
 
             call self % geom % placeCoord(p % coords)
-            !p % timeMax = t * timeIncrement
             call p % savePreHistory()
 
             ! Transport particle untill its death
@@ -269,8 +277,6 @@ contains
               end if
 
               if ((p % time <= t*timeIncrement) .and. (p % time > (t-1)*timeIncrement)) then
-                call tally % reportTemporalPopOut(p)
-                call tally % reportHittingProbOut(p)
                 p % type = P_NEUTRON
                 pRNG = self % pRNG
                 p % pRNG => pRNG
@@ -289,7 +295,7 @@ contains
                   end if
 
                   call self % geom % placeCoord(p % coords)
-                  p % timeMax = t * timeIncrement
+                  p % timeMax = t*timeIncrement
                   call p % savePreHistory()
 
                   ! Transport particle until its death
@@ -327,62 +333,151 @@ contains
             if (nDelayedParticles .eq. self % precursorDungeons(i) % popSize()) then
                exit superGenDelayed
             else
-              nPrecuCount = nDelayedParticles + 1
+              nPrecuCount = nDelayedParticles+1
               nDelayedParticles = self % precursorDungeons(i) % popSize()
-            print *, nPrecuCount, nDelayedParticles
-
             end if
           end do superGenDelayed
-
-
           end if
 
         else if ((self % usePrecursors .eqv. .true.) .and. (self % useForcedPrecursorDecay .eqv. .true.)) then
 
-          ! Precursor population control
-          if (self % precursorDungeons(i) % popSize() > self % pop) then
-            call self % precursorDungeons(i) % precursorCombing(self % pop, pRNG, timeIncrement * t)
-          end if
-
-          ! Implicit delayed neutron handling using Forced Precursor Decay
+          ! Impliciy delayed neutron handling
           nDelayedParticles = self % precursorDungeons(i) % popSize()
-          if (nDelayedParticles > 0) then
-            !$omp parallel do schedule(dynamic)
-            do n = 1, nDelayedParticles
-              call self % precursorDungeons(i) % copy(p_d, n)
-              p_d % timeBinIdx = t
-              call tally % reportTemporalPopIn(p_d)
-              call tally % reportHittingProbIn(p_d)
 
-              ! Sample decay time
-              decay_T = timeIncrement * (t + pRNG % get())
+          if (nDelayedParticles > nPrecuCount - 1) then
+            superGenDelayedImp: do
+            !$omp parallel do schedule(dynamic)
+            genDelayedImp: do n = nPrecuCount, nDelayedParticles
+
+              ! Force decay at this time interval if generated in this time interval
+              call self % precursorDungeons(i) % copy(p, n)
+              p % timeBinIdx = t
+
+              decay_T = p % time + pRNG % get() * (t*timeIncrement - p % time)
 
               ! Weight adjustment
-              w_d = p_d % forcedPrecursorDecayWgt(decay_T, timeIncrement)
+              w_d = p % forcedPrecursorDecayWgt(decay_T, t*timeIncrement - p % time)
 
               pRNG = self % pRNG
-              p_d % pRNG => pRNG
-              call p_d % pRNG % stride(n)
+              p % pRNG => pRNG
+              call p % pRNG % stride(n)
 
               ! Update parameters
-              p_d % type = P_NEUTRON
-              p_d % time = decay_T
-              p_d % w = w_d
-              p_d % fate = no_FATE
+              p % type = P_NEUTRON
+              p % time = decay_T
+              p % w = w_d
+              p % fate = no_FATE
+
+              bufferLoopDelayedImp: do
+
+                if ((p % fate == aged_FATE) .or. (p % fate == no_FATE)) then
+                  p % fate = no_FATE
+                  p % isdead = .false.
+                  call tally % reportTemporalPopIn(p)
+                  call tally % reportHittingProbIn(p)
+                else
+                  p % isdead = .true.
+                  call tally % reportTemporalPopOut(p)
+                  call tally % reportHittingProbOut(p)
+                end if
+
+                call self % geom % placeCoord(p % coords)
+                p % timeMax = t*timeIncrement
+                call p % savePreHistory()
+
+                ! Transport particle until its death
+                historyDelayedImp: do
+                  if(p % isDead) exit historyDelayedImp
+                  call transOp % transport(p, tally, buffer, buffer)
+                  if(p % isDead) then
+                    call tally % reportTemporalPopOut(p)
+                    call tally % reportHittingProbOut(p)
+                    exit historyDelayedImp
+                  end if
+                  if(p % fate == AGED_FATE) then
+                    call self % nextTime(i) % detain(p)
+                    exit historyDelayedImp
+                  endif
+                  call collOp % collide(p, tally, self % precursorDungeons(i), buffer)
+                  if(p % isDead) then
+                    call tally % reportTemporalPopOut(p)
+                    call tally % reportHittingProbOut(p)
+                    exit historyDelayedImp
+                  end if
+                end do historyDelayedImp
+
+                ! Clear out buffer
+                if (buffer % isEmpty()) then
+                  exit bufferLoopDelayedImp
+                else
+                  call buffer % release(p)
+                end if
+
+              end do bufferLoopDelayedImp
+
+            end do genDelayedImp
+            !$omp end parallel do
+
+            if (nDelayedParticles .eq. self % precursorDungeons(i) % popSize()) then
+              exit superGenDelayedImp
+            else
+              nPrecuCount = nDelayedParticles+1
+              nDelayedParticles = self % precursorDungeons(i) % popSize()
+            end if
+            end do superGenDelayedImp
+
+          end if
+
+          nDelayedParticles = self % precursorDungeons(i) % popSize()
+
+          if (nDelayedParticles > 0) then
+
+            ! Precursor population control
+            if (nDelayedParticles > self % pop) then
+              call self % precursorDungeons(i) % precursorCombing(self % pop, pRNG, timeIncrement*t)
+            end if
+
+            nDelayedParticles = self % precursorDungeons(i) % popSize()
+
+            !$omp parallel do schedule(dynamic)
+            genDelayedImpNext: do n = 1, nDelayedParticles
+              ! pass to next time interval for Forced Precursor Decay
+
+              call self % precursorDungeons(i) % copy(p, n)
+              p % timeBinIdx = t
+              call tally % reportTemporalPopIn(p)
+              call tally % reportHittingProbIn(p)
+
+              ! Sample decay time
+              decay_T = timeIncrement * (t+pRNG % get())
+
+              ! Weight adjustment
+              w_d = p % forcedPrecursorDecayWgt(decay_T, timeIncrement)
+
+              pRNG = self % pRNG
+              p % pRNG => pRNG
+              call p % pRNG % stride(n)
+
+              ! Update parameters
+              p % type = P_NEUTRON
+              p % time = decay_T
+              p % w = w_d
+              p % fate = no_FATE
 
               ! Add to current dungeon
-              call self % nextTime(i) % detain(p_d)
+              call self % nextTime(i) % detain(p)
 
-            end do
+            end do genDelayedImpNext
             !$omp end parallel do
           end if
+
         end if
 
         ! Update RNG
-        call self % pRNG % stride(self % pop + 1)
+        call self % pRNG % stride(self % pop+1)
 
         call tally % reportCycleEnd(self % currentTime(i))
-        call self % pRNG % stride(nParticles + 1)
+        call self % pRNG % stride(nParticles+1)
         call self % currentTime(i) % cleanPop()
 
         ! Neutron population control
@@ -392,7 +487,7 @@ contains
           call self % nextTime(i) % combing(self % pop, pRNG)
         end if
 
-        !call fatalError(Here, 'trolololol')
+
       end do
 
       self % tempTime  => self % nextTime
@@ -404,8 +499,8 @@ contains
       elapsed_T = timerTime(self % timerMain)
 
       ! Predict time to end
-      end_T = real(N_timeBins,defReal) * elapsed_T / t
-      T_toEnd = max(ZERO, end_T - elapsed_T)
+      end_T = real(N_timeBins, defReal) * elapsed_T/t
+      T_toEnd = max(ZERO, end_T-elapsed_T)
 
       ! Display progress
       call printFishLineR(t)
@@ -424,33 +519,33 @@ contains
   !! Print calculation results to file
   !!
   subroutine collectResults(self)
-    class(timeDependentPhysicsPackage), intent(inout) :: self
+    class(timeDependentPhysicsPackage), intent(inout):: self
     type(outputFile)                                  :: out
     character(nameLen)                                :: name
 
     call out % init(self % outputFormat, filename = self % outputFile)
 
     name = 'seed'
-    call out % printValue(self % pRNG % getSeed(),name)
+    call out % printValue(self % pRNG % getSeed(), name)
 
     name = 'pop'
-    call out % printValue(self % pop,name)
+    call out % printValue(self % pop, name)
 
     name = 'Source_batches'
-    call out % printValue(self % N_cycles,name)
+    call out % printValue(self % N_cycles, name)
 
     name = 'Time_increment'
-    call out % printValue(self % timeIncrement,name)
+    call out % printValue(self % timeIncrement, name)
 
     name = 'Time_bins'
-    call out % printValue(self % N_timeBins,name)
+    call out % printValue(self % N_timeBins, name)
 
     call cpu_time(self % CPU_time_end)
     name = 'Total_CPU_Time'
-    call out % printValue((self % CPU_time_end - self % CPU_time_start),name)
+    call out % printValue((self % CPU_time_end-self % CPU_time_start), name)
 
     name = 'Transport_time'
-    call out % printValue(timerTime(self % timerMain),name)
+    call out % printValue(timerTime(self % timerMain), name)
 
     ! Print tally
     call self % tally % print(out)
@@ -461,14 +556,14 @@ contains
   !! Initialise from individual components and dictionaries for source and tally
   !!
   subroutine init(self, dict)
-    class(timeDependentPhysicsPackage), intent(inout) :: self
+    class(timeDependentPhysicsPackage), intent(inout):: self
     class(dictionary), intent(inout)                :: dict
     class(dictionary),pointer                       :: tempDict
     integer(shortInt)                               :: seed_temp, i, bankSize
     integer(longInt)                                :: seed
     character(10)                                   :: time
     character(8)                                    :: date
-    character(:),allocatable                        :: string
+    character(:), allocatable                        :: string
     character(nameLen)                              :: nucData, energy, geomName
     type(outputFile)                                :: test_out
     type(visualiser)                                :: viz
@@ -477,9 +572,9 @@ contains
     call cpu_time(self % CPU_time_start)
 
     ! Read calculation settings
-    call dict % get( self % pop,'pop')
-    call dict % get( self % N_cycles,'cycles')
-    call dict % get( self % N_timeBins,'timeSteps')
+    call dict % get( self % pop, 'pop')
+    call dict % get( self % N_cycles, 'cycles')
+    call dict % get( self % N_timeBins, 'timeSteps')
     call dict % get( nucData, 'XSdata')
     call dict % get( energy, 'dataType')
     call dict % get( self % timeIncrement, 'timeIncrement')
@@ -491,11 +586,11 @@ contains
       case('ce')
         self % particleType = P_NEUTRON_CE
       case default
-        call fatalError(Here,"dataType must be 'mg' or 'ce'.")
+        call fatalError(Here, "dataType must be 'mg' or 'ce'.")
     end select
 
     ! Read outputfile path
-    call dict % getOrDefault(self % outputFile,'outputFile','./output')
+    call dict % getOrDefault(self % outputFile, 'outputFile','./output')
 
     ! Get output format and verify
     ! Initialise output file before calculation (so mistake in format will be cought early)
@@ -521,15 +616,15 @@ contains
     allocate(self % pRNG)
 
     ! *** It is a bit silly but dictionary cannot store longInt for now
-    !     so seeds are limited to 32 bits (can be -ve)
+    !     so seeds are limited to 32 bits (can be-ve)
     if( dict % isPresent('seed')) then
-      call dict % get(seed_temp,'seed')
+      call dict % get(seed_temp, 'seed')
 
     else
       ! Obtain time string and hash it to obtain random seed
       call date_and_time(date, time)
       string = date // time
-      call FNV_1(string,seed_temp)
+      call FNV_1(string, seed_temp)
 
     end if
     seed = seed_temp
@@ -565,6 +660,12 @@ contains
     ! Read particle source definition
     tempDict => dict % getDictPtr('source')
     call new_source(self % fixedSource, tempDict, self % geom)
+    ! Check and eventually read poisson source
+    if (dict % isPresent("poissonSource")) then
+      tempDict => dict % getDictPtr('poissonSource')
+      call new_source(self % poissonSource, tempDict, self % geom)
+    end if
+    
 
     ! Build collision operator
     tempDict => dict % getDictPtr('collisionOperator')
@@ -607,7 +708,7 @@ contains
   !! Deallocate memory
   !!
   subroutine kill(self)
-    class(timeDependentPhysicsPackage), intent(inout) :: self
+    class(timeDependentPhysicsPackage), intent(inout):: self
 
     ! TODO: This subroutine
 
@@ -617,11 +718,11 @@ contains
   !! Print settings of the physics package
   !!
   subroutine printSettings(self)
-    class(timeDependentPhysicsPackage), intent(in) :: self
+    class(timeDependentPhysicsPackage), intent(in):: self
     real(defReal)                                  :: TStart, Tstop, Tincrement
 
     TStart = 0.0
-    Tstop = self % timeIncrement * self % N_timeBins
+    Tstop = self % timeIncrement*self % N_timeBins
     Tincrement = self % timeIncrement
     print *, repeat("<>",50)
     print *, "/\/\ TIME DEPENDENT CALCULATION /\/\"
@@ -634,11 +735,11 @@ contains
   end subroutine printSettings
 
   subroutine russianRoulette(self, p, avWgt)
-    class(timeDependentPhysicsPackage), intent(inout) :: self
+    class(timeDependentPhysicsPackage), intent(inout):: self
     class(particle), intent(inout)     :: p
     real(defReal), intent(in)          :: avWgt
 
-    if (p % pRNG % get() < (ONE - p % w/avWgt)) then
+    if (p % pRNG % get() < (ONE-p % w/avWgt)) then
       p % isDead = .true.
     else
       p % w = avWgt

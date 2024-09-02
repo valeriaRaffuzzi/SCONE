@@ -38,7 +38,6 @@ contains
     n = 0
     p = exp(-mu)
     F = p
-
     SPloop:do
         if (r < F) then
             exit SPloop
