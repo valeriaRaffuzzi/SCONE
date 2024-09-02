@@ -62,7 +62,7 @@ contains
       distance = -log( p% pRNG % get() ) * majorant_inv
 
       if (p % time + distance / p % getSpeed() > p % timeMax) then
-        distance = distance * (p % timeMax - p % time)/(distance / p % getSpeed())
+        distance = (p % timeMax - p % time) * p % getSpeed()
         p % fate = AGED_FATE
         p % time = p % timeMax
         call self % geom % teleport(p % coords, distance)

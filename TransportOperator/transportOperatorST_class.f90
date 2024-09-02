@@ -65,19 +65,19 @@ contains
       else
         sigmaT = self % xsData % getTrackingXS(p, p % matIdx(), MATERIAL_XS)
         dist = -log( p % pRNG % get()) / sigmaT
-        
+
         ! Check if outside of timestep
-        if (p % time + dist / p % getSpeed() > p % timeMax) then 
-          dist = dist * (p % timeMax - p % time)/(dist / p % getSpeed())
+        if (p % time + dist / p % getSpeed() > p % timeMax) then
+          dist = (p % timeMax - p % time) * p % getSpeed()
           p % fate = AGED_FATE
           p % time = p % timeMax
-          if (self % cache) then 
+          if (self % cache) then
             call self % geom % move_withCache(p % coords, dist, event, cache)
           else
             call self % geom % move(p % coords, dist, event)
           end if
           exit STLoop
-        end if 
+        end if
         ! Should never happen! Catches NaN distances
         if (dist /= dist) call fatalError(Here, "Distance is NaN")
 

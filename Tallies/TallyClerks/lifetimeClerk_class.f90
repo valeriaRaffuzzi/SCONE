@@ -148,6 +148,10 @@ contains
     ! Get current particle state
     state = p
 
+    ! NB: modify the time in the particle state for mapping: this lifetime contribution
+    ! goes into the time bin corresponding to when the particle was born
+    state % time = p % timeBirth
+
     ! Find bin index
     if (allocated(self % map)) then
       binIdx = self % map % map(state)
@@ -161,11 +165,13 @@ contains
     ! Calculate bin address
     addr = self % getMemAddress() + MEM_SIZE * (binIdx - 1)
 
-    lifetime = p % time - p % timeBirth
+    ! NOTE: it doesn't matter in a fully analog calculation, but the lifetime must
+    ! be multiplied by the particle weight for a correct average
+    lifetime = (p % time - p % timeBirth) * p % w
 
     ! Score lifetime and flag death event
     call mem % score(lifetime, addr + TIME)
-    call mem % score(ONE, addr + EVENT)
+    call mem % score(p % w, addr + EVENT)
 
   end subroutine reportHist
 

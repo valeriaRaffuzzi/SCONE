@@ -133,13 +133,13 @@ contains
       case(N_ABSORPTION)
         self % MT = macroAbsorbtion
 
-      case(NU_FISS)
+      case(NU_FISS_micro)
         self % MT = macroNuFission
 
-      case(NU_FISS_PROMPT)
+      case(NU_FISS_PROMPT_micro)
         self % MT = macroPromptNuFission
 
-      case(NU_FISS_DELAYED)
+      case(NU_FISS_DELAYED_micro)
         self % MT = macroDelayedNuFission
 
       case default

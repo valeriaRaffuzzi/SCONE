@@ -87,11 +87,11 @@ module endfConstants
                                   N_N_ThermEL     = 1002 ,&
                                   N_N_ThermINEL   = 1004 ,&
                                   ! SCONE's fake MT for particle splitting event
-                                  N_N_SPLIT       = 1005
+                                  N_N_SPLIT       = 1005 ,&
                                   ! SCONE's fake MT number for microscopic nu fission
-                                  NU_FISS         = 1006
-                                  NU_FISS_PROMPT  = 1007
-                                  NU_FISS_DELAYED = 1008
+                                  NU_FISS_micro         = 1006 ,&
+                                  NU_FISS_PROMPT_micro  = 1007 ,&
+                                  NU_FISS_DELAYED_micro = 1008
 
   integer(shortInt),private    :: i  ! Local, private integer to use array constructor
   integer(shortInt),parameter  :: N_Nl(40)      = [(50+i, i =1,40)]

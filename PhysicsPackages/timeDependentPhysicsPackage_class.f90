@@ -145,7 +145,7 @@ contains
     real(defReal), intent(inout)                      :: simTime
     integer(shortInt), intent(in)                     :: N_timeBins, N_cycles
     integer(shortInt)                                 :: i, t, n, nParticles, nDelayedParticles, nPrecuCount
-    type(particle), save                              :: p, p_d
+    type(particle), save                              :: p
     type(particleDungeon), save                       :: buffer
     type(collisionOperator), save                     :: collOp
     class(transportOperator), allocatable, save       :: transOp
@@ -154,7 +154,7 @@ contains
     real(defReal)                                     :: elapsed_T, end_T, T_toEnd, w_d
     real(defReal), intent(in)                         :: timeIncrement
     character(100), parameter:: Here ='cycles (timeDependentPhysicsPackage_class.f90)'
-    !$omp threadprivate(p, p_d, buffer, collOp, transOp, pRNG, decay_T)
+    !$omp threadprivate(p, buffer, collOp, transOp, pRNG, decay_T)
 
     !$omp parallel
     ! Create particle buffer
@@ -665,7 +665,7 @@ contains
       tempDict => dict % getDictPtr('poissonSource')
       call new_source(self % poissonSource, tempDict, self % geom)
     end if
-    
+
 
     ! Build collision operator
     tempDict => dict % getDictPtr('collisionOperator')
@@ -685,18 +685,18 @@ contains
     allocate(self % nextTime(self % N_cycles))
 
     ! Get size of dungeon from input to save memory
-    call dict % getOrDefault(bankSize, 'bankSize', TWO*self % pop)
-    
+    call dict % getOrDefault(bankSize, 'bankSize', 10)
+
     do i = 1, self % N_cycles
-      call self % currentTime(i) % init(bankSize)
-      call self % nextTime(i) % init(bankSize)
+      call self % currentTime(i) % init(bankSize * self % pop)
+      call self % nextTime(i) % init(bankSize * self % pop)
     end do
 
     ! Size precursor dungeon
     if (self % usePrecursors) then
       allocate(self % precursorDungeons(self % N_cycles))
       do i = 1, self % N_cycles
-        call self % precursorDungeons(i) % init(bankSize)
+        call self % precursorDungeons(i) % init(bankSize * self % pop)
       end do
     end if
 

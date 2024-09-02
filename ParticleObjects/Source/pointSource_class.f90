@@ -148,7 +148,7 @@ contains
     call dict % getOrDefault(self % isPoisson, 'poissonSource', .false.)
     call dict % getOrDefault(self % finalPoissonTime, 'finalTime', -ONE)
     call dict % getOrDefault(self % poissonIntensity, 'poissonIntensity', -ONE)
-    if ((self % isPoisson) .and. (self % poissonIntensity == -ONE)) then 
+    if ((self % isPoisson) .and. (self % poissonIntensity == -ONE)) then
       call fatalError(Here, 'Poisson Source requires intensity')
     else if ((self % isPoisson) .and. (self % finalPoissonTime == -ONE)) then
       call fatalError(Here, 'Poisson Source final time needs to be defined')
@@ -309,11 +309,13 @@ contains
       p % time = nextTime
       self % poissonTime = nextTime
       if (nextTime > self % finalPoissonTime) p % isDead = .true.
-    
+
     else
       p % time = self % time
 
     end if
+
+    p % timeBirth = p % time
 
   end subroutine sampleTime
 
