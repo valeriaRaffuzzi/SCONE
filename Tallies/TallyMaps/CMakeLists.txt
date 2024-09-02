@@ -17,6 +17,7 @@ add_sources(./tallyMap_inter.f90
             ./collNumMap_class.f90
  #          ./matXsMap_class.f90
             ./timeMap_class.f90
+            ./radialMap_class.f90
             )
 
 add_unit_tests(./Tests/materialMap_test.f90

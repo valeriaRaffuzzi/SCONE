@@ -58,6 +58,8 @@ module pointSource_class
     private
     real(defReal),dimension(3)                :: r   = ZERO
     real(defReal),dimension(3)                :: dir = ZERO
+    real(defReal)                             :: time
+    real(defReal)                             :: deltaT
     real(defReal)                             :: E   = ZERO
     integer(shortInt)                         :: G   = 0
     real(defReal), dimension(:), allocatable  :: probG
@@ -147,11 +149,16 @@ contains
 
     call dict % getOrDefault(self % poissonSource, 'poissonSource', -ONE)
     call dict % getOrDefault(self % poissonSourceScale, 'poissonScale', -ONE)
-    if ((self % poissonSource >= ZERO) .and. (self % poissonSourceScale == -ONE)) then 
+    if ((self % poissonSource >= ZERO) .and. (self % poissonSourceScale == -ONE)) then
       call fatalError(Here, 'Poisson Source requires scale')
     else if ((self % poissonSource == -ONE) .and. (self % poissonSourceScale > ZERO)) then
       call fatalError(Here, 'Poisson Source needs to be defined')
     end if
+
+    ! Initial time and potential (uniform) time interval
+    call dict % getOrDefault(self % time, 'time', ZERO)
+    call dict % getOrDefault(self % deltaT, 'deltaT', ZERO)
+    if (self % deltaT < self % time) call fatalError(Here, 'Negative time interval')
 
     ! Get particle energy/group
     isCE = dict % isPresent('E')
@@ -293,8 +300,13 @@ contains
 
     if ((self % poissonSource >= ZERO) .and. (self % poissonSourceScale > ZERO)) then
       p % time = self % poissonPmf % sample(self % poissonSource, rand) * self % poissonSourceScale
+
+    elseif (self % deltaT /= ZERO) then
+      p % time = (self % deltaT - self % time) * rand % get()
+
     else
-      p % time = ZERO
+      p % time = self % time
+
     end if
 
   end subroutine sampleTime

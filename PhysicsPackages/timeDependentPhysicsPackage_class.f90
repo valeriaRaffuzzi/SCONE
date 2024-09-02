@@ -54,6 +54,9 @@ module timeDependentPhysicsPackage_class
   use transportOperatorFactory_func,  only : new_transportOperator
   use sourceFactory_func,             only : new_source
 
+  ! Visualisation
+  use visualiser_class,               only : visualiser
+
   implicit none
   private
 
@@ -461,13 +464,14 @@ contains
     class(timeDependentPhysicsPackage), intent(inout) :: self
     class(dictionary), intent(inout)                :: dict
     class(dictionary),pointer                       :: tempDict
-    integer(shortInt)                               :: seed_temp, i
+    integer(shortInt)                               :: seed_temp, i, bankSize
     integer(longInt)                                :: seed
     character(10)                                   :: time
     character(8)                                    :: date
     character(:),allocatable                        :: string
     character(nameLen)                              :: nucData, energy, geomName
     type(outputFile)                                :: test_out
+    type(visualiser)                                :: viz
     character(100), parameter :: Here ='init (timeDependentPhysicsPackage_class.f90)'
 
     call cpu_time(self % CPU_time_start)
@@ -548,6 +552,16 @@ contains
     call ndReg_activate(self % particleType, nucData, self % geom % activeMats())
     self % nucData => ndReg_get(self % particleType)
 
+    ! Call visualisation
+    if (dict % isPresent('viz')) then
+      print *, "Initialising visualiser"
+      tempDict => dict % getDictPtr('viz')
+      call viz % init(self % geom, tempDict)
+      print *, "Constructing visualisation"
+      call viz % makeViz()
+      call viz % kill()
+    endif
+
     ! Read particle source definition
     tempDict => dict % getDictPtr('source')
     call new_source(self % fixedSource, tempDict, self % geom)
@@ -569,16 +583,19 @@ contains
     allocate(self % currentTime(self % N_cycles))
     allocate(self % nextTime(self % N_cycles))
 
+    ! Get size of dungeon from input to save memory
+    call dict % getOrDefault(bankSize, 'bankSize', TWO*self % pop)
+    
     do i = 1, self % N_cycles
-      call self % currentTime(i) % init(10 * self % pop)
-      call self % nextTime(i) % init(10 * self % pop)
+      call self % currentTime(i) % init(bankSize)
+      call self % nextTime(i) % init(bankSize)
     end do
 
     ! Size precursor dungeon
     if (self % usePrecursors) then
       allocate(self % precursorDungeons(self % N_cycles))
       do i = 1, self % N_cycles
-        call self % precursorDungeons(i) % init(10 * self % pop)
+        call self % precursorDungeons(i) % init(bankSize)
       end do
     end if
 
