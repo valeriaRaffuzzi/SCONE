@@ -487,18 +487,19 @@ contains
   !! Errors:
   !!   None
   !!
-  recursive subroutine reportOutColl(self, p, MT, muL)
+  recursive subroutine reportOutColl(self, p, MT, muL, nucIdx)
     class(tallyAdmin), intent(inout)      :: self
     class(particle), intent(in)           :: p
     integer(shortInt), intent(in)         :: MT
     real(defReal), intent(in)             :: muL
+    integer(shortInt), intent(in)         :: nucIdx
     integer(shortInt)                     :: i, idx
     class(nuclearDatabase),pointer        :: xsData
     character(100), parameter :: Here = "reportOutColl (tallyAdmin_class.f90)"
 
     ! Call attachment
     if(associated(self % atch)) then
-      call reportOutColl(self % atch, p, MT, muL)
+      call reportOutColl(self % atch, p, MT, muL, nucIdx)
     end if
 
     ! Get Data
@@ -507,7 +508,7 @@ contains
     ! Go through all clerks that request the report
     do i=1,self % outCollClerks % getSize()
       idx = self % outCollClerks % get(i)
-      call self % tallyClerks(idx) % reportOutColl(p, MT, muL, xsData, self % mem)
+      call self % tallyClerks(idx) % reportOutColl(p, MT, muL, nucIdx, xsData, self % mem)
 
     end do
 

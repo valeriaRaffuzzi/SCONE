@@ -56,10 +56,12 @@ module materialMenu_mod
     integer(shortInt)  :: Z = -1
     integer(shortInt)  :: A = -1
     integer(shortInt)  :: T = -1
-    logical(defBool)   :: hasSab = .false.
-    logical(defBool)   :: sabMix = .false.
+    logical(defBool)   :: hasSab  = .false.
+    logical(defBool)   :: sabMix  = .false.
+    logical(defBool)   :: hasZeta = .false.
     character(nameLen) :: file_Sab1
     character(nameLen) :: file_Sab2
+    character(nameLen) :: zetaMat
   contains
     procedure :: init   => init_nuclideInfo
     procedure :: toChar => toChar_nuclideInfo
@@ -173,7 +175,7 @@ contains
     allocate(materialDefs(size(matNames)))
 
     ! Load definitions
-    do i=1,size(matNames)
+    do i = 1,size(matNames)
       call materialDefs(i) % init(matNames(i), i, dict % getDictPtr(matNames(i)))
       call nameMap % add(matNames(i), i)
     end do
@@ -298,10 +300,11 @@ contains
     character(nameLen), intent(in)                :: name
     integer(shortInt), intent(in)                 :: idx
     class(dictionary), intent(in)                 :: dict
-    character(nameLen), dimension(:), allocatable :: keys, moderKeys, filenames
+    character(nameLen), dimension(:), allocatable :: keys, moderKeys, zetaKeys, filenames
     integer(shortInt), dimension(:), allocatable  :: temp
-    integer(shortInt)                             :: i, nSab, foundModer
-    class(dictionary),pointer                     :: compDict, moderDict
+    character(nameLen)                            :: zetaName
+    integer(shortInt)                             :: i, nSab, nZ, found
+    class(dictionary), pointer                    :: compDict, moderDict, zetaDict
     character(100), parameter :: Here = 'init_materialItem (materialMenu_mod.f90)'
 
     ! Return to initial state
@@ -340,12 +343,12 @@ contains
     end if
 
     ! Load definitions
-    foundModer = 0
-    do i =1,size(keys)
+    found = 0
+    do i = 1, size(keys)
       ! Check if S(a,b) is on and required for that nuclide
       if ((nSab > 0) .and. moderDict % isPresent(keys(i))) then
         self % nuclides(i) % hasSab = .true.
-        foundModer = foundModer + 1
+        found = found + 1
 
         ! Check for stochastic mixing - this will depend on the
         ! size of the array of files produce
@@ -357,7 +360,7 @@ contains
         elseif (size(filenames) == 1) then
           self % nuclides(i) % file_Sab1 = filenames(1)
         else
-          print *,filenames
+          print*, filenames
           call fatalError(Here,'Unexpectedly long moder contents. Should be 1 or 2 '//&
                   'entries.')
         end if
@@ -370,11 +373,49 @@ contains
 
     ! Make sure if a moderator is provided the nuclide is present
     ! in the composition
-    if (foundModer /= nSab) then
-      print *,moderKeys
+    if (found /= nSab) then
+      print*, moderKeys
       call fatalError(Here, 'Nuclides requested for S(alpha,beta) are not present in composition. '// &
-              numToChar(nSab)//' nuclides requested but '//numToChar(foundModer)//' nuclides found.')
+              numToChar(nSab)//' nuclides requested but '//numToChar(found)//' nuclides found.')
     end if
+
+    ! ><><><><><><><><>< ZETA ><><><><><><><><><><><
+
+    ! Check if zeta eigenvalue is to be run
+    if (dict % isPresent('zeta')) then
+      zetaDict => dict % getDictPtr('zeta')
+      call zetaDict % keys(zetaKeys)
+      nZ = size(zetaKeys)
+    else
+      nZ = 0
+    end if
+
+    ! Load definitions
+    found = 0
+    do i = 1, size(keys)
+
+      ! Check if zeta is to be calculated for that nuclide
+      if ((nZ > 0) .and. zetaDict % isPresent(keys(i))) then
+        self % nuclides(i) % hasZeta = .true.
+        found = found + 1
+
+        ! Save material name
+        call zetaDict % get(zetaName, keys(i))
+        self % nuclides(i) % zetaMat = zetaName
+
+      end if
+
+    end do
+
+    ! Make sure if a moderator is provided the nuclide is present
+    ! in the composition
+    if (found /= nZ) then
+      print*, zetaKeys
+      call fatalError(Here, 'Nuclides requested for zeta scaling are not present in composition. '// &
+              numToChar(nSab)//' nuclides requested but '//numToChar(found)//' nuclides found.')
+    end if
+
+    ! ><><><><><><><><>< ZETA ><><><><><><><><><><><
 
     ! Add colour info if present
     if(dict % isPresent('rgb')) then

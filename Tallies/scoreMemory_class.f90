@@ -99,6 +99,7 @@ module scoreMemory_class
     procedure :: closeBin
     procedure :: lastCycle
     procedure :: getBatchSize
+    procedure :: flushBin
 
     ! Private procedures
     procedure, private :: score_defReal
@@ -333,6 +334,26 @@ contains
 
   end subroutine closeBin
 
+  !!
+  !! Flush Memory Bin
+  !! Zeroes the scores accumulated so far
+  !!
+  subroutine flushBin(self, idx)
+    class(scoreMemory), intent(inout) :: self
+    integer(longInt), intent(in)      :: idx
+    character(100),parameter :: Here = 'flushBin (scoreMemory_class.f90)'
+
+    ! Verify bounds for the index
+    if( idx < 0_longInt .or. idx > self % N) then
+      call fatalError(Here,'Index '//numToChar(idx)//' is outside bounds of &
+                            & memory with size '//numToChar(self % N))
+    end if
+
+    ! Erase memory
+    self % parallelBins(idx,:) = ZERO
+    self % bins(idx, :)  = ZERO
+
+  end subroutine flushBin
 
   !!
   !! Return true if next closeCycle will close a batch

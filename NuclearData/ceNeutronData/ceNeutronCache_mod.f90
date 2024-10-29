@@ -119,6 +119,7 @@ module ceNeutronCache_mod
   type(cacheSingleXS), dimension(:), allocatable, public :: majorantCache
   type(cacheSingleXS), dimension(:), allocatable, public :: trackingCache
   type(cacheZAID), dimension(:), allocatable, public     :: zaidCache
+  real(defReal), public :: zetaCache = ONE
   !$omp threadprivate(materialCache, nuclideCache, majorantCache, trackingCache, zaidCache)
 
   ! Public procedures

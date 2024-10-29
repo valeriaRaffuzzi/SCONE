@@ -7,6 +7,7 @@ add_sources(./tallyClerk_inter.f90
             ./trackClerk_class.f90
             ./keffAnalogClerk_class.f90
             ./keffImplicitClerk_class.f90
+            ./zetaImplicitClerk_class.f90
             ./simpleFMClerk_class.f90
             ./dancoffBellClerk_class.f90
             ./shannonEntropyClerk_class.f90

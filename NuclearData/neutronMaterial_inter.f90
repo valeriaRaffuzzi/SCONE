@@ -1,11 +1,14 @@
 module neutronMaterial_inter
 
   use numPrecision
-  use particle_class,       only : particle
+  use particle_class,          only : particle
 
   ! Nuclear Data Interfaces
   use materialHandle_inter,    only : materialHandle
   use neutronXsPackages_class, only : neutronMacroXSs
+
+  ! Data types
+  use intMap_class,            only : intMap
 
   implicit none
   private
@@ -27,7 +30,7 @@ module neutronMaterial_inter
   !!   getMacroXSs -> Return Macroscopic XSs given particle with energy data
   !!
   type, public, abstract, extends(materialHandle) :: neutronMaterial
-    private
+    type(intMap) :: zetaMap
   contains
     generic                              :: getMacroXSs => getMacroXSs_byP
     procedure(isFissile),       deferred :: isFissile

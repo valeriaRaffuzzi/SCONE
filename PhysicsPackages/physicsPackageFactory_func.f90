@@ -13,6 +13,7 @@ module physicsPackageFactory_func
   ! Implementations
   use eigenPhysicsPackage_class,       only : eigenPhysicsPackage
   use fixedSourcePhysicsPackage_class, only : fixedSourcePhysicsPackage
+  use zetaPhysicsPackage_class,        only : zetaPhysicsPackage
   use vizPhysicsPackage_class,         only : vizPhysicsPackage
   use rayVolPhysicsPackage_class,      only : rayVolPhysicsPackage
 !  use dynamPhysicsPackage_class, only : dynamPhysicsPackage
@@ -26,6 +27,7 @@ module physicsPackageFactory_func
   ! For now  it is necessary to adjust trailing blanks so all enteries have the same length
   character(nameLen),dimension(*),parameter :: AVAILABLE_physicsPackages = [ 'eigenPhysicsPackage      ',&
                                                                              'fixedSourcePhysicsPackage',&
+                                                                             'zetaPhysicsPackage       ',&
                                                                              'vizPhysicsPackage        ',&
                                                                              'rayVolPhysicsPackage     ']
 
@@ -56,6 +58,9 @@ contains
 
       case('fixedSourcePhysicsPackage')
         allocate( fixedSourcePhysicsPackage :: new)
+
+      case('zetaPhysicsPackage')
+        allocate( zetaPhysicsPackage :: new)
 
       case('vizPhysicsPackage')
         allocate( vizPhysicsPackage :: new)

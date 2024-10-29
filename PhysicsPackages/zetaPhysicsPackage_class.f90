@@ -1,4 +1,4 @@
-module eigenPhysicsPackage_class
+module zetaPhysicsPackage_class
 
   use numPrecision
   use universalVariables
@@ -68,7 +68,7 @@ module eigenPhysicsPackage_class
   !!
   !! Physics Package for eigenvalue calculations
   !!
-  type, public,extends(physicsPackage) :: eigenPhysicsPackage
+  type, public,extends(physicsPackage) :: zetaPhysicsPackage
     private
     ! Building blocks
     class(nuclearDatabase), pointer        :: nucData       => null()
@@ -93,9 +93,7 @@ module eigenPhysicsPackage_class
     character(nameLen) :: outputFormat
     integer(shortInt)  :: printSource = 0
     integer(shortInt)  :: particleType
-    real(defReal)      :: keff_0
     integer(shortInt)  :: bufferSize
-    logical(defBool)   :: zeta = .false.
     logical(defBool)   :: UFS = .false.
 
     ! Calculation components
@@ -118,12 +116,12 @@ module eigenPhysicsPackage_class
     procedure :: run
     procedure :: kill
 
-  end type eigenPhysicsPackage
+  end type zetaPhysicsPackage
 
 contains
 
   subroutine run(self)
-    class(eigenPhysicsPackage), intent(inout) :: self
+    class(zetaPhysicsPackage), intent(inout) :: self
 
     print *, repeat("<>",50)
     print *, "/\/\ EIGENVALUE CALCULATION /\/\"
@@ -142,7 +140,7 @@ contains
   !!
   !!
   subroutine cycles(self, tally, tallyAtch, N_cycles)
-    class(eigenPhysicsPackage), intent(inout) :: self
+    class(zetaPhysicsPackage), intent(inout)  :: self
     type(tallyAdmin), pointer,intent(inout)   :: tally
     type(tallyAdmin), pointer,intent(inout)   :: tallyAtch
     integer(shortInt), intent(in)             :: N_cycles
@@ -153,9 +151,9 @@ contains
     class(transportOperator),allocatable,save :: transOp
     type(RNG), target, save                   :: pRNG
     type(particle), save                      :: neutron
-    real(defReal)                             :: k_old, k_new
+    real(defReal)                             :: zeta
     real(defReal)                             :: elapsed_T, end_T, T_toEnd
-    character(100),parameter :: Here ='cycles (eigenPhysicsPackage_class.f90)'
+    character(100),parameter :: Here = 'cycles (zetaPhysicsPackage_class.f90)'
     !$omp threadprivate(neutron, buffer, collOp, transOp, pRNG)
 
     !$omp parallel
@@ -170,14 +168,11 @@ contains
     transOp = self % transOp
     !$omp end parallel
 
-    ! Set initial k-eff
-    k_new = self % keff_0
-
     ! Reset and start timer
     call timerReset(self % timerMain)
     call timerStart(self % timerMain)
 
-    do i=1,N_cycles
+    do i = 1, N_cycles
 
       ! Send start of cycle report
       Nstart = self % thisCycle % popSize()
@@ -199,9 +194,6 @@ contains
 
         bufferLoop: do
           call self % geom % placeCoord(neutron % coords)
-
-          ! Set k-eff for normalisation in the particle
-          neutron % k_eff = k_new
 
           ! Save state
           call neutron % savePreHistory()
@@ -253,25 +245,19 @@ contains
       self % thisCycle    => self % temp_dungeon
 
       ! Obtain estimate of k_eff
-      call tallyAtch % getResult(res,'keff')
+      call tallyAtch % getResult(res,'zeta')
 
       select type(res)
         class is(keffResult)
-          k_new = res % keff(1)
+          zeta = res % keff(1)
 
         class default
           call fatalError(Here, 'Invalid result has been returned')
 
       end select
 
-      ! Load new k-eff estimate into next cycle dungeon
-      k_old = self % nextCycle % k_eff
-      self % nextCycle % k_eff = k_new
-
-      if (self % zeta) zetaCache = zetaCache / k_new
-
-      ! Used to normalise fission source of the first active cycle
-      self % keff_0 = k_new
+      ! Load new zeta estimate into cache
+      zetaCache = zeta
 
       ! Calculate times
       call timerStop(self % timerMain)
@@ -280,7 +266,6 @@ contains
       ! Predict time to end
       end_T = real(N_cycles,defReal) * elapsed_T / i
       T_toEnd = max(ZERO, end_T - elapsed_T)
-
 
       ! Display progress
       call printFishLineR(i)
@@ -291,7 +276,6 @@ contains
       print *, 'End time:     ', trim(secToChar(end_T))
       print *, 'Time to end:  ', trim(secToChar(T_toEnd))
       call tally % display()
-      print *, 'zeta:  ', trim(numToChar(zetaCache))
     end do
 
     ! Load elapsed time
@@ -304,8 +288,8 @@ contains
   !!
   !!
   subroutine generateInitialState(self)
-    class(eigenPhysicsPackage), intent(inout) :: self
-    character(100), parameter :: Here =' generateInitialState( eigenPhysicsPackage_class.f90)'
+    class(zetaPhysicsPackage), intent(inout) :: self
+    character(100), parameter :: Here =' generateInitialState( zetaPhysicsPackage_class.f90)'
 
     ! Allocate and initialise particle Dungeons
     allocate(self % thisCycle)
@@ -324,7 +308,7 @@ contains
   !! Print calculation results to file
   !!
   subroutine collectResults(self)
-    class(eigenPhysicsPackage), intent(inout) :: self
+    class(zetaPhysicsPackage), intent(inout) :: self
     type(outputFile)                          :: out
     character(nameLen)                        :: name
 
@@ -371,11 +355,11 @@ contains
   !! Initialise from individual components and dictionaries for inactive and active tally
   !!
   subroutine init(self, dict)
-    class(eigenPhysicsPackage), intent(inout) :: self
+    class(zetaPhysicsPackage), intent(inout) :: self
     class(dictionary), intent(inout)          :: dict
     class(dictionary),pointer                 :: tempDict
     type(dictionary)                          :: locDict1, locDict2
-    integer(shortInt)                         :: seed_temp
+    integer(shortInt)                         :: seed_temp, flush
     integer(longInt)                          :: seed
     character(10)                             :: time
     character(8)                              :: date
@@ -384,7 +368,7 @@ contains
     type(outputFile)                          :: test_out
     type(visualiser)                          :: viz
     class(field), pointer                     :: field
-    character(100), parameter :: Here ='init (eigenPhysicsPackage_class.f90)'
+    character(100), parameter :: Here ='init (zetaPhysicsPackage_class.f90)'
 
     call cpu_time(self % CPU_time_start)
 
@@ -397,7 +381,6 @@ contains
 
     ! Initialise zeta value
     call dict % getOrDefault(zetaCache, 'zeta_0', ONE)
-    call dict % getOrDefault(self % zeta, 'zeta', .false.)
 
     ! Parallel buffer size
     call dict % getOrDefault( self % bufferSize, 'buffer', 1000)
@@ -440,9 +423,6 @@ contains
     end if
     seed = seed_temp
     call self % pRNG % init(seed)
-
-    ! Initial k_effective guess
-    call dict % getOrDefault(self % keff_0,'keff_0', ONE)
 
     ! Read whether to print particle source per cycle
     call dict % getOrDefault(self % printSource, 'printSource', 0)
@@ -526,9 +506,13 @@ contains
     call locDict1 % init(2)
     call locDict2 % init(2)
 
-    call locDict2 % store('type','keffAnalogClerk')
-    call locDict1 % store('keff', locDict2)
-    call locDict1 % store('display',['keff'])
+    call locDict2 % store('type','zetaImplicitClerk')
+    if (dict % isPresent('zetaFlush')) then
+      call dict % get(flush, 'zetaFlush')
+      call locDict2 % store('flush',flush)
+    end if
+    call locDict1 % store('zeta', locDict2)
+    call locDict1 % store('display',['zeta'])
 
     allocate(self % inactiveAtch)
     call self % inactiveAtch % init(locDict1)
@@ -540,9 +524,9 @@ contains
     call locDict1 % init(2)
     call locDict2 % init(2)
 
-    call locDict2 % store('type','keffImplicitClerk')
-    call locDict1 % store('keff', locDict2)
-    call locDict1 % store('display',['keff'])
+    call locDict2 % store('type','zetaImplicitClerk')
+    call locDict1 % store('zeta', locDict2)
+    call locDict1 % store('display',['zeta'])
 
     allocate(self % activeAtch)
     call self % activeAtch % init(locDict1)
@@ -563,7 +547,7 @@ contains
   !! Deallocate memory
   !!
   subroutine kill(self)
-    class(eigenPhysicsPackage), intent(inout) :: self
+    class(zetaPhysicsPackage), intent(inout) :: self
 
     ! TODO: This subroutine
 
@@ -573,7 +557,7 @@ contains
   !! Print settings of the physics package
   !!
   subroutine printSettings(self)
-    class(eigenPhysicsPackage), intent(in) :: self
+    class(zetaPhysicsPackage), intent(in) :: self
 
     print *, repeat("<>",50)
     print *, "/\/\ EIGENVALUE CALCULATION WITH POWER ITERATION METHOD /\/\"
@@ -583,6 +567,7 @@ contains
     print *, "Initial RNG Seed:   ", numToChar(self % pRNG % getSeed())
     print *
     print *, repeat("<>",50)
+
   end subroutine printSettings
 
-end module eigenPhysicsPackage_class
+end module zetaPhysicsPackage_class

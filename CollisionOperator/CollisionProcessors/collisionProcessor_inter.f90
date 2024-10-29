@@ -173,7 +173,7 @@ contains
     p % collisionN = p % collisionN + addCollision
 
     ! Report out-of-collision
-    call tally % reportOutColl(p, collDat % MT, collDat % muL)
+    call tally % reportOutColl(p, collDat % MT, collDat % muL, collDat % nucIdx)
 
     ! Report end-of-history if particle was killed
     if (p % isDead) then

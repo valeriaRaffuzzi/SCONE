@@ -38,6 +38,7 @@ module neutronXsPackages_class
   contains
     procedure :: clean => clean_neutronMacroXSs
     procedure :: add   => add_neutronMacroXSs
+    procedure :: sum   => sum_neutronMacroXSs
     procedure :: get
     procedure :: invert => invert_macroXSs
   end type neutronMacroXSs
@@ -116,6 +117,23 @@ contains
     self % nuFission        = self % nuFission        + dens * micro % nuFission
 
   end subroutine add_neutronMacroXSs
+
+  !!
+  !! Perform operations on Macroscopic XSs
+  !!
+  subroutine sum_neutronMacroXSs(self, xss, c)
+    class(neutronMacroXSs), intent(inout) :: self
+    class(neutronMacroXSs), intent(in)    :: xss
+    real(defReal), intent(in)             :: c
+
+    self % total            = self % total            + c * xss % total
+    self % elasticScatter   = self % elasticScatter   + c * xss % elasticScatter
+    self % inelasticScatter = self % inelasticScatter + c * xss % inelasticScatter
+    self % capture          = self % capture          + c * xss % capture
+    self % fission          = self % fission          + c * xss % fission
+    self % nuFission        = self % nuFission        + c * xss % nuFission
+
+  end subroutine sum_neutronMacroXSs
 
   !!
   !! Return XSs by MT number
@@ -279,6 +297,7 @@ contains
     end select
 
   end function invert_microXSs
+
 
 
 end module neutronXsPackages_class

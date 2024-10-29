@@ -258,11 +258,12 @@ contains
   !! Errors:
   !!   Depend on specific Clerk
   !!
-  subroutine reportOutColl(self, p, MT, muL, xsData, mem)
+  subroutine reportOutColl(self, p, MT, muL, nucIdx, xsData, mem)
     class(tallyClerk), intent(inout)      :: self
     class(particle), intent(in)           :: p
     integer(shortInt), intent(in)         :: MT
     real(defReal), intent(in)             :: muL
+    integer(shortInt), intent(in)         :: nucIdx
     class(nuclearDatabase), intent(inout) :: xsData
     type(scoreMemory), intent(inout)      :: mem
     character(100),parameter  :: Here = 'reportOutColl (tallyClerk_inter.f90)'

@@ -16,7 +16,7 @@ module ceNeutronMaterial_class
   use ceNeutronNuclide_inter,  only : ceNeutronNuclide, ceNeutronNuclide_CptrCast
 
   ! Cache
-  use ceNeutronCache_mod,      only : materialCache, nuclideCache
+  use ceNeutronCache_mod,      only : materialCache, nuclideCache, zetaCache
 
   ! Scattering procedures
   use scatteringKernels_func,  only : relativeEnergy_constXS, dopplerCorrectionFactor
@@ -75,6 +75,7 @@ module ceNeutronMaterial_class
     procedure, non_overridable :: getMacroXSs_byE
     procedure                  :: isFissile
     procedure                  :: useTMS
+    procedure                  :: getNuclideDensity
     procedure, non_overridable :: sampleNuclide
     procedure, non_overridable :: sampleFission
     procedure, non_overridable :: sampleScatter
@@ -290,6 +291,25 @@ contains
 
   end function useTMS
 
+
+  !!
+  !! Returns nuclide density
+  !!
+  function getNuclideDensity(self, i) result(dens)
+    class(ceNeutronMaterial), intent(in) :: self
+    integer(shortInt), intent(in)        :: i
+    integer(shortInt)                    :: nucIdx
+    real(defReal)                        :: dens
+
+    dens   = self % dens(i)
+    nucIdx = self % nuclides(i)
+
+    if (self % zetaMap % length() /= 0) then
+      if ((self % zetaMap % getOrDefault(nucIdx, NOT_FOUND) /= NOT_FOUND)) dens = dens / zetaCache
+    end if
+
+  end function getNuclideDensity
+
   !!
   !! Sample collision nuclide at energy E
   !!
@@ -329,7 +349,7 @@ contains
     do i = 1,size(self % nuclides)
 
       nucIdx = self % nuclides(i)
-      dens = self % dens(i)
+      dens = self % getNuclideDensity(i)
 
       associate (nucCache => nuclideCache(nucIdx))
 
@@ -472,7 +492,7 @@ contains
       ! The nuclide cache should be at the right energy after updating the material
       ! In the case of TMS where the macro xss are at a relative energy, the nuclide
       ! xss to be used are at the relative energy just sampled
-      xs = xs - nuclideCache(nucIdx) % xss % nuFission * self % dens(i) * doppCorr
+      xs = xs - nuclideCache(nucIdx) % xss % nuFission * self % getNuclideDensity(i) * doppCorr
 
       if (xs < ZERO) return
 
@@ -544,7 +564,7 @@ contains
       ! In the case of TMS where the macro xss are at a relative energy, the nuclide
       ! xss to be used are at the relative energy just sampled
       xs = xs - (nuclideCache(nucIdx) % xss % elasticScatter + &
-                 nuclideCache(nucIdx) % xss % inelasticScatter ) * self % dens(i) * doppCorr
+                 nuclideCache(nucIdx) % xss % inelasticScatter ) * self % getNuclideDensity(i) * doppCorr
 
       if (xs < ZERO) return
 
@@ -618,7 +638,7 @@ contains
       ! xss to be used are at the relative energy just sampled
       xs = xs - (nuclideCache(nucIdx) % xss % elasticScatter + &
                  nuclideCache(nucIdx) % xss % inelasticScatter + &
-                 nuclideCache(nucIdx) % xss % fission) * self % dens(i) * doppCorr
+                 nuclideCache(nucIdx) % xss % fission) * self % getNuclideDensity(i) * doppCorr
 
       if (xs < ZERO) return
 

@@ -21,7 +21,8 @@ module aceNeutronDatabase_class
 
   ! Material Menu
   use materialMenu_mod,             only : materialItem, nuclideInfo, mm_nMat => nMat, &
-                                           mm_getMatPtr => getMatPtr, mm_nameMap => nameMap
+                                           mm_getMatPtr => getMatPtr, mm_nameMap => nameMap, &
+                                           mm_matIdx => matIdx
 
   ! ACE CE Nuclear Data Objects
   use aceLibrary_mod,               only : new_neutronAce, new_moderACE, aceLib_load => load, aceLib_kill => kill
@@ -420,7 +421,7 @@ contains
 
         ! Get nuclide data
         nucIdx  = mat % nuclides(i)
-        dens    = mat % dens(i)
+        dens    = mat % getNuclideDensity(i)
 
         call self % updateTotalTempNucXS(E, mat % kT, nucIdx)
 
@@ -465,7 +466,7 @@ contains
       else
         ! Construct total macro XS
         do i = 1, size(mat % nuclides)
-          dens   = mat % dens(i)
+          dens   = mat % getNuclideDensity(i)
           nucIdx = mat % nuclides(i)
 
           ! Update if needed
@@ -518,7 +519,7 @@ contains
 
         ! Construct microscopic XSs
         do i = 1, size(mat % nuclides)
-          dens   = mat % dens(i)
+          dens   = mat % getNuclideDensity(i)
           nucIdx = mat % nuclides(i)
 
           ! Update if needed
@@ -568,7 +569,7 @@ contains
         ! Construct microscopic XSs
         do i = 1, size(mat % nuclides)
 
-          dens   = mat % dens(i)
+          dens   = mat % getNuclideDensity(i)
           nucIdx = mat % nuclides(i)
           nuckT  = self % nuclides(nucIdx) % getkT()
           A      = self % nuclides(nucIdx) % getMass()
@@ -753,7 +754,7 @@ contains
   !!
   !! See nuclearDatabase documentation for details
   !!
-  subroutine init(self, dict, ptr, silent )
+  subroutine init(self, dict, ptr, silent)
     class(aceNeutronDatabase), target, intent(inout) :: self
     class(dictionary), intent(in)                    :: dict
     class(nuclearDatabase), pointer, intent(in)      :: ptr
@@ -813,7 +814,7 @@ contains
     ! Check if probability tables are on in the input file
     call dict % getOrDefault(self % hasUrr, 'ures', .false.)
 
-    if(aceLibPath == '$SCONE_ACE') then
+    if (aceLibPath == '$SCONE_ACE') then
       ! Get Path from enviromental variable
       call get_environment_variable("SCONE_ACE", aceLibPath, status = envFlag)
 
@@ -888,7 +889,7 @@ contains
       call self % nuclides(nucIdx) % init(ACE, nucIdx, ptr_ceDatabase)
 
       ! Initialise S(alpha,beta) tables
-      if (idx1 /= 0 ) then
+      if (idx1 /= 0) then
         call new_moderACE(ACE_Sab1, name_file1)
         if (idx2 /= 0) then
           call new_moderACE(ACE_Sab2, name_file2)
@@ -905,6 +906,7 @@ contains
       call nucSet % atSet(nucIdx, i)
       nucIdx = nucIdx + 1
       i = nucSet % next(i)
+
     end do
 
     ! Calculate energy bounds
@@ -929,15 +931,17 @@ contains
       ! mixing temperature bounds are respected
       isFissileMat = .false.
       ! Loop over nuclides
+
       do j = 1, size(mat % nuclides)
+
         name = self % makeNuclideName(mat % nuclides(j))
-        
+
         ! Find nuclide definition to see if fissile
         ! Also used for checking stochastic mixing bounds
         nucIdxs(j) = nucSet % get(name)
         isFissileMat = isFissileMat .or. self % nuclides(nucIdxs(j)) % isFissile()
-          
-        ! Check to ensure stochastic mixing temperature 
+
+        ! Check to ensure stochastic mixing temperature
         ! is bounded by Sab temperatures
         if (mat % nuclides(j) % sabMix) then
           sabT = self % nuclides(nucIdxs(j)) % getSabTBounds()
@@ -949,6 +953,12 @@ contains
                 'K and '//numToChar(sabT(2) * joulesPerMeV / kBoltzmann)//'K.')
         end if
 
+        ! Save info related to zeta eigenvalue
+        if (mat % nuclides(j) % hasZeta) then
+          call self % materials(i) % zetaMap % add(nucIdxs(j), mm_matIdx(mat % nuclides(j) % zetaMat))
+          print*, i, nucIdxs(j), mat % nuclides(j) % zetaMat
+        end if
+
       end do
 
       ! Load data into material
@@ -958,7 +968,7 @@ contains
                                       temp     = mat % T,        &
                                       hasTMS   = mat % hasTMS,   &
                                       fissile  = isFissileMat )
-      call self % materials(i) % setComposition( mat % dens, nucIdxs(1:size(mat % nuclides)))
+      call self % materials(i) % setComposition(mat % dens, nucIdxs(1:size(mat % nuclides)))
 
       eUpSab  = self % eBounds(1)
       eLowURR = self % eBounds(2)
@@ -1030,7 +1040,7 @@ contains
   end subroutine init
 
   !!
-  !! Makes a nuclide's name 
+  !! Makes a nuclide's name
   !! Uniquely identifies nuclides with S(alpha,beta) data
   !! variants, including stochastic mixing
   !!
@@ -1039,25 +1049,25 @@ contains
     type(nuclideInfo), intent(in)         :: nuclide
     character(nameLen)                    :: name
     character(:), allocatable             :: file
-        
+
     name = trim(nuclide % toChar())
 
-    ! Name is extended if there is S(alpha,beta) to 
+    ! Name is extended if there is S(alpha,beta) to
     ! uniquely identify from data without thermal
     ! scattering
     if (nuclide % hasSab) then
- 
+
       file = trim(nuclide % file_Sab1)
       name = trim(name) // '+' // file
       deallocate(file)
-     
+
       ! Attach second Sab file for stochastic mixing
       if (nuclide % sabMix) then
         file = trim(nuclide % file_Sab2)
         name = trim(name) // '#' // file
         deallocate(file)
       end if
- 
+
     end if
 
   end function makeNuclideName
@@ -1162,7 +1172,7 @@ contains
     logical(defBool)                            :: loud
 
     ! Load active materials
-    if(allocated(self % activeMat)) deallocate(self % activeMat)
+    if (allocated(self % activeMat)) deallocate(self % activeMat)
     self % activeMat = activeMat
 
     ! Configure Cache

@@ -308,11 +308,12 @@ contains
   !!
   !! See tallyClerk_inter for details
   !!
-  subroutine reportOutColl(self, p, MT, muL, xsData, mem)
+  subroutine reportOutColl(self, p, MT, muL, nucIdx, xsData, mem)
     class(mgXsClerk), intent(inout)      :: self
     class(particle), intent(in)          :: p
     integer(shortInt), intent(in)        :: MT
     real(defReal), intent(in)            :: muL
+    integer(shortInt), intent(in)        :: nucIdx
     class(nuclearDatabase),intent(inout) :: xsData
     type(scoreMemory), intent(inout)     :: mem
     type(particleState)                  :: preColl, postColl

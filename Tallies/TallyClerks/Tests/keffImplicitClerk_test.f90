@@ -87,7 +87,7 @@ contains
 
     ! Score analog production
     p % preCollision % wgt = 0.1_defReal
-    call this % clerk % reportOutColl(p, N_2N, 0.5_defReal, this % nucData, mem)
+    call this % clerk % reportOutColl(p, N_2N, 0.5_defReal, 1, this % nucData, mem)
 
     ! Score leakage
     p % w = 0.3_defReal
@@ -106,7 +106,7 @@ contains
 
     ! Score analog production
     p % preCollision % wgt = 0.1_defReal
-    call this % clerk % reportOutColl(p, N_2N, 0.5_defReal, this % nucData, mem)
+    call this % clerk % reportOutColl(p, N_2N, 0.5_defReal, 1, this % nucData, mem)
 
     ! Score leakage
     p % w = 0.3_defReal

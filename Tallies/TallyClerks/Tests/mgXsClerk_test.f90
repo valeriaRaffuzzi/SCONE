@@ -138,7 +138,7 @@ contains
     p % preCollision % isMG   = .false.
     p % E = 0.1_defReal
 
-    call this % clerk_test1 % reportOutColl(p, N_2N, 0.75_defReal, this % nucData, mem)
+    call this % clerk_test1 % reportOutColl(p, N_2N, 0.75_defReal, 1, this % nucData, mem)
     call mem % closeCycle(ONE)
 
     ! Process and get results
@@ -215,7 +215,7 @@ contains
     p % preCollision % isMG   = .false.
     p % E = 1.1_defReal
 
-    call this % clerk_test2 % reportOutColl(p, N_2N, 0.75_defReal, this % nucData, mem)
+    call this % clerk_test2 % reportOutColl(p, N_2N, 0.75_defReal, 1, this % nucData, mem)
     call mem % closeCycle(ONE)
 
     ! Process and get results

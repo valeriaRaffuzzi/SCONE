@@ -1,4 +1,4 @@
-module keffImplicitClerk_class
+module zetaImplicitClerk_class
 
   use numPrecision
   use tallyCodes
@@ -13,8 +13,9 @@ module keffImplicitClerk_class
   ! Nuclear Data Interfaces
   use nuclearDataReg_mod,         only : ndReg_get => get
   use nuclearDatabase_inter,      only : nuclearDatabase
-  use neutronMaterial_inter,      only : neutronMaterial,neutronMaterial_CptrCast
+  use neutronMaterial_inter,      only : neutronMaterial, neutronMaterial_CptrCast
   use neutronXSPackages_class,    only : neutronMacroXSs
+  use ceNeutronCache_mod,         only : zetaCache
 
   ! Tally Interfaces
   use scoreMemory_class,          only : scoreMemory
@@ -27,18 +28,18 @@ module keffImplicitClerk_class
 
 
   !! Locations of diffrent bins wrt memory Address of the clerk
-  integer(shortInt), parameter :: MEM_SIZE = 5
+  integer(shortInt), parameter :: MEM_SIZE = 8
   integer(longInt), parameter  :: IMP_PROD     = 0 ,&  ! Implicit neutron production (from fission)
-                                  SCATTER_PROD = 1 ,&  ! Analog Stattering production (N,XN)
+                                  SCATT_PROD   = 1 ,&  ! Analog Stattering production (N,XN)
                                   IMP_ABS      = 2 ,&  ! Implicit neutron absorbtion
-                                  ANA_LEAK     = 3 ,&  ! Analog Leakage
-                                  K_EFF        = 4     ! k-eff estimate
+                                  IMP_PROD_z   = 3 ,&  ! Implicit neutron production (from fission)
+                                  SCATT_PROD_z = 4 ,&  ! Analog Stattering production (N,XN)
+                                  IMP_ABS_z    = 5 ,&  ! Implicit neutron absorbtion
+                                  ANA_LEAK     = 6 ,&  ! Analog Leakage
+                                  ZETA_IMP     = 7     ! k-eff estimate
   !!
-  !! A simple implicit k-eff estimator based on collison estimator of reaction rates,
+  !! A simple implicit zeta estimator based on collison estimator of reaction rates,
   !! and on analog estimators of (N,XN) reactions and leakage
-  !!
-  !! Private Members:
-  !!   targetSTD -> Target Standard Deviation for convergance check
   !!
   !! Interface:
   !!   tallyClerk interface
@@ -46,18 +47,15 @@ module keffImplicitClerk_class
   !! SAMPLE DICTIOANRY INPUT:
   !!
   !! myClerk {
-  !!   type keffImplicitClerk;
-  !!   #trigger yes/no;
-  !!   #SDtarget <value>;      ! Will be read only if trigger is present and "yes"
-  !!
+  !!   type zetaImplicitClerk;
   !! }
   !!
-  type, public,extends(tallyClerk) :: keffImplicitClerk
+  type, public,extends(tallyClerk) :: zetaImplicitClerk
     private
-    real(defReal)     :: targetSTD = ZERO
+    ! Settings
+    integer(shortInt) :: flush
     integer(shortInt) :: cycles = 0
     integer(shortInt) :: cycleCounter = 1
-    ! Settings
     logical(defBool)  :: handleVirtual = .true.
   contains
     ! Duplicate interface of the tallyClerk
@@ -72,7 +70,6 @@ module keffImplicitClerk_class
     procedure :: reportOutColl
     procedure :: reportHist
     procedure :: reportCycleEnd
-    procedure :: isConverged
 
     ! Output procedures
 
@@ -80,7 +77,7 @@ module keffImplicitClerk_class
     procedure :: print
     procedure :: getResult
 
-  end type keffImplicitClerk
+  end type zetaImplicitClerk
 
 contains
 
@@ -90,22 +87,12 @@ contains
   !! See tallyClerk_inter for details
   !!
   subroutine init(self, dict, name)
-    class(keffImplicitClerk), intent(inout) :: self
+    class(zetaImplicitClerk), intent(inout) :: self
     class(dictionary), intent(in)           :: dict
     character(nameLen), intent(in)          :: name
-    character(nameLen)                      :: chr
 
     ! Set name
     call self % setName(name)
-
-    ! Configure convergance trigger
-    call dict % getOrDefault(chr,'trigger','no')
-
-    ! Read convergance target
-    if( charCmp(chr,'yes')) then
-      call dict % get(self % targetSTD,'SDtarget')
-
-    end if
 
     ! Handle virtual collisions
     call dict % getOrDefault(self % handleVirtual,'handleVirtual', .true.)
@@ -113,19 +100,21 @@ contains
     ! History
     call dict % getOrDefault(self % cycles, 'cycles', 0)
 
+    ! Flux history every number of batches
+    call dict % getOrDefault(self % flush, 'flush', huge(1_shortInt))
+
   end subroutine init
 
   !!
   !! Return to uninitialised State
   !!
   elemental subroutine kill(self)
-    class(keffImplicitClerk), intent(inout) :: self
+    class(zetaImplicitClerk), intent(inout) :: self
 
     ! Call Superclass
     call kill_super(self)
 
     ! Kill self
-    self % targetSTD = ZERO
     self % handleVirtual = .true.
 
   end subroutine kill
@@ -136,7 +125,7 @@ contains
   !! See tallyClerk_inter for details
   !!
   function validReports(self) result(validCodes)
-    class(keffImplicitClerk),intent(in)           :: self
+    class(zetaImplicitClerk),intent(in)           :: self
     integer(shortInt),dimension(:),allocatable :: validCodes
 
     validCodes = [inColl_CODE, outColl_CODE, cycleEnd_CODE, hist_CODE]
@@ -149,7 +138,7 @@ contains
   !! See tallyClerk_inter for details
   !!
   elemental function getSize(self) result(S)
-    class(keffImplicitClerk), intent(in) :: self
+    class(zetaImplicitClerk), intent(in) :: self
     integer(shortInt)                    :: S
 
     S = MEM_SIZE + self % cycles
@@ -162,16 +151,17 @@ contains
   !! See tallyClerk_inter for details
   !!
   subroutine reportInColl(self, p, xsData, mem, virtual)
-    class(keffImplicitClerk), intent(inout)  :: self
+    class(zetaImplicitClerk), intent(inout)  :: self
     class(particle), intent(in)              :: p
     class(nuclearDatabase),intent(inout)     :: xsData
     type(scoreMemory), intent(inout)         :: mem
     logical(defBool), intent(in)             :: virtual
-    type(neutronMacroXSs)                    :: xss
-    class(neutronMaterial), pointer          :: mat
-    real(defReal)                            :: nuFissXS, absXS, flux
-    real(defReal)                            :: s1, s2
-    character(100), parameter  :: Here = 'reportInColl (keffImplicitClerk_class.f90)'
+    type(neutronMacroXSs)                    :: xssMat, xssZeta, xss
+    class(neutronMaterial), pointer          :: mat, matZeta
+    integer(shortInt)                        :: matIdx, i
+    real(defReal)                            :: nuFissXS_mat, absXS_mat, nuFissXS, absXS, flux
+    real(defReal)                            :: s1, s2, s3, s4
+    character(100), parameter  :: Here = 'reportInColl (zetaImplicitClerk_class.f90)'
 
     ! Return if collision is virtual but virtual collision handling is off
     if ((.not. self % handleVirtual) .and. virtual) return
@@ -188,22 +178,80 @@ contains
 
     ! Get material pointer
     mat => neutronMaterial_CptrCast(xsData % getMaterial(p % matIdx()))
-    if (.not.associated(mat)) then
+    if (.not. associated(mat)) then
       call fatalError(Here,'Unrecognised type of material was retrived from nuclearDatabase')
     end if
 
-    ! Obtain xss
-    call mat % getMacroXSs(xss, p)
+    ! Obtain xss for the whole material
+    call mat % getMacroXSs(xssMat, p)
 
-    nuFissXS = xss % nuFission
-    absXS    = xss % capture + xss % fission
+    ! Zero these xss
+    call xssZeta % clean()
+
+    ! Check if the zeta nuclide are in this material
+    if (mat % zetaMap % length() /= 0) then
+
+      ! Loop over zeta nuclides
+      i = mat % zetaMap % begin()
+      do while (i /= mat % zetaMap % end())
+
+        ! Get index of material to get the xss from
+        matIdx = mat % zetaMap % atVal(i)
+
+        ! Get material pointer
+        matZeta => neutronMaterial_CptrCast(xsData % getMaterial(matIdx))
+        if (.not. associated(matZeta)) then
+          call fatalError(Here,'Unrecognised type of material was retrived from nuclearDatabase')
+        end if
+
+        ! Obtain xss and sum them up
+        call matZeta % getMacroXSs(xss, p)
+        call xssZeta % sum(xss, ONE)
+
+        !print*, mat % zetaMap % atKey(i), matIdx
+        !print*, mat % zetaMap % atKey(i), xss % capture, xssZeta % capture
+        !print*, mat % zetaMap % atKey(i), xss % fission, xssZeta % fission
+        !print*, mat % zetaMap % atKey(i), xss % fission + xss % capture, xssZeta % fission + xssZeta % capture
+
+        i = mat % zetaMap % next(i)
+
+      end do
+
+    end if
+
+    ! macro xss of the zeta nuclides
+    nuFissXS = xssZeta % nuFission
+    absXS    = xssZeta % capture + xssZeta % fission
+
+    !print*, 'zeta ', nuFissXS, absXS
+
+    !print*, 'mat ', p % matIdx(), xssMat % nuFission, xssMat % capture + xssMat % fission
+
+    ! macro xss of the remaining nuclides
+    nuFissXS_mat = xssMat % nuFission - nuFissXS / zetaCache
+    absXS_mat    = xssMat % capture + xssMat % fission - absXS / zetaCache
+
+    if (nuFissXS_mat < 0 .or. absXS_mat < 0) then
+      !print*, nuFissXS_mat, absXS_mat
+      nuFissXS_mat = ZERO
+      absXS_mat = ZERO
+      !call fatalError(Here,'Negative cross sections')
+    end if
+
+    !print*, 'other: ', nuFissXS_mat, absXS_mat
 
     s1 = nuFissXS * flux
     s2 = absXS * flux
+    s3 = nuFissXS_mat * flux
+    s4 = absXS_mat * flux
+
+    !print*, 'scores: ', flux, s1, s2, s3, s4
 
     ! Add scores to counters
-    call mem % score(s1, self % getMemAddress() + IMP_PROD)
-    call mem % score(s2, self % getMemAddress() + IMP_ABS)
+    call mem % score(s1, self % getMemAddress() + IMP_PROD_z)
+    call mem % score(s2, self % getMemAddress() + IMP_ABS_Z)
+    call mem % score(s3, self % getMemAddress() + IMP_PROD)
+    call mem % score(s4, self % getMemAddress() + IMP_ABS)
 
   end subroutine reportInColl
 
@@ -213,7 +261,7 @@ contains
   !! See tallyClerk_inter for details
   !!
   subroutine reportOutColl(self, p, MT, muL, nucIdx, xsData, mem)
-    class(keffImplicitClerk), intent(inout) :: self
+    class(zetaImplicitClerk), intent(inout) :: self
     class(particle), intent(in)             :: p
     integer(shortInt), intent(in)           :: MT
     real(defReal), intent(in)               :: muL
@@ -221,6 +269,9 @@ contains
     class(nuclearDatabase),intent(inout)    :: xsData
     type(scoreMemory), intent(inout)        :: mem
     real(defReal)                           :: score
+    class(neutronMaterial), pointer         :: mat
+    integer(longInt)                        :: idx
+    character(100), parameter  :: Here = 'reportOutColl (zetaImplicitClerk_class.f90)'
 
     ! Select analog score
     ! Assumes N_XNs are by implicit weight change
@@ -240,7 +291,25 @@ contains
     ! Add to scattering production estimator
     ! Use pre collision weight
     if (score > ZERO) then
-      call mem % score(score, self % getMemAddress() + SCATTER_PROD)
+
+      idx = SCATT_PROD
+
+      ! Get material pointer
+      mat => neutronMaterial_CptrCast(xsData % getMaterial(p % matIdx()))
+      if (.not. associated(mat)) then
+        call fatalError(Here,'Unrecognised type of material was retrived from nuclearDatabase')
+      end if
+
+      ! Check if the zeta nuclide are in this material
+      if (mat % zetaMap % length() /= 0) then
+        if (mat % zetaMap % getOrDefault(nucIdx, NOT_FOUND) /= NOT_FOUND) then
+          !print*, nucIdx
+          idx = SCATT_PROD_z
+        end if
+      end if
+
+      call mem % score(score, self % getMemAddress() + idx)
+
     end if
 
   end subroutine reportOutColl
@@ -252,13 +321,14 @@ contains
   !! See tallyClerk_inter for details
   !!
   subroutine reportHist(self, p, xsData, mem)
-    class(keffImplicitClerk), intent(inout) :: self
+    class(zetaImplicitClerk), intent(inout) :: self
     class(particle), intent(in)             :: p
     class(nuclearDatabase),intent(inout)    :: xsData
     type(scoreMemory), intent(inout)        :: mem
     real(defReal)                           :: histWgt
 
     if (p % fate == leak_FATE) then
+
       ! Obtain and score history weight
       histWgt = p % w
 
@@ -275,25 +345,42 @@ contains
   !! See tallyClerk_inter for details
   !!
   subroutine reportCycleEnd(self, end, mem)
-    class(keffImplicitClerk), intent(inout) :: self
+    class(zetaImplicitClerk), intent(inout) :: self
     class(particleDungeon), intent(in)      :: end
     type(scoreMemory), intent(inout)        :: mem
     integer(longInt)                        :: addr
-    real(defReal)                           :: nuFiss, absorb, leakage, scatterMul, k_est
+    real(defReal)                           :: nuFiss, absorb, scatterMul, leakage, &
+                                               nuFiss_z, absorb_z, scatterMul_z, zeta
+    character(100), parameter  :: Here = 'reportCycleEnd (zetaImplicitClerk_class.f90)'
 
     if (mem % lastCycle()) then
-      addr = self % getMemAddress()
-      nuFiss     = mem % getScore(addr + IMP_PROD)
-      absorb     = mem % getScore(addr + IMP_ABS)
-      leakage    = mem % getScore(addr + ANA_LEAK)
-      scatterMul = mem % getScore(addr + SCATTER_PROD)
 
-      k_est = nuFiss / (absorb + leakage - scatterMul)
-      call mem % accumulate(k_est, addr + K_EFF)
+      addr = self % getMemAddress()
+
+      if (mod(mem % cycles, self % flush) == 0) call mem % flushBin(addr + ZETA_IMP)
+
+      nuFiss       = mem % getScore(addr + IMP_PROD)
+      absorb       = mem % getScore(addr + IMP_ABS)
+      scatterMul   = mem % getScore(addr + SCATT_PROD)
+      nuFiss_z     = mem % getScore(addr + IMP_PROD_z)
+      absorb_z     = mem % getScore(addr + IMP_ABS_z)
+      scatterMul_z = mem % getScore(addr + SCATT_PROD_z)
+      leakage      = mem % getScore(addr + ANA_LEAK)
+
+      zeta = (nuFiss_z + scatterMul_z - absorb_z) / (leakage + absorb - nuFiss - scatterMul)
+      call mem % accumulate(zeta, addr + ZETA_IMP)
+
+      ! Ensure positivity
+      if (zeta < 0) then
+        print*, nuFiss_z, scatterMul_z, absorb_z
+        print*, leakage, absorb, nuFiss, scatterMul
+        print*, zeta
+        call fatalError(Here, 'The latest zeta estimate is negative! This model cannot converge.')
+      end if
 
       ! History
       if (self % cycleCounter <= self % cycles) then
-        call mem % accumulate(k_est, addr + K_EFF + self % cycleCounter)
+        call mem % accumulate(zeta, addr + ZETA_IMP + self % cycleCounter)
         self % cycleCounter = self % cycleCounter + 1
       end if
 
@@ -302,37 +389,27 @@ contains
   end subroutine reportCycleEnd
 
   !!
-  !! Perform convergance check in the Clerk
-  !!
-  !! See tallyClerk_inter for details
-  !!
-  function isConverged(self, mem) result(isIt)
-    class(keffImplicitClerk), intent(in) :: self
-    type(scoreMemory), intent(inout)     :: mem
-    logical(defBool)                     :: isIt
-    real(defReal)                        :: k, STD
-
-    call mem % getResult(k, STD, self % getMemAddress() + K_EFF)
-
-    isIt = (STD < self % targetSTD)
-
-  end function isConverged
-
-  !!
   !! Display convergance progress on the console
   !!
   !! See tallyClerk_inter for details
   !!
   subroutine display(self, mem)
-    class(keffImplicitClerk), intent(in)  :: self
+    class(zetaImplicitClerk), intent(in)  :: self
     type(scoreMemory), intent(in)         :: mem
-    real(defReal)                         :: k, STD
+    real(defReal)                         :: zeta, STD
+    integer(shortInt)                     :: N
 
-    ! Get current k-eff estimate
-    call mem % getResult(k, STD, self % getMemAddress() + K_EFF)
+    ! Get current zeta estimate
+    if (self % flush /= huge(1_shortInt)) then
+      N = mod(mem % cycles, self % flush)
+      if (N == 0) N = self % flush
+      call mem % getResult(zeta, STD, self % getMemAddress() + ZETA_IMP, samples = N)
+    else
+      call mem % getResult(zeta, STD, self % getMemAddress() + ZETA_IMP)
+    end if
 
     ! Print to console
-    print '(A,F8.5,A,F8.5)', 'k-eff (implicit): ', k, ' +/- ', STD
+    print '(A,F8.5,A,F8.5)', 'zeta (implicit): ', zeta, ' +/- ', STD
 
   end subroutine display
 
@@ -342,13 +419,13 @@ contains
   !! See tallyClerk_inter for details
   !!
   subroutine print(self, outFile, mem)
-    class(keffImplicitClerk), intent(in) :: self
+    class(zetaImplicitClerk), intent(in) :: self
     class(outputFile), intent(inout)     :: outFile
     type(scoreMemory), intent(in)        :: mem
     character(nameLen)                   :: name
     real(defReal)                        :: val, STD
     integer(longInt)                     :: addr
-    integer(shortInt)                    :: i
+    integer(shortInt)                    :: i, N
 
     call outFile % startBlock( self % getName())
     addr = self % getMemAddress()
@@ -361,24 +438,43 @@ contains
     call mem % getResult(val, STD, addr + IMP_ABS)
     call outFile % printResult(val, STD, name)
 
-    name = 'SCATTER_PROD'
-    call mem % getResult(val, STD, addr + SCATTER_PROD)
+    name = 'SCATT_PROD'
+    call mem % getResult(val, STD, addr + SCATT_PROD)
+    call outFile % printResult(val, STD, name)
+
+    name = 'IMP_PROD_z'
+    call mem % getResult(val, STD, addr + IMP_PROD_z)
+    call outFile % printResult(val, STD, name)
+
+    name = 'IMP_ABS_z'
+    call mem % getResult(val, STD, addr + IMP_ABS_z)
+    call outFile % printResult(val, STD, name)
+
+    name = 'SCATT_PROD_z'
+    call mem % getResult(val, STD, addr + SCATT_PROD_z)
     call outFile % printResult(val, STD, name)
 
     name = 'ANA_LEAK'
     call mem % getResult(val, STD, addr + ANA_LEAK)
     call outFile % printResult(val, STD, name)
 
-    name = 'K_EFF'
-    call mem % getResult(val, STD, addr + K_EFF)
+    name = 'ZETA_IMP'
+    ! Get result value
+    if (self % flush /= huge(1_shortInt)) then
+      N = mod(mem % cycles, self % flush)
+      if (N == 0) N = self % flush
+      call mem % getResult(val, STD, self % getMemAddress() + ZETA_IMP, samples = N)
+    else
+      call mem % getResult(val, STD, self % getMemAddress() + ZETA_IMP)
+    end if
     call outFile % printResult(val, STD, name)
 
     if (self % cycles /= 0) then
-      name = 'KEFF_HISTORY'
+      name = 'ZETA_HISTORY'
       call outFile % startArray(name, [self % cycles])
 
       do i = 1, self % cycles
-        call mem % getResult(val, addr + K_EFF + i, samples = 1)
+        call mem % getResult(val, addr + ZETA_IMP + i, samples = 1)
         call outFile % addResult(val, ZERO)
       end do
 
@@ -397,17 +493,24 @@ contains
   !! Allocates res to 'keffResult' defined in keffAnalogClerk_class
   !!
   pure subroutine getResult(self, res, mem)
-    class(keffImplicitClerk), intent(in)              :: self
+    class(zetaImplicitClerk), intent(in)              :: self
     class(tallyResult), allocatable, intent(inout)    :: res
     type(scoreMemory), intent(in)                     :: mem
-    real(defReal)                                     :: k, STD
+    real(defReal)                                     :: zeta, STD
+    integer(shortInt)                                 :: N
 
     ! Get result value
-    call mem % getResult(k, STD, self % getMemAddress() + K_EFF)
+    if (self % flush /= huge(1_shortInt)) then
+      N = mod(mem % cycles, self % flush)
+      if (N == 0) N = self % flush
+      call mem % getResult(zeta, STD, self % getMemAddress() + ZETA_IMP, samples = N)
+    else
+      call mem % getResult(zeta, STD, self % getMemAddress() + ZETA_IMP)
+    end if
 
-    allocate(res, source = keffResult([k, STD]))
+    allocate(res, source = keffResult([zeta, STD]))
 
   end subroutine getResult
 
 
-end module keffImplicitClerk_class
+end module zetaImplicitClerk_class
