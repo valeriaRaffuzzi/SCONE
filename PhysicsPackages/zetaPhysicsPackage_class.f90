@@ -258,6 +258,7 @@ contains
 
       ! Load new zeta estimate into cache
       zetaCache = zeta
+      !zetaCache = zetaCache * 0.7 + zeta * 0.3
 
       ! Calculate times
       call timerStop(self % timerMain)
@@ -266,6 +267,9 @@ contains
       ! Predict time to end
       end_T = real(N_cycles,defReal) * elapsed_T / i
       T_toEnd = max(ZERO, end_T - elapsed_T)
+
+      !!!!! REINITIALISE MAJORANT
+      !call self % nucData % initMajorant(.true.)
 
       ! Display progress
       call printFishLineR(i)

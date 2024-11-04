@@ -1218,6 +1218,8 @@ contains
     integer(shortInt), parameter :: IN_SET = 1, NOT_PRESENT = 0
     real(defReal), parameter     :: NUDGE = 1.0e-06_defReal
 
+    if (allocated(self % majorant)) deallocate(self % majorant)
+
     ! Find the size of the unionised energy grid (with duplicates)
     ! Initialise size
     sizeGrid = 0
@@ -1418,7 +1420,7 @@ contains
 
         ! Loop over nuclides to check and correct for ures
         do k = 1, size(self % materials(matIdx) % nuclides)
-          dens     = self % materials(matIdx) % dens(k)
+          dens     = self % materials(matIdx) % getNuclideDensity(k)
           nucIdx   = self % materials(matIdx) % nuclides(k)
 
           associate (nuc => self % nuclides(nucIdx))

@@ -35,6 +35,7 @@ module nuclearDatabase_inter
   contains
     procedure(init), deferred          :: init
     procedure(activate), deferred      :: activate
+    procedure(initMajorant), deferred  :: initMajorant
     procedure(getTrackingXS), deferred :: getTrackingXS
     procedure(getTrackMatXS), deferred :: getTrackMatXS
     procedure(getTotalMatXS), deferred :: getTotalMatXS
@@ -84,6 +85,15 @@ module nuclearDatabase_inter
       integer(shortInt), dimension(:), intent(in) :: activeMat
       logical(defBool), optional, intent(in)      :: silent
     end subroutine activate
+
+    !!
+    !!
+    !!
+    subroutine initMajorant(self, loud)
+      import :: nuclearDatabase, defBool
+      class(nuclearDatabase), intent(inout) :: self
+      logical(defBool), intent(in)          :: loud
+    end subroutine initMajorant
 
     !!
     !! Return value of tracking XS for a particle and a given request
