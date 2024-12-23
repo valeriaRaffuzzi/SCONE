@@ -12,6 +12,7 @@ module physicsPackageFactory_func
 
   ! Implementations
   use eigenPhysicsPackage_class,       only : eigenPhysicsPackage
+  use cPhysicsPackage_class,           only : cPhysicsPackage
   use fixedSourcePhysicsPackage_class, only : fixedSourcePhysicsPackage
   use vizPhysicsPackage_class,         only : vizPhysicsPackage
   use rayVolPhysicsPackage_class,      only : rayVolPhysicsPackage
@@ -25,6 +26,7 @@ module physicsPackageFactory_func
   ! NOTE:
   ! For now  it is necessary to adjust trailing blanks so all enteries have the same length
   character(nameLen),dimension(*),parameter :: AVAILABLE_physicsPackages = [ 'eigenPhysicsPackage      ',&
+                                                                             'cPhysicsPackage          ',&
                                                                              'fixedSourcePhysicsPackage',&
                                                                              'vizPhysicsPackage        ',&
                                                                              'rayVolPhysicsPackage     ']
@@ -53,6 +55,9 @@ contains
     select case(type)
       case('eigenPhysicsPackage')
         allocate( eigenPhysicsPackage :: new)
+
+      case('cPhysicsPackage')
+        allocate( cPhysicsPackage :: new)
 
       case('fixedSourcePhysicsPackage')
         allocate( fixedSourcePhysicsPackage :: new)

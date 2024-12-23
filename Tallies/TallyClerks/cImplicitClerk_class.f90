@@ -1,0 +1,366 @@
+module cImplicitClerk_class
+
+  use numPrecision
+  use tallyCodes
+  use endfConstants
+  use universalVariables
+  use genericProcedures,          only : fatalError, charCmp
+  use dictionary_class,           only : dictionary
+  use particle_class,             only : particle
+  use particleDungeon_class,      only : particleDungeon
+  use outputFile_class,           only : outputFile
+
+  ! Nuclear Data Interfaces
+  use nuclearDataReg_mod,         only : ndReg_get => get
+  use nuclearDatabase_inter,      only : nuclearDatabase
+  use neutronMaterial_inter,      only : neutronMaterial,neutronMaterial_CptrCast
+  use neutronXSPackages_class,    only : neutronMacroXSs
+
+  ! Tally Interfaces
+  use scoreMemory_class,          only : scoreMemory
+  use tallyResult_class,          only : tallyResult, tallyResultEmpty
+  use tallyClerk_inter,           only : tallyClerk, kill_super => kill
+  use keffAnalogClerk_class,      only : keffResult
+
+  implicit none
+  private
+
+
+  !! Locations of diffrent bins wrt memory Address of the clerk
+  integer(shortInt), parameter :: MEM_SIZE = 6
+  integer(longInt), parameter  :: IMP_PROD     = 0 ,&  ! Implicit neutron production (from fission)
+                                  IMP_SCATT    = 1 ,&
+                                  IMP_TOT      = 2 ,&
+                                  SCATTER_PROD = 3 ,&  ! Analog Stattering production (N,XN)
+                                  ANA_LEAK     = 4 ,&  ! Analog Leakage
+                                  C_EFF        = 5     ! c estimate
+  !!
+  !! A simple implicit c estimator based on collison estimator of reaction rates,
+  !! and on analog estimators of (N,XN) reactions and leakage
+  !!
+  !! Private Members:
+  !!   targetSTD -> Target Standard Deviation for convergance check
+  !!
+  !! Interface:
+  !!   tallyClerk interface
+  !!
+  !! SAMPLE DICTIOANRY INPUT:
+  !!
+  !! myClerk {
+  !!   type cImplicitClerk;
+  !!   #trigger yes/no;
+  !!   #SDtarget <value>;      ! Will be read only if trigger is present and "yes"
+  !!
+  !! }
+  !!
+  type, public,extends(tallyClerk) :: cImplicitClerk
+    private
+    ! Settings
+    logical(defBool) :: handleVirtual = .true.
+  contains
+    ! Duplicate interface of the tallyClerk
+    ! Procedures used during build
+    procedure :: init
+    procedure :: kill
+    procedure :: validReports
+    procedure :: getSize
+
+    ! File reports and check status -> run-time procedures
+    procedure :: reportInColl
+    procedure :: reportOutColl
+    procedure :: reportHist
+    procedure :: reportCycleEnd
+
+    ! Output procedures
+
+    procedure :: display
+    procedure :: print
+    procedure :: getResult
+
+  end type cImplicitClerk
+
+contains
+
+  !!
+  !! Initialise from dictionary and name
+  !!
+  !! See tallyClerk_inter for details
+  !!
+  subroutine init(self, dict, name)
+    class(cImplicitClerk), intent(inout) :: self
+    class(dictionary), intent(in)        :: dict
+    character(nameLen), intent(in)       :: name
+
+    ! Set name
+    call self % setName(name)
+
+    ! Handle virtual collisions
+    call dict % getOrDefault(self % handleVirtual,'handleVirtual', .true.)
+
+  end subroutine init
+
+  !!
+  !! Return to uninitialised State
+  !!
+  elemental subroutine kill(self)
+    class(cImplicitClerk), intent(inout) :: self
+
+    ! Call Superclass
+    call kill_super(self)
+
+    ! Kill self
+    self % handleVirtual = .true.
+
+  end subroutine kill
+
+  !!
+  !! Returns array of codes that represent diffrent reports
+  !!
+  !! See tallyClerk_inter for details
+  !!
+  function validReports(self) result(validCodes)
+    class(cImplicitClerk),intent(in)           :: self
+    integer(shortInt),dimension(:),allocatable :: validCodes
+
+    validCodes = [inColl_CODE, outColl_CODE, cycleEnd_CODE, hist_CODE]
+
+  end function validReports
+
+  !!
+  !! Return memory size of the clerk
+  !!
+  !! See tallyClerk_inter for details
+  !!
+  elemental function getSize(self) result(S)
+    class(cImplicitClerk), intent(in) :: self
+    integer(shortInt)                    :: S
+
+    S = MEM_SIZE
+
+  end function getSize
+
+  !!
+  !! Process incoming collision report
+  !!
+  !! See tallyClerk_inter for details
+  !!
+  subroutine reportInColl(self, p, xsData, mem, virtual)
+    class(cImplicitClerk), intent(inout)  :: self
+    class(particle), intent(in)              :: p
+    class(nuclearDatabase),intent(inout)     :: xsData
+    type(scoreMemory), intent(inout)         :: mem
+    logical(defBool), intent(in)             :: virtual
+    type(neutronMacroXSs)                    :: xss
+    class(neutronMaterial), pointer          :: mat
+    real(defReal)                            :: nuFissXS, scattXS, totXS, flux
+    real(defReal)                            :: s1, s2, s3
+    character(100), parameter  :: Here = 'reportInColl (cImplicitClerk_class.f90)'
+
+    ! Return if collision is virtual but virtual collision handling is off
+    if ((.not. self % handleVirtual) .and. virtual) return
+
+    ! Ensure we're not in void (could happen when scoring virtual collisions)
+    if (p % matIdx() == VOID_MAT) return
+
+    ! Calculate flux with the right cross section according to virtual collision handling
+    if (self % handleVirtual) then
+      flux = p % w / xsData % getTrackingXS(p, p % matIdx(), TRACKING_XS)
+    else
+      flux = p % w / xsData % getTotalMatXS(p, p % matIdx())
+    end if
+
+    ! Get material pointer
+    mat => neutronMaterial_CptrCast(xsData % getMaterial(p % matIdx()))
+    if (.not.associated(mat)) then
+      call fatalError(Here,'Unrecognised type of material was retrived from nuclearDatabase')
+    end if
+
+    ! Obtain xss
+    call mat % getMacroXSs(xss, p)
+
+    nuFissXS = xss % nuFission
+    totXS    = xss % total
+    scattXS  = xss % elasticScatter + xss % inelasticScatter
+
+    s1 = nuFissXS * flux
+    s2 = scattXS * flux
+    s3 = totXS * flux
+
+    ! Add scores to counters
+    call mem % score(s1, self % getMemAddress() + IMP_PROD)
+    call mem % score(s2, self % getMemAddress() + IMP_SCATT)
+    call mem % score(s3, self % getMemAddress() + IMP_TOT)
+
+  end subroutine reportInColl
+
+  !!
+  !! Process outgoing collision report
+  !!
+  !! See tallyClerk_inter for details
+  !!
+  subroutine reportOutColl(self, p, MT, muL, xsData, mem)
+    class(cImplicitClerk), intent(inout) :: self
+    class(particle), intent(in)             :: p
+    integer(shortInt), intent(in)           :: MT
+    real(defReal), intent(in)               :: muL
+    class(nuclearDatabase),intent(inout)    :: xsData
+    type(scoreMemory), intent(inout)        :: mem
+    real(defReal)                           :: score
+
+    ! Select analog score
+    ! Assumes N_XNs are by implicit weight change
+    select case(MT)
+      case(N_2N)
+        score = 1.0_defReal * p % preCollision % wgt
+      case(N_3N)
+        score = 2.0_defReal * p % preCollision % wgt
+      case(N_4N)
+        score = 3.0_defReal * p % preCollision % wgt
+      case(macroAllScatter) ! Catch weight change for MG scattering
+        score = max(p % w - p % preCollision % wgt, ZERO)
+      case default
+        score = ZERO
+    end select
+
+    ! Add to scattering production estimator
+    ! Use pre collision weight
+    if (score > ZERO) then
+      call mem % score(score, self % getMemAddress() + SCATTER_PROD)
+    end if
+
+  end subroutine reportOutColl
+
+  !!
+  !! Process history report
+  !! Gets fate code from the particle
+  !!
+  !! See tallyClerk_inter for details
+  !!
+  subroutine reportHist(self, p, xsData, mem)
+    class(cImplicitClerk), intent(inout) :: self
+    class(particle), intent(in)             :: p
+    class(nuclearDatabase),intent(inout)    :: xsData
+    type(scoreMemory), intent(inout)        :: mem
+    real(defReal)                           :: histWgt
+
+    if (p % fate == leak_FATE) then
+      ! Obtain and score history weight
+      histWgt = p % w
+
+      ! Score analog leakage
+      call mem % score(histWgt, self % getMemAddress() + ANA_LEAK)
+
+    end if
+
+  end subroutine reportHist
+
+  !!
+  !! Process end of the cycle
+  !!
+  !! See tallyClerk_inter for details
+  !!
+  subroutine reportCycleEnd(self, end, mem)
+    class(cImplicitClerk), intent(inout) :: self
+    class(particleDungeon), intent(in)   :: end
+    type(scoreMemory), intent(inout)     :: mem
+    integer(longInt)                     :: addr
+    real(defReal)                        :: nuFiss, scatt, total, leakage, scattMul, c_est
+
+    if (mem % lastCycle()) then
+      addr = self % getMemAddress()
+      nuFiss    = mem % getScore(addr + IMP_PROD)
+      scatt     = mem % getScore(addr + IMP_SCATT)
+      total     = mem % getScore(addr + IMP_TOT)
+      leakage   = mem % getScore(addr + ANA_LEAK)
+      scattMul  = mem % getScore(addr + SCATTER_PROD)
+
+      c_est = (nuFiss + scatt + scattMul) / (total + leakage)
+      call mem % accumulate(c_est, addr + C_EFF)
+    end if
+
+  end subroutine reportCycleEnd
+
+  !!
+  !! Display convergance progress on the console
+  !!
+  !! See tallyClerk_inter for details
+  !!
+  subroutine display(self, mem)
+    class(cImplicitClerk), intent(in)  :: self
+    type(scoreMemory), intent(in)      :: mem
+    real(defReal)                      :: c, STD
+
+    ! Get current c estimate
+    call mem % getResult(c, STD, self % getMemAddress() + C_EFF)
+
+    ! Print to console
+    print '(A,F8.5,A,F8.5)', 'c (implicit): ', c, ' +/- ', STD
+
+  end subroutine display
+
+  !!
+  !! Write contents of the clerk to output file
+  !!
+  !! See tallyClerk_inter for details
+  !!
+  subroutine print(self, outFile, mem)
+    class(cImplicitClerk), intent(in) :: self
+    class(outputFile), intent(inout)  :: outFile
+    type(scoreMemory), intent(in)     :: mem
+    character(nameLen)                :: name
+    real(defReal)                     :: val, STD
+    integer(longInt)                  :: addr
+
+    call outFile % startBlock(self % getName())
+    addr = self % getMemAddress()
+
+    name = 'IMP_PROD'
+    call mem % getResult(val, STD, addr + IMP_PROD)
+    call outFile % printResult(val, STD, name)
+
+    name = 'IMP_SCATT'
+    call mem % getResult(val, STD, addr + IMP_SCATT)
+    call outFile % printResult(val, STD, name)
+
+    name = 'IMP_TOT'
+    call mem % getResult(val, STD, addr + IMP_TOT)
+    call outFile % printResult(val, STD, name)
+
+    name = 'SCATTER_PROD'
+    call mem % getResult(val, STD, addr + SCATTER_PROD)
+    call outFile % printResult(val, STD, name)
+
+    name = 'ANA_LEAK'
+    call mem % getResult(val, STD, addr + ANA_LEAK)
+    call outFile % printResult(val, STD, name)
+
+    name = 'C_EFF'
+    call mem % getResult(val, STD, addr + C_EFF)
+    call outFile % printResult(val, STD, name)
+
+    call outFile % endBlock()
+
+  end subroutine print
+
+  !!
+  !! Return result for interaction with Physics Package
+  !!
+  !! See tallyClerk_inter for details
+  !!
+  !! Allocates res to 'keffResult' defined in keffAnalogClerk_class
+  !!
+  pure subroutine getResult(self, res, mem)
+    class(cImplicitClerk), intent(in)              :: self
+    class(tallyResult), allocatable, intent(inout)    :: res
+    type(scoreMemory), intent(in)                     :: mem
+    real(defReal)                                     :: c, STD
+
+    ! Get result value
+    call mem % getResult(c, STD, self % getMemAddress() + C_EFF)
+
+    allocate(res, source = keffResult([c, STD]))
+
+  end subroutine getResult
+
+
+end module cImplicitClerk_class

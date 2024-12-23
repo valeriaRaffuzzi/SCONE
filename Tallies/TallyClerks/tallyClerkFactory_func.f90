@@ -10,6 +10,7 @@ module tallyClerkFactory_func
   ! tallyClerk implementations
   use keffAnalogClerk_class,           only : keffAnalogClerk
   use keffImplicitClerk_class,         only : keffImplicitClerk
+  use cImplicitClerk_class,            only : cImplicitClerk
   use collisionClerk_class,            only : collisionClerk
   use collisionProbabilityClerk_class, only : collisionProbabilityClerk
   use trackClerk_class,                only : trackClerk
@@ -30,6 +31,7 @@ module tallyClerkFactory_func
   ! For now  it is necessary to adjust trailing blanks so all enteries have the same length
   character(nameLen),dimension(*),parameter :: AVALIBLE_tallyClerks = [ 'keffAnalogClerk          ',&
                                                                         'keffImplicitClerk        ',&
+                                                                        'cImplicitClerk           ',&
                                                                         'collisionClerk           ',&
                                                                         'collisionProbabilityClerk',&
                                                                         'trackClerk               ',&
@@ -65,6 +67,9 @@ contains
 
      case('keffImplicitClerk')
        allocate(keffImplicitClerk :: new)
+
+     case('cImplicitClerk')
+       allocate(cImplicitClerk :: new)
 
      case('collisionClerk')
        allocate(collisionClerk :: new)

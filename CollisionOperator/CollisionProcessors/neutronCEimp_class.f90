@@ -438,9 +438,9 @@ contains
       if(.not.associated(fiss)) call fatalError(Here, "Failed to get fissionCE")
 
       ! Store new sites in the next cycle dungeon
-      r   = p % rGlobal()
+      r = p % rGlobal()
 
-      do i=1,n
+      do i = 1,n
         call fiss % sampleOut(mu, phi, E_out, p % E, p % pRNG)
         dir = rotateVector(p % dirGlobal(), mu, phi)
 
