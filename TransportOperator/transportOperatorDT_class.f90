@@ -62,19 +62,17 @@ contains
     class(particleDungeon), intent(inout)     :: nextCycle
     real(defReal)                             :: majorant_inv, sigmaT, distance
     character(100), parameter :: Here = 'deltaTracking (transportOIperatorDT_class.f90)'
+    character(100) :: scale
 !   Data definitions for virtual density module  !
-    real(defReal),dimension(3)                :: cosines,virtual_cosines, real_vector, virtual_vector, virtual_XS
-    real(defReal)                             :: virtual_dist, flight_stretch_factor, virtual_XS_max_inv
-    character(nameLen)                        :: test_name = 'fuel', test_name2 = 'clad'
-    real(defReal),dimension(2)                             :: enquiry_XS_test
-    real(defReal)                             :: enquiry_XS_max
-    integer(shortInt)                         :: mat_Idx_unpert = 0, mat_Idx_pert = 0, index = 1
-    logical(defBool)                          :: weight_pert, denizen_pert, pert_region
+    real(defReal),dimension(3)                :: cosines,virtual_cosines, real_vector, virtual_vector
+    real(defReal)                             :: virtual_dist, flight_stretch_factor
+    logical(defBool)                          :: do_virtual
 
 !   Data definitions for virtual density end here!
 
     ! Get majorat XS inverse: 1/Sigma_majorant
     majorant_inv = ONE / self % xsData % getTrackingXS(p, p % matIdx(), MAJORANT_XS)
+    scale = trim(self % scale_type)
 
     if (abs(majorant_inv) > huge(majorant_inv)) call fatalError(Here, "Majorant is 0")
 
@@ -97,8 +95,13 @@ contains
           end if
         end if
 
-        if (((trim(self % scale_type) == 'non_uniform') .and. (any(self % pert_mat_id == p % matIdx()))) &
-            .or. (trim(self % scale_type) == 'uniform')) then    
+        if (scale == 'non_uniform') then
+          if ((any(self % pert_mat_id == p % matIdx()))) do_virtual = .true.
+        else
+          do_virtual = .true.
+        end if
+        
+        if (do_virtual) then
               cosines(:) = p % dirGlobal()
               real_vector = distance * cosines
 
@@ -122,7 +125,6 @@ contains
             
               call p % point(virtual_cosines)
               distance = virtual_dist
-
         end if
       end if
     ! Move partice in the geometry
@@ -226,7 +228,7 @@ contains
           allocate(self % pert_mat(self % nb_pert_mat))
           allocate(self % pert_mat_id(self % nb_pert_mat))
           do index = 1, self % nb_pert_mat
-            write(tmp, "(A)") index
+            !write(tmp, "(A)") index
             call dict % getorDefault(self % pert_mat(index), trim(tmp),'uniform')
             self % pert_mat_id(index) = mm_matIdx(self % pert_mat(index))
           end do
