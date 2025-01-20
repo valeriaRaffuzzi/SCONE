@@ -97,8 +97,10 @@ contains
 
         if (scale == 'non_uniform') then
           if ((any(self % pert_mat_id == p % matIdx()))) do_virtual = .true.
-        else
+        elseif (scale == 'uniform') then
           do_virtual = .true.
+        else 
+          do_virtual = .false.
         end if
         
         if (do_virtual) then
@@ -142,19 +144,19 @@ contains
       if ((self % virtual_density) .and. (trim(self % scale_type) == 'non_uniform')) then
         if (( p % lastPerturbed .eqv. .false.) .and. p % isPerturbed) then
           if (p % startPerturbed == 1) then
-            !p % w = p % w / self % vector_factor(3)
-            p % w = p % w / self % vector_factor(3)**2 !isotropic swelling
+            p % w = p % w * self % vector_factor(1)
+            !p % w = p % w / self % vector_factor(3)**2 !isotropic swelling
           else
-            p % w = p % w * self % vector_factor(3)**2 !isotropic swelling
-            !p % w = p % w * self % vector_factor(3)
+            !p % w = p % w * self % vector_factor(3)**2 !isotropic swelling
+            p % w = p % w / self % vector_factor(1)
           end if
         elseif (( p % lastPerturbed) .and. (p % isPerturbed .eqv. .false.)) then
           if (p % startPerturbed == 1) then
-            p % w = p % w * self % vector_factor(3)**2 !isotropic swelling
-            !p % w = p % w / self % vector_factor(3)
+            !p % w = p % w * self % vector_factor(3)**2 !isotropic swelling
+            p % w = p % w / self % vector_factor(1)
           else
-            p % w = p % w / self % vector_factor(3)**2 !isotropic swelling
-            !p % w = p % w * self % vector_factor(3)
+            !p % w = p % w / self % vector_factor(3)**2 !isotropic swelling
+            p % w = p % w * self % vector_factor(1)
           end if
         end if
         p % lastPerturbed = p % isPerturbed
@@ -200,6 +202,7 @@ contains
     class(transportOperatorDT), intent(inout) :: self
     class(dictionary), intent(in)             :: dict
     character(nameLen)                        :: tmp = 'pert_mat'
+    character(nameLen)                        :: tmp2 = 'pert_mat'
     integer(shortInt)                         :: index
          !Virtual Density Data call  begins !
 
@@ -228,7 +231,9 @@ contains
           allocate(self % pert_mat(self % nb_pert_mat))
           allocate(self % pert_mat_id(self % nb_pert_mat))
           do index = 1, self % nb_pert_mat
-            !write(tmp, "(A)") index
+            write(tmp2, '(I0)') index
+            tmp = trim('pert_mat_')//trim(tmp2)
+            print *, tmp
             call dict % getorDefault(self % pert_mat(index), trim(tmp),'uniform')
             self % pert_mat_id(index) = mm_matIdx(self % pert_mat(index))
           end do
