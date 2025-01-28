@@ -145,7 +145,7 @@ contains
   subroutine init(self, dict)
     class(transportOperatorDT), intent(inout) :: self
     class(dictionary), intent(in)             :: dict
-    real(defReal), allocatable                :: vec
+    real(defReal), allocatable                :: vec(:)
     character(100), parameter                 :: Here = 'init (transportOperatorDT_class.f90)'
          !Virtual Density Data call  begins !
 
