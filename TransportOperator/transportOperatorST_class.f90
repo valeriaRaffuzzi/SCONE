@@ -37,10 +37,10 @@ module transportOperatorST_class
   type, public, extends(transportOperator) :: transportOperatorST
     logical(defBool)  :: cache = .true.
     real(defReal)                    :: product_factor 
-    real(defReal), dimension(3)      :: vector_factor, vector_factor_cur
+    real(defReal), dimension(:,:), allocatable      :: vector_factor
     logical(defBool)                 :: virtual_density, cross_over = .false.
-    character(nameLen)               :: deform_type, direction_type, scale_type
-    character(nameLen), allocatable  :: pert_mat(:)
+    character(nameLen)               :: direction_type, scale_type
+    character(nameLen), allocatable  :: pert_mat(:), deform_type(:)
     integer(shortInt), allocatable   :: pert_mat_id(:)
     integer(shortInt)                :: nb_pert_mat
   contains
@@ -60,12 +60,11 @@ contains
     type(tallyAdmin), intent(inout)           :: tally
     class(particleDungeon),intent(inout)      :: thisCycle
     class(particleDungeon),intent(inout)      :: nextCycle
-    integer(shortInt)                         :: event
+    integer(shortInt)                         :: event, i, current_mat
     real(defReal)                             :: sigmaT, dist, virtual_dist, flight_stretch_factor
     real(defReal),dimension(3)                :: cosines,virtual_cosines, real_vector, virtual_vector
     type(distCache)                           :: cache
     character(100), parameter :: Here = 'surfaceTracking (transportOperatorST_class.f90)'
-
     STLoop: do
 
       ! Obtain the local cross-section
@@ -82,34 +81,41 @@ contains
       end if
 
       if (self % virtual_density) then
+        ! If uniform virtual density, should always be 1
+        current_mat = 1
         if (trim(self % scale_type) == 'non_uniform') then
-          if (any(self % pert_mat_id == p % matIdx())) then
-            p % isPerturbed = .true. ! Set particle to be perturbed
-          else
-            p % isPerturbed = .false.
-          end if
+          p % isPerturbed = .false.
+          do i = 1, self % nb_pert_mat 
+            if (self % pert_mat_id(i) == p % matIdx()) then
+              p % isPerturbed = .true. ! Set particle to be perturbed
+              current_mat = i ! Set current perturbated material
+            end if
+          end do
         end if
 
         if (p % isPerturbed .or. trim(self % scale_type) == 'uniform') then
           cosines(:) = p % dirGlobal()
           real_vector = dist * cosines
 
-          if (self % deform_type == 'swelling') then
-            virtual_vector(1) = real_vector(1) * self % vector_factor(2) * self % vector_factor(3)
-            virtual_vector(2) = real_vector(2) * self % vector_factor(1) * self % vector_factor(3)
-            virtual_vector(3) = real_vector(3) * self % vector_factor(1) * self % vector_factor(2)
+          if (self % deform_type(current_mat) == 'swelling') then
+            virtual_vector(1) = real_vector(1) * self % vector_factor(2,current_mat) * self % vector_factor(3, current_mat)
+            virtual_vector(2) = real_vector(2) * self % vector_factor(1,current_mat) * self % vector_factor(3,current_mat)
+            virtual_vector(3) = real_vector(3) * self % vector_factor(1,current_mat) * self % vector_factor(2,current_mat)
             virtual_dist = sqrt(sum(virtual_vector**2))
             flight_stretch_factor = virtual_dist / dist
-            virtual_cosines(1) = cosines(1) * self % vector_factor(2) * self % vector_factor(3) / flight_stretch_factor
-            virtual_cosines(2) = cosines(2) * self % vector_factor(1) * self % vector_factor(3) / flight_stretch_factor
-            virtual_cosines(3) = cosines(3) * self % vector_factor(1) * self % vector_factor(2) / flight_stretch_factor
-          elseif (self % deform_type == 'expansion') then
-            virtual_vector = real_vector / self % vector_factor
+            virtual_cosines(1) = cosines(1) * self % vector_factor(2,current_mat) * &
+                self % vector_factor(3,current_mat) / flight_stretch_factor
+            virtual_cosines(2) = cosines(2) * self % vector_factor(1,current_mat) * &
+                self % vector_factor(3,current_mat) / flight_stretch_factor
+            virtual_cosines(3) = cosines(3) * self % vector_factor(1,current_mat) * &
+                self % vector_factor(2,current_mat) / flight_stretch_factor
+          elseif (self % deform_type(current_mat) == 'expansion') then
+            virtual_vector = real_vector / self % vector_factor(:,current_mat)
             virtual_dist = sqrt(sum(virtual_vector**2))
             flight_stretch_factor = virtual_dist/dist
-            virtual_cosines = cosines / (self % vector_factor*flight_stretch_factor)
+            virtual_cosines = cosines / (self % vector_factor(:,current_mat)*flight_stretch_factor)
           else
-            print *,'Error in recognizing type of geometric deformation! Please check input!'
+            call fatalError(Here,'Unrecognised geometric deformation')
           end if
         
           call p % point(virtual_cosines)
@@ -175,8 +181,8 @@ contains
   subroutine init(self, dict)
     class(transportOperatorST), intent(inout) :: self
     class(dictionary), intent(in)             :: dict
-    character(nameLen)                        :: tmp = 'pert_mat'
-    character(nameLen)                        :: tmp2 = 'pert_mat'
+    character(nameLen)                        :: input
+    real(defReal), allocatable, dimension(:)  :: vec                           
     integer(shortInt)                         :: index
 
     ! Initialise superclass
@@ -185,34 +191,43 @@ contains
     ! Initialise virtual density
     call dict % getorDefault(self % virtual_density, 'virtual_density', .false.)
     if (self % virtual_density) then
-      call dict % getorDefault(self % deform_type, 'deform_type','swelling')
       call dict % getorDefault(self % direction_type, 'direction_type','isotropic')
       call dict % getorDefault(self % scale_type, 'scale','uniform')
+      call dict % getorDefault(self % nb_pert_mat, 'nb_pert_mat', 1)
 
-      if (trim(self % direction_type) == 'anisotropic') then
-        call dict % getorDefault(self % vector_factor(1), 'x_factor', ONE)
-        call dict % getorDefault(self % vector_factor(2), 'y_factor', ONE)
-        call dict % getorDefault(self % vector_factor(3), 'z_factor', ONE)
-      else
-        call dict % getorDefault(self % vector_factor(1), 'factor', ONE)
-        call dict % getorDefault(self % vector_factor(2), 'factor', ONE)
-        call dict % getorDefault(self % vector_factor(3), 'factor', ONE)
-      end if
-
-      self % vector_factor_cur = self % vector_factor
-      self % product_factor = self % vector_factor(1) * self % vector_factor(2) * self % vector_factor(3)
+      !self % product_factor = self % vector_factor(1) * self % vector_factor(:,2) * self % vector_factor(3)
 
       if (trim(self % scale_type) == 'non_uniform') then
-        call dict % getorDefault(self % nb_pert_mat, 'nb_pert_mat', 1)
+        allocate(self % deform_type(self % nb_pert_mat))
         allocate(self % pert_mat(self % nb_pert_mat))
         allocate(self % pert_mat_id(self % nb_pert_mat))
+        allocate(self % vector_factor(3, self % nb_pert_mat))
         do index = 1, self % nb_pert_mat
-          write(tmp2, '(I0)') index
-          tmp = trim('pert_mat_')//trim(tmp2)
-          print *, tmp
-          call dict % getorDefault(self % pert_mat(index), trim(tmp),'uniform')
+          input = 'factor_'
+          write(input, '(I0)') index
+          input = trim('factor_')//trim(input)
+          call dict % get(vec, trim(input))
+          self % vector_factor(:,index) = vec
+
+          input = 'pert_mat_'
+          write(input, '(I0)') index
+          input = trim('pert_mat_')//trim(input)
+          call dict % get(self % pert_mat(index), trim(input))
           self % pert_mat_id(index) = mm_matIdx(self % pert_mat(index))
+          print *, self % pert_mat_id(index)
+
+          input = 'deform_type_'
+          write(input, '(I0)') index
+          input = trim('deform_type_')//trim(input)
+          call dict % get(self % deform_type(index), trim(input))
+          print *, self % deform_type(index)
         end do
+      else
+        allocate(self % deform_type(1))
+        allocate(self % vector_factor(3,1))
+        call dict % get(self % deform_type(1), "deform_type_1")
+        call dict % get(vec, "factor_1")
+        self % vector_factor(:,1) = vec
       end if
     end if
 
