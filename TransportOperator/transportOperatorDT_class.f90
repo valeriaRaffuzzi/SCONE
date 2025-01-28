@@ -152,10 +152,10 @@ contains
     call init_super(self, dict)
     call dict % getorDefault(self % virtual_density, 'virtual_density', .false.)
       if (self % virtual_density) then
-        call dict % getorDefault(self % deform_type, 'deform_type','swelling')
+        call dict % getorDefault(self % deform_type, 'deform_type_1','swelling')
         call dict % getorDefault(self % direction_type, 'direction_type','isotropic')
         call dict % getorDefault(self % scale_type, 'scale','uniform')
-        call dict % get(vec, "factor")
+        call dict % get(vec, "factor_1")
         self % vector_factor = vec
 
         self % product_factor = product(self % vector_factor)
