@@ -318,6 +318,9 @@ contains
     call self % initSource % generate(self % thisCycle, self % pop, self % pRNG)
     print *, "DONE!"
 
+    ! Update RNG after source generation
+    call self % pRNG % stride(self % pop)
+
   end subroutine generateInitialState
 
   !!
