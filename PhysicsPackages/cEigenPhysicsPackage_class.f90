@@ -1,4 +1,4 @@
-module cPhysicsPackage_class
+module cEigenPhysicsPackage_class
 
   use numPrecision
   use universalVariables
@@ -67,7 +67,7 @@ module cPhysicsPackage_class
   !!
   !! Physics Package for eigenvalue calculations
   !!
-  type, public,extends(physicsPackage) :: cPhysicsPackage
+  type, public,extends(physicsPackage) :: cEigenPhysicsPackage
     private
     ! Building blocks
     class(nuclearDatabase), pointer        :: nucData       => null()
@@ -116,12 +116,12 @@ module cPhysicsPackage_class
     procedure :: run
     procedure :: kill
 
-  end type cPhysicsPackage
+  end type cEigenPhysicsPackage
 
 contains
 
   subroutine run(self)
-    class(cPhysicsPackage), intent(inout) :: self
+    class(cEigenPhysicsPackage), intent(inout) :: self
 
     print *, repeat("<>",50)
     print *, "/\/\ EIGENVALUE CALCULATION /\/\"
@@ -140,7 +140,7 @@ contains
   !!
   !!
   subroutine cycles(self, tally, tallyAtch, N_cycles)
-    class(cPhysicsPackage), intent(inout) :: self
+    class(cEigenPhysicsPackage), intent(inout) :: self
     type(tallyAdmin), pointer,intent(inout)   :: tally
     type(tallyAdmin), pointer,intent(inout)   :: tallyAtch
     integer(shortInt), intent(in)             :: N_cycles
@@ -153,7 +153,7 @@ contains
     type(particle), save                      :: neutron
     real(defReal)                             :: c_new
     real(defReal)                             :: elapsed_T, end_T, T_toEnd
-    character(100),parameter :: Here ='cycles (cPhysicsPackage_class.f90)'
+    character(100),parameter :: Here ='cycles (cEigenPhysicsPackage_class.f90)'
     !$omp threadprivate(neutron, buffer, collOp, transOp, pRNG)
 
     !$omp parallel
@@ -304,8 +304,8 @@ contains
   !!
   !!
   subroutine generateInitialState(self)
-    class(cPhysicsPackage), intent(inout) :: self
-    character(100), parameter :: Here =' generateInitialState( cPhysicsPackage_class.f90)'
+    class(cEigenPhysicsPackage), intent(inout) :: self
+    character(100), parameter :: Here =' generateInitialState( cEigenPhysicsPackage_class.f90)'
 
     ! Allocate and initialise particle Dungeons
     allocate(self % thisCycle)
@@ -324,7 +324,7 @@ contains
   !! Print calculation results to file
   !!
   subroutine collectResults(self)
-    class(cPhysicsPackage), intent(inout) :: self
+    class(cEigenPhysicsPackage), intent(inout) :: self
     type(outputFile)                      :: out
     character(nameLen)                    :: name
 
@@ -371,7 +371,7 @@ contains
   !! Initialise from individual components and dictionaries for inactive and active tally
   !!
   subroutine init(self, dict)
-    class(cPhysicsPackage), intent(inout) :: self
+    class(cEigenPhysicsPackage), intent(inout) :: self
     class(dictionary), intent(inout)          :: dict
     class(dictionary),pointer                 :: tempDict
     type(dictionary)                          :: locDict1, locDict2
@@ -384,7 +384,7 @@ contains
     type(outputFile)                          :: test_out
     type(visualiser)                          :: viz
     class(field), pointer                     :: field
-    character(100), parameter :: Here ='init (cPhysicsPackage_class.f90)'
+    character(100), parameter :: Here ='init (cEigenPhysicsPackage_class.f90)'
 
     call cpu_time(self % CPU_time_start)
 
@@ -559,7 +559,7 @@ contains
   !! Deallocate memory
   !!
   subroutine kill(self)
-    class(cPhysicsPackage), intent(inout) :: self
+    class(cEigenPhysicsPackage), intent(inout) :: self
 
     ! TODO: This subroutine
 
@@ -569,7 +569,7 @@ contains
   !! Print settings of the physics package
   !!
   subroutine printSettings(self)
-    class(cPhysicsPackage), intent(in) :: self
+    class(cEigenPhysicsPackage), intent(in) :: self
 
     print *, repeat("<>",50)
     print *, "/\/\ EIGENVALUE CALCULATION WITH POWER ITERATION METHOD /\/\"
@@ -581,4 +581,4 @@ contains
     print *, repeat("<>",50)
   end subroutine printSettings
 
-end module cPhysicsPackage_class
+end module cEigenPhysicsPackage_class
