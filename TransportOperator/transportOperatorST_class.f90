@@ -64,6 +64,7 @@ contains
     real(defReal)                             :: sigmaT, dist, virtual_dist, flight_stretch_factor
     real(defReal),dimension(3)                :: cosines,virtual_cosines, real_vector, virtual_vector
     type(distCache)                           :: cache
+    logical(defBool)                          :: repoint
     character(100), parameter :: Here = 'surfaceTracking (transportOperatorST_class.f90)'
     STLoop: do
 
@@ -143,12 +144,13 @@ contains
         p % lastPerturbed = p % isPerturbed
         if (any(self % pert_mat_id == p % matIdx())) then
           p % isPerturbed = .true.
+          if (self % pert_mat_id(current_mat) /= p % matIdx()) repoint = .true.
         else
           p % isPerturbed = .false.
         end if
 
         ! If crossing to unperturbed region, recover non perturbed direction
-        if ( p % lastPerturbed .and. (.not. p % isPerturbed)) call p % point(cosines)
+        if ( (p % lastPerturbed .and. (.not. p % isPerturbed)) .or. repoint) call p % point(cosines)
       end if
 
 
