@@ -11,8 +11,11 @@ module transportOperatorDT_class
   use particleDungeon_class,      only : particleDungeon
   use dictionary_class,           only : dictionary
   use rng_class,                  only : rng
+  use rng_class,                  only : rng
 
   ! Superclass
+!  use transportOperator_inter,    only : transportOperator
+  use transportOperator_inter,    only : transportOperator, init_super => init     ! Added init routine to enable case runs directly from input files
 !  use transportOperator_inter,    only : transportOperator
   use transportOperator_inter,    only : transportOperator, init_super => init     ! Added init routine to enable case runs directly from input files
 
@@ -24,6 +27,10 @@ module transportOperatorDT_class
   use tallyAdmin_class,           only : tallyAdmin
 
   ! Nuclear data interfaces
+  use nuclearDataReg_mod,      only : nucReg_get => get
+  use nuclearDatabase_inter,       only : nuclearDatabase
+  use materialMenu_mod,            only : mm_matIdx => matIdx
+  
   use nuclearDataReg_mod,      only : nucReg_get => get
   use nuclearDatabase_inter,       only : nuclearDatabase
   use materialMenu_mod,            only : mm_matIdx => matIdx
