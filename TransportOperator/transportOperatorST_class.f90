@@ -65,9 +65,9 @@ contains
     real(defReal)                             :: sigmaT, dist, virtual_dist, flight_stretch_factor
     real(defReal),dimension(3)                :: cosines,virtual_cosines, real_vector, virtual_vector
     type(distCache)                           :: cache
-    logical(defBool)                          :: repoint,  first_flight
+    logical(defBool)                          :: repoint, first_flight
     character(100), parameter :: Here = 'surfaceTracking (transportOperatorST_class.f90)'
-    first_flight = .false.
+    first_flight = .true.
     STLoop: do
 
       ! Obtain the local cross-section
@@ -79,7 +79,10 @@ contains
         dist = -log( p % pRNG % get()) / sigmaT
 
         ! Should never happen! Catches NaN distances
-        if (dist /= dist) call fatalError(Here, "Distance is NaN")
+        if (dist /= dist) then 
+          print *, p % matIdx()
+          call fatalError(Here, "Distance is NaN")
+        end if
 
       end if
 
@@ -92,7 +95,8 @@ contains
             if (self % pert_mat_id(i) == p % matIdx()) then
               p % isPerturbed = .true. ! Set particle to be perturbed
               current_mat = i ! Set current perturbated material
-            end if
+              exit
+        end if
           end do
         end if
 
@@ -113,7 +117,7 @@ contains
             virtual_cosines(3) = cosines(3) * self % vector_factor(1,current_mat) * &
                 self % vector_factor(2,current_mat) / flight_stretch_factor
           elseif (self % deform_type(current_mat) == 'expansion') then
-            virtual_vector = real_vector / self % vector_factor(:,current_mat)
+            virtual_vector = real_vector / self % vector_factor(:,current_mat) 
             virtual_dist = sqrt(sum(virtual_vector**2))
             flight_stretch_factor = virtual_dist/dist
             virtual_cosines = cosines / (self % vector_factor(:,current_mat)*flight_stretch_factor)
@@ -121,10 +125,11 @@ contains
             call fatalError(Here,'Unrecognised geometric deformation')
           end if
         
-          if (.not. first_flight) then
+          if (first_flight .and. trim(self % scale_type) == 'uniform') then
             call p % point(virtual_cosines)
-            call self % geom % placeCoord(p % coords)
-            first_flight = .true.
+            first_flight = .false.
+          else if (trim(self % scale_type) == 'non_uniform') then
+            call p % point(virtual_cosines)
           end if
           dist = virtual_dist
           
@@ -147,15 +152,17 @@ contains
 
       if (self % virtual_density .and. trim(self % scale_type) == 'non_uniform') then 
         p % lastPerturbed = p % isPerturbed
+        repoint = .false.
         if (any(self % pert_mat_id == p % matIdx())) then
           p % isPerturbed = .true.
-          if (self % pert_mat_id(current_mat) /= p % matIdx()) repoint = .true.
         else
           p % isPerturbed = .false.
         end if
 
         ! If crossing to unperturbed region, recover non perturbed direction
-        if ( (p % lastPerturbed .and. (.not. p % isPerturbed)) .or. repoint) call p % point(cosines)
+        if ( (p % lastPerturbed .and. (.not. p % isPerturbed))) then 
+          call p % point(cosines)
+        end if
       end if
 
 
@@ -221,7 +228,7 @@ contains
           input = trim('pert_mat_')//trim(input)
           call dict % get(self % pert_mat(index), trim(input))
           self % pert_mat_id(index) = mm_matIdx(self % pert_mat(index))
-          print *, self % pert_mat_id(index)
+          print *, self % pert_mat_id(index), self % pert_mat(index)
 
           input = 'deform_type_'
           write(input, '(I0)') index

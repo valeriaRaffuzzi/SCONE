@@ -14,7 +14,7 @@ cmake_policy(SET CMP0074 NEW)
 ####################################################################################################
 # DEFINE COMPILATION OPTIONS
 
-option(BUILD_TESTS "If is set to ON will compile tests" ON)
+option(BUILD_TESTS "If is set to ON will compile tests" OFF)
 option(LTO         "Enables link-time optimisation"     ON)
 option(COVERAGE    "Collect Coverage Info"              OFF)
 option(DEBUG       "Enable extra run-time checks"       OFF)
