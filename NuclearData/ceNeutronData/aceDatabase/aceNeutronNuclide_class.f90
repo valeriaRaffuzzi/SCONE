@@ -497,7 +497,7 @@ contains
       ! Read S(a,b) tables for elastic scatter: return zero if elastic scatter is off.
       ! Default to low temperature without stochastic mixing.
       ! IMPORTANT
-      ! The choice of data should be stored somewhere for consistent handling of 
+      ! The choice of data should be stored somewhere for consistent handling of
       ! angular distributions, e.g., a cache
       call self % getSabPointer(kT, rand, sabPtr, sabIdx)
       nuclideCache(self % getNucIdx()) % sabIdx = sabIdx
@@ -976,18 +976,18 @@ contains
     ! Initialise energy boundaries
     self % SabInel = self % thData(1) % getEBounds('inelastic')
     self % SabEl = self % thData(1) % getEBounds('elastic')
-    
+
     ! Add second S(a,b) file for stochastic mixing
     if (present(ACE2)) then
-      
+
       self % stochasticMixing = .true.
       call self % thData(2) % init(ACE2)
-      
+
       ! Ensure energy bounds are conservative
       EBounds = self % thData(2) % getEBounds('inelastic')
       if (EBounds(1) > self % SabInel(1)) self % SabInel(1) = EBounds(1)
       if (EBounds(2) < self % SabInel(2)) self % SabInel(2) = EBounds(2)
-      
+
       EBounds = self % thData(2) % getEbounds('elastic')
       if (EBounds(1) > self % SabEl(1)) self % SabEl(1) = EBounds(1)
       if (EBounds(2) < self % SabEl(2)) self % SabEl(2) = EBounds(2)
@@ -1121,7 +1121,7 @@ contains
   !!   Null is source is not of aceNeutronNuclide type
   !!   Pointer to source if source is aceNuclearDatabase type
   !!
-  pure function aceNeutronNuclide_TptrCast(source) result(ptr)
+  function aceNeutronNuclide_TptrCast(source) result(ptr)
     class(nuclideHandle), pointer, intent(in) :: source
     type(aceNeutronNuclide), pointer          :: ptr
 
@@ -1145,7 +1145,7 @@ contains
   !!   Null is source is not of aceNeutronNuclide class
   !!   Pointer to source if source is aceNuclearDatabase class
   !!
-  pure function aceNeutronNuclide_CptrCast(source) result(ptr)
+  function aceNeutronNuclide_CptrCast(source) result(ptr)
     class(nuclideHandle), pointer, intent(in) :: source
     class(aceNeutronNuclide), pointer         :: ptr
 

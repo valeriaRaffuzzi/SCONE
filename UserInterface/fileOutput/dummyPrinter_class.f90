@@ -105,7 +105,7 @@ contains
   !!
   subroutine startEntry(self, name)
     class(dummyPrinter), intent(inout) :: self
-    character(*), intent(in)           :: name
+    character(nameLen), intent(in)     :: name
 
 
   end subroutine startEntry

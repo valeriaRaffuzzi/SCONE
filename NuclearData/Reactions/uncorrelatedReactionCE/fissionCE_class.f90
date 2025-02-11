@@ -410,7 +410,7 @@ contains
   !!   Null is source is not of fissionCE type
   !!   Target points to source if source is fissionCE type
   !!
-  pure function fissionCE_TptrCast(source) result(ptr)
+  function fissionCE_TptrCast(source) result(ptr)
     class(reactionHandle), pointer, intent(in) :: source
     type(fissionCE), pointer                   :: ptr
 

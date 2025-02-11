@@ -639,7 +639,7 @@ contains
   !!   Null is source is not of ceNeutronMaterial
   !!   Pointer to source if source is ceNeutronMaterial class
   !!
-  pure function ceNeutronMaterial_CptrCast(source) result(ptr)
+  function ceNeutronMaterial_CptrCast(source) result(ptr)
     class(materialHandle), pointer, intent(in) :: source
     class(ceNeutronMaterial), pointer          :: ptr
 
@@ -663,7 +663,7 @@ contains
   !!   Null is source is not of ceNeutronMaterial
   !!   Pointer to source if source is ceNeutronMaterial class
   !!
-  pure function ceNeutronMaterial_TptrCast(source) result(ptr)
+  function ceNeutronMaterial_TptrCast(source) result(ptr)
     class(materialHandle), pointer, intent(in) :: source
     type(ceNeutronMaterial), pointer            :: ptr
 

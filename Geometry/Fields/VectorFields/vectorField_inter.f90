@@ -59,7 +59,7 @@ contains
   !!   Null is source is not of vectorField
   !!   Pointer to source if source is vectorField class
   !!
-  pure function vectorField_CptrCast(source) result(ptr)
+  function vectorField_CptrCast(source) result(ptr)
     class(field), pointer, intent(in) :: source
     class(vectorField), pointer       :: ptr
 

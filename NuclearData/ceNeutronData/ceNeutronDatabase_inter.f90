@@ -420,7 +420,7 @@ contains
   !!   Null is source is not of ceNuclearDatabase class
   !!   Target points to source if source is ceNuclearDatabase class
   !!
-  pure function ceNeutronDatabase_CptrCast(source) result(ptr)
+  function ceNeutronDatabase_CptrCast(source) result(ptr)
     class(nuclearDatabase), pointer, intent(in) :: source
     class(ceNeutronDatabase), pointer           :: ptr
 

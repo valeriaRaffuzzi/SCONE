@@ -269,30 +269,16 @@ contains
   !! See tallyClerk_inter for details
   !!
   pure subroutine getResult(self, res, mem)
-    class(collisionProbabilityClerk), intent(in)  :: self
-    class(tallyResult),allocatable, intent(inout) :: res
-    type(scoreMemory), intent(in)                 :: mem
-    integer(shortInt)                             :: i, j
-    integer(longInt)                              :: addr
-    real(defReal)                                 :: val, STD
+    class(collisionProbabilityClerk), intent(in)   :: self
+    class(tallyResult), allocatable, intent(inout) :: res
+    type(scoreMemory), intent(in)                  :: mem
+    integer(shortInt)                              :: i, j
+    integer(longInt)                               :: addr
+    real(defReal)                                  :: val, STD
 
     ! Allocate result to CPMresult
-    ! Do not deallocate if already allocated to CPMresult
-    ! Its not too nice -> clean up
-    if (allocated(res)) then
-      select type(res)
-        class is (CPMresult)
-          ! Do nothing
-
-        class default ! Reallocate
-          deallocate(res)
-          allocate( CPMresult :: res)
-     end select
-
-    else
-      allocate( CPMresult :: res)
-
-    end if
+    if (allocated(res)) deallocate(res)
+    allocate(CPMresult :: res)
 
     ! Load data into the CPM
     select type(res)

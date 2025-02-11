@@ -27,32 +27,38 @@ set(CMAKE_MODULE_PATH ${CMAKE_MODULE_PATH} "${CMAKE_SOURCE_DIR}/cmake")
 
 ####################################################################################################
 # CONFIGURE FORTRAN COMPILER
-#
-# NOTE:
-#   Compiler flags are set for gfortran
-#
 
 enable_language(Fortran)
 set(CMAKE_Fortran_MODULE_DIRECTORY ${PROJECT_BINARY_DIR}/modFiles)
 
-# Add compilers flags
+# Detect compiler and add compilers flags
 # The flags set below will be applied to all Fortran files
-#
-set(CMAKE_Fortran_FLAGS "-std=f2008 -O3 -g -pedantic -Wall -Wno-unused-dummy-argument -cpp")
+if(CMAKE_Fortran_COMPILER_ID MATCHES "GNU")
+
+  set(CMAKE_Fortran_FLAGS "-std=f2008 -O3 -g -pedantic -Wall -Wno-unused-dummy-argument -cpp")
+  # Add Debugging flags to scone library
+  if(DEBUG)
+    list(APPEND scone_extra_flags "-fcheck=all,no-array-temps" "-Waliasing")
+  endif()
+
+elseif(CMAKE_Fortran_COMPILER_ID MATCHES "Intel") 
+
+  set(CMAKE_Fortran_FLAGS "-stand f08 -O3 -g -cpp -warn nounused")
+  # Add Debugging flags to scone library
+  if(DEBUG)
+    list(APPEND scone_extra_flags "-traceback" "-CB" "-CU" "-CS"
+         "-warn" "-fpe0" "-heap-arrays" "-assume noarg_temp")
+  endif()
+
+else()
+  message(WARNING "Unknown Fortran compiler: ${CMAKE_Fortran_COMPILER_ID}")
+endif()
+
 
 # Add extra flags to all Fortran files
 if(COVERAGE)
   set(CMAKE_Fortran_FLAGS "${CMAKE_Fortran_FLAGS} -coverage")
 endif()
-
-# Add Debugging flags to scone library
-# NOTE: GFortran 7.5 may give buggy warnings here
-#   If this is an issue, consider using `-fcheck=bounds,do,mem,pointer`
-#   https://github.com/CambridgeNuclear/SCONE/pull/15#issuecomment-1384192425
-if(DEBUG)
-  list(APPEND scone_extra_flags "-fcheck=all,no-array-temps" "-Waliasing")
-endif()
-
 
 # If LTO is requested check if it is supported by compiler
 # LTO flags will be set by CMAKE via `set_property` command later

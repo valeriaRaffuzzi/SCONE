@@ -87,7 +87,7 @@ contains
   !!   Null is source is not of uniformScalarField
   !!   Pointer to source if source is uniformScalarField type
   !!
-  pure function uniformScalarField_TptrCast(source) result(ptr)
+  function uniformScalarField_TptrCast(source) result(ptr)
     class(field), pointer, intent(in) :: source
     type(uniformScalarField), pointer :: ptr
 

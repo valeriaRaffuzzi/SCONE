@@ -317,7 +317,7 @@ contains
   !!   Null is source is not of neutronScatter type
   !!   Target points to source if source is neutronScatter type
   !!
-  pure function neutronScatter_TptrCast(source) result(ptr)
+  function neutronScatter_TptrCast(source) result(ptr)
     class(reactionHandle), pointer, intent(in) :: source
     type(neutronScatter), pointer       :: ptr
 

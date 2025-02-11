@@ -99,12 +99,12 @@ contains
     call self % setName(name)
 
     ! Load filetr
-    if( dict % isPresent('filter')) then
+    if (dict % isPresent('filter')) then
       call new_tallyFilter(self % filter, dict % getDictPtr('filter'))
     end if
 
     ! Load map
-    if( dict % isPresent('map')) then
+    if (dict % isPresent('map')) then
       call new_tallyMap(self % map, dict % getDictPtr('map'))
     end if
 
@@ -113,8 +113,8 @@ contains
 
     ! Load responses
     allocate(self % response(size(responseNames)))
-    do i=1, size(responseNames)
-      call self % response(i) % init(dict % getDictPtr( responseNames(i) ))
+    do i = 1, size(responseNames)
+      call self % response(i) % init(dict % getDictPtr(responseNames(i)))
     end do
 
     ! Set width

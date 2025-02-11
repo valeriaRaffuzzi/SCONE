@@ -83,7 +83,7 @@ contains
   !!   Null is source is not of neutronMaterial
   !!   Pointer to source if source is neutronMaterial class
   !!
-  pure function neutronMaterial_CptrCast(source) result(ptr)
+  function neutronMaterial_CptrCast(source) result(ptr)
     class(materialHandle), pointer, intent(in) :: source
     class(neutronMaterial), pointer            :: ptr
 

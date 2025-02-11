@@ -160,11 +160,13 @@ contains
   !!   as if the tally map was a multi-dimensional matrix.
   !!
   pure function binArrayShape(self) result(sh)
-    class(tallyMap), intent(in)                      :: self
-    integer(shortInt),dimension(self % dimensions()) :: sh
-    integer(shortInt)                                :: i
+    class(tallyMap), intent(in)                  :: self
+    integer(shortInt), dimension(:), allocatable :: sh
+    integer(shortInt)                            :: i
 
-    do i=1,self % dimensions()
+    allocate(sh(self % dimensions()))
+
+    do i = 1,self % dimensions()
       sh(i) = self % bins(i)
     end do
 

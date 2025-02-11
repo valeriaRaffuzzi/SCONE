@@ -156,7 +156,7 @@ contains
   !!
   subroutine startEntry(self, name)
     class(asciiMATLAB), intent(inout) :: self
-    character(*), intent(in)          :: name
+    character(nameLen), intent(in)    :: name
     character(100), parameter :: Here ='startEntry (asciiMATLAB_class.f90)'
 
     ! Update state

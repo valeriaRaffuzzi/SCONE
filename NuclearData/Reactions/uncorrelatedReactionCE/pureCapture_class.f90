@@ -178,7 +178,7 @@ contains
   !!   Null is source is not of pureCapture type
   !!   Target points to source if source is pureCapture type
   !!
-  pure function pureCapture_TptrCast(source) result(ptr)
+  function pureCapture_TptrCast(source) result(ptr)
     class(reactionHandle), pointer, intent(in) :: source
     type(pureCapture), pointer                 :: ptr
 

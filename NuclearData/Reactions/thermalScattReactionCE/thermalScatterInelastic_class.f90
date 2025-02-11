@@ -399,7 +399,7 @@ contains
   !!   Null is source is not of inelasticNeutronScatter type
   !!   Target points to source if source is inelasticNeutronScatter type
   !!
-  pure function thermalScatterInelastic_TptrCast(source) result(ptr)
+  function thermalScatterInelastic_TptrCast(source) result(ptr)
     class(reactionHandle), pointer, intent(in) :: source
     type(thInelasticScatter), pointer          :: ptr
 

@@ -157,14 +157,15 @@ contains
   !!   fatalError if request is unrecognised
   !!
   function ESZ_elastic(self, request) result(array)
-    class(aceSabCard), intent(in)                     :: self
-    character(*), intent(in)                          :: request
-    real(defReal),dimension(self % elasticEnergies()) :: array
-    integer(shortInt)                                 :: ptr, N
+    class(aceSabCard), intent(in)            :: self
+    character(*), intent(in)                 :: request
+    real(defReal), dimension(:), allocatable :: array
+    integer(shortInt)                        :: ptr, N
     character(100), parameter :: Here = 'ESZ_elastic (aceSabCard_class.f90)'
 
     ! Obtain size of the XS grid
     N = self % elasticEnergies()
+    allocate(array(N))
 
     select case(request)
       case('energyGrid')
@@ -199,14 +200,15 @@ contains
   !!   fatalError if request is unrecognised
   !!
   function ESZ_inelastic(self, request) result(array)
-    class(aceSabCard), intent(in)                       :: self
-    character(*), intent(in)                            :: request
-    real(defReal),dimension(self % inelasticEnergies()) :: array
-    integer(shortInt)                                   :: ptr, N
+    class(aceSabCard), intent(in)            :: self
+    character(*), intent(in)                 :: request
+    real(defReal), dimension(:), allocatable :: array
+    integer(shortInt)                        :: ptr, N
     character(100), parameter :: Here = 'ESZ_inelastic (aceSabCard_class.f90)'
 
     ! Obtain size of the XS grid
     N = self % inelasticEnergies()
+    allocate(array(N))
 
     select case(request)
       case('energyGrid')

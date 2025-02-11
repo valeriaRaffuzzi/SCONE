@@ -189,7 +189,7 @@ contains
   !!   Null is source is not of uncorrelatedReactionCE class
   !!   Target points to source if source is uncorrelatedReactionCE class
   !!
-  pure function uncorrelatedReactionCE_CptrCast(source) result(ptr)
+  function uncorrelatedReactionCE_CptrCast(source) result(ptr)
     class(reactionHandle), pointer, intent(in) :: source
     class(uncorrelatedReactionCE), pointer     :: ptr
 

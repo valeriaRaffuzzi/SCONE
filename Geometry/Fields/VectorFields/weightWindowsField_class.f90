@@ -161,7 +161,7 @@ contains
   !!   Null is source is not of weightWindowsField
   !!   Pointer to source if source is weightWindowsField type
   !!
-  pure function weightWindowsField_TptrCast(source) result(ptr)
+  function weightWindowsField_TptrCast(source) result(ptr)
     class(field), pointer, intent(in) :: source
     type(weightWindowsField), pointer :: ptr
 

@@ -59,7 +59,7 @@ contains
   !!   Null is source is not of scalarField
   !!   Pointer to source if source is scalarField class
   !!
-  pure function scalarField_CptrCast(source) result(ptr)
+  function scalarField_CptrCast(source) result(ptr)
     class(field), pointer, intent(in) :: source
     class(scalarField), pointer       :: ptr
 

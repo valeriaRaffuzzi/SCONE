@@ -165,7 +165,7 @@ contains
   !!   Null is source is not of reactionMG class
   !!   Target points to source if source is reactionMG class
   !!
-  pure function reactionMG_CptrCast(source) result(ptr)
+  function reactionMG_CptrCast(source) result(ptr)
     class(reactionHandle), pointer, intent(in) :: source
     class(reactionMG), pointer                 :: ptr
 

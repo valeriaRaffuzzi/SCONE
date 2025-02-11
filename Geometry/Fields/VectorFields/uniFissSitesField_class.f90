@@ -308,7 +308,7 @@ contains
   !!   Null is source is not of uniFissSitesField
   !!   Pointer to source if source is uniFissSitesField type
   !!
-  pure function uniFissSitesField_TptrCast(source) result(ptr)
+  function uniFissSitesField_TptrCast(source) result(ptr)
     class(field), pointer, intent(in) :: source
     type(uniFissSitesField), pointer  :: ptr
 

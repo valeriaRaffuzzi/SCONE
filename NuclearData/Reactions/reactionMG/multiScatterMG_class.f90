@@ -360,7 +360,7 @@ contains
   !!   Null is source is not of multiScatterMG type
   !!   Target points to source if source is multiScatterMG type
   !!
-  pure function multiScatterMG_TptrCast(source) result(ptr)
+  function multiScatterMG_TptrCast(source) result(ptr)
     class(reactionHandle), pointer, intent(in) :: source
     type(multiScatterMG), pointer              :: ptr
 
@@ -384,7 +384,7 @@ contains
   !!   Null is source is not of multiScatterMG class
   !!   Target points to source if source is multiScatterMG type
   !!
-  pure function multiScatterMG_CptrCast(source) result(ptr)
+  function multiScatterMG_CptrCast(source) result(ptr)
     class(reactionHandle), pointer, intent(in) :: source
     class(multiScatterMG), pointer              :: ptr
 

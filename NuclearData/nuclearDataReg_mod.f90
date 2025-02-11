@@ -229,7 +229,7 @@ contains
 
     ! Initialise
     ptr => databases(idx) % nd
-    call databases(idx) % nd % init( databases(idx) % def, ptr, silent = silent_loc)
+    call databases(idx) % nd % init(databases(idx) % def, ptr, silent = silent_loc)
 
   end subroutine make
 

@@ -375,7 +375,7 @@ contains
   !!   Null is source is not of ceNeutronNuclide
   !!   Pointer to source if source is ceNuclearDatabase class
   !!
-  pure function ceNeutronNuclide_CptrCast(source) result(ptr)
+  function ceNeutronNuclide_CptrCast(source) result(ptr)
     class(nuclideHandle), pointer, intent(in) :: source
     class(ceNeutronNuclide), pointer          :: ptr
 

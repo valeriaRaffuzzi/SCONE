@@ -463,7 +463,7 @@ contains
   !!   Null if source is not of baseMgNeutronDatabase type
   !!   Target points to source if source is baseMgNeutronDatabasetype
   !!
-  pure function baseMgNeutronDatabase_TptrCast(source) result(ptr)
+  function baseMgNeutronDatabase_TptrCast(source) result(ptr)
     class(nuclearDatabase), pointer, intent(in) :: source
     type(baseMgNeutronDatabase), pointer        :: ptr
 
@@ -487,7 +487,7 @@ contains
   !!   Null if source is not of baseMgNeutronDatabase class
   !!   Target points to source if source is baseMgNeutronDatabase class
   !!
-  pure function baseMgNeutronDatabase_CptrCast(source) result(ptr)
+  function baseMgNeutronDatabase_CptrCast(source) result(ptr)
     class(nuclearDatabase), pointer, intent(in) :: source
     class(baseMgNeutronDatabase), pointer          :: ptr
 

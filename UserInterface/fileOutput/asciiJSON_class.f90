@@ -59,6 +59,7 @@ module asciiJSON_class
     procedure :: endArray
     procedure :: printNum
     procedure :: printChar
+
   end type asciiJSON
 
 contains
@@ -159,7 +160,7 @@ contains
   !!
   subroutine startEntry(self, name)
     class(asciiJSON), intent(inout) :: self
-    character(*), intent(in)        :: name
+    character(nameLen), intent(in)  :: name
 
     ! Print indentation
     call self % append(repeat(BLANK, self % ind_lvl * IND_SIZE))

@@ -137,7 +137,7 @@ contains
   !!   Null is source is not of multiScatterP1MG type
   !!   Target points to source if source is multiScatterP1MG type
   !!
-  pure function multiScatterP1MG_TptrCast(source) result(ptr)
+  function multiScatterP1MG_TptrCast(source) result(ptr)
     class(reactionHandle), pointer, intent(in) :: source
     type(multiScatterP1MG), pointer              :: ptr
 

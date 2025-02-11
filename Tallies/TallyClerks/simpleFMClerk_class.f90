@@ -303,23 +303,8 @@ contains
     real(defReal)                                  :: val, STD
 
     ! Allocate result to FMresult
-    ! Do not deallocate if already allocated to FMresult
-    ! Its not to nice -> clean up
-    if (allocated(res)) then
-
-      select type(res)
-        class is (FMresult)
-          ! Do nothing
-        class default
-          ! Reallocate
-          deallocate(res)
-          allocate( FMresult :: res)
-      end select
-
-    else
-      allocate( FMresult :: res)
-
-    end if
+    if (allocated(res)) deallocate(res)
+    allocate(FMresult :: res)
 
     ! Load data inti the FM
     select type(res)

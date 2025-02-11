@@ -96,7 +96,7 @@ contains
   !!   Null is source is not of uniformVectorField
   !!   Pointer to source if source is uniformVectorField type
   !!
-  pure function uniformVectorField_TptrCast(source) result(ptr)
+  function uniformVectorField_TptrCast(source) result(ptr)
     class(field), pointer, intent(in) :: source
     type(uniformVectorField), pointer :: ptr
 

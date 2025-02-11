@@ -535,7 +535,7 @@ contains
 
       ! Loop through accepted sites to save them
       do i = 1, count
-        self % prisoners(i) = self % prisoners(keepers(i))
+        if (i /= keepers(i)) self % prisoners(i) = self % prisoners(keepers(i))
       end do
 
       ! Update population number

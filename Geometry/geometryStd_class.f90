@@ -587,7 +587,7 @@ contains
   !!   Null if source is not of geometryStd class
   !!   Target points to source if source is geometryStd class
   !!
-  pure function geometryStd_CptrCast(source) result(ptr)
+  function geometryStd_CptrCast(source) result(ptr)
     class(geometry), pointer, intent(in) :: source
     class(geometryStd), pointer          :: ptr
 

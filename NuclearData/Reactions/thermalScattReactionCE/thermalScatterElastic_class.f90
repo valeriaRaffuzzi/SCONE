@@ -328,7 +328,7 @@ contains
   !!   Null is source is not of elasticNeutronScatter type
   !!   Target points to source if source is elasticNeutronScatter type
   !!
-  pure function thermalScatterElastic_TptrCast(source) result(ptr)
+  function thermalScatterElastic_TptrCast(source) result(ptr)
     class(reactionHandle), pointer, intent(in) :: source
     type(thElasticScatter), pointer            :: ptr
 

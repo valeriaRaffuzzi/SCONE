@@ -192,7 +192,7 @@ contains
   !!   Null is source is not of ceNeutronMaterial
   !!   Pointer to source if source is ceNeutronMaterial class
   !!
-  pure function mgNeutronMaterial_CptrCast(source) result(ptr)
+  function mgNeutronMaterial_CptrCast(source) result(ptr)
     class(materialHandle), pointer, intent(in) :: source
     class(mgNeutronMaterial), pointer          :: ptr
 

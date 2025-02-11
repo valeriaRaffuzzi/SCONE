@@ -796,10 +796,11 @@ contains
     if(.not.associated(ptr_ceDatabase)) call fatalError(Here,"Should not happen. WTF?!")
 
     ! Create list of all nuclides. Loop over materials
-    ! Find maximum number of nuclides: maxNuc
+    ! Find maximum number of nuclides in a material: maxNuc
+    maxNuc = 1
     do i = 1, mm_nMat()
       mat => mm_getMatPtr(i)
-      maxNuc = max(maxNuc, size(mat % nuclides))
+      maxNuc = max(maxNuc,size(mat % nuclides))
 
       ! Add all nuclides in material to the map
       do j = 1, size(mat % nuclides)
@@ -879,9 +880,9 @@ contains
 
       if(loud) then
         call statusMsg("Building: "// trim(name)// " with index: " //numToChar(nucIdx))
-        if (idx /= 0 .and. idx2 == 0) &
+        if (idx1 /= 0 .and. idx2 == 0) &
             call statusMsg("including S(alpha,beta) tables with file: " //trim(name_file1))
-        if (idx /= 0 .and. idx2 /= 0) &
+        if (idx1 /= 0 .and. idx2 /= 0) &
             call statusMsg("including S(alpha,beta) tables with files: " //trim(name_file1)//' '//trim(name_file2))
       end if
 
@@ -1462,7 +1463,7 @@ contains
   !!   Null if source is not of aceNeutronDatabase type
   !!   Target points to source if source is aceNeutronDatabase type
   !!
-  pure function aceNeutronDatabase_TptrCast(source) result(ptr)
+  function aceNeutronDatabase_TptrCast(source) result(ptr)
     class(nuclearDatabase), pointer, intent(in) :: source
     type(aceNeutronDatabase), pointer           :: ptr
 
@@ -1486,7 +1487,7 @@ contains
   !!   Null if source is not of aceNeutronDatabase class
   !!   Target points to source if source is aceNeutronDatabase class
   !!
-  pure function aceNeutronDatabase_CptrCast(source) result(ptr)
+  function aceNeutronDatabase_CptrCast(source) result(ptr)
     class(nuclearDatabase), pointer, intent(in) :: source
     class(aceNeutronDatabase), pointer          :: ptr
 

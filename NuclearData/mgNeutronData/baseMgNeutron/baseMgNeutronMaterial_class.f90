@@ -303,7 +303,7 @@ contains
   !!   Null if source is not of baseMgNeutronMaterial type
   !!   Target points to source if source is baseMgNeutronMaterialtype
   !!
-  pure function baseMgNeutronMaterial_TptrCast(source) result(ptr)
+  function baseMgNeutronMaterial_TptrCast(source) result(ptr)
     class(materialHandle), pointer, intent(in) :: source
     type(baseMgNeutronMaterial), pointer           :: ptr
 
@@ -327,7 +327,7 @@ contains
   !!   Null if source is not of baseMgNeutronMaterial class
   !!   Target points to source if source is baseMgNeutronMaterial class
   !!
-  pure function baseMgNeutronMaterial_CptrCast(source) result(ptr)
+  function baseMgNeutronMaterial_CptrCast(source) result(ptr)
     class(materialHandle), pointer, intent(in) :: source
     class(baseMgNeutronMaterial), pointer          :: ptr
 

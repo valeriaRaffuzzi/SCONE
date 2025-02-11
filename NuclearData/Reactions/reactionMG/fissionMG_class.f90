@@ -256,7 +256,7 @@ contains
   !!   Null is source is not of fissionMG type
   !!   Target points to source if source is fissionMG type
   !!
-  pure function fissionMG_TptrCast(source) result(ptr)
+  function fissionMG_TptrCast(source) result(ptr)
     class(reactionHandle), pointer, intent(in) :: source
     type(fissionMG), pointer                   :: ptr
 

@@ -39,7 +39,7 @@ contains
   !!   Null if source is not of mgNeutronDatabase class
   !!   Target points to source if source is mgNeutronDatabase class
   !!
-  pure function mgNeutronDatabase_CptrCast(source) result(ptr)
+  function mgNeutronDatabase_CptrCast(source) result(ptr)
     class(nuclearDatabase), pointer, intent(in) :: source
     class(mgNeutronDatabase), pointer           :: ptr
 

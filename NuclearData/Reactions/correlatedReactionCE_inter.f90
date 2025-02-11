@@ -120,7 +120,7 @@ contains
   !!   Null is source is not of correlatedReactionCE class
   !!   Target points to source if source is correlatedReactionCE class
   !!
-  pure function correlatedReactionCE_CptrCast(source) result(ptr)
+  function correlatedReactionCE_CptrCast(source) result(ptr)
     class(reactionHandle), pointer, intent(in) :: source
     class(correlatedReactionCE), pointer       :: ptr
 
