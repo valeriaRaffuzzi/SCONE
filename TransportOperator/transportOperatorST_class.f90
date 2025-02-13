@@ -96,7 +96,7 @@ contains
               p % isPerturbed = .true. ! Set particle to be perturbed
               current_mat = i ! Set current perturbated material
               exit
-        end if
+            end if
           end do
         end if
 
