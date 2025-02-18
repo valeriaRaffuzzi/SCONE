@@ -1,0 +1,108 @@
+type eigenPhysicsPackage;
+
+pop     20000;
+active   700;
+inactive 500;
+XSdata ce;
+dataType ce;
+outputFile tmp;
+outputFormat asciiJSON;
+
+collisionOperator { neutronCE {type neutronCEstd; eps 0.1; isotropic 1;}
+                    neutronMG {type neutronMGstd;} }
+
+transportOperator { type transportOperatorST;
+  cache 0;
+  virtual_density 1;
+  scale uniform;
+  factor_1 (1.1 1.1 1.0);
+  deform_type_1 expansion; }
+
+inactiveTally {
+              shannon { type shannonEntropyClerk; map {type spaceMap; grid lin; axis x; min -50; max 50; N 100;} cycles 500;}
+              }
+
+activeTally  {
+                norm    fiss;
+                normVal 100;
+                fiss { type collisionClerk; response (fiss); fiss {type macroResponse; MT -6;}}
+
+                //kgpc {type coeffOfChaosClerk; order 3;}
+        }
+        
+geometry {
+    type geometryStd; boundary (0 0 0 0 0 0); graph {type shrunk;}
+
+    surfaces
+    {
+      CORE_OUT     { id 1; type box; origin (-25.0 0.0 0.0); halfwidth (40.0 40.0 40.0);}
+      PERT_SURF    { id 2; type box; origin (25.0 0.0 0.0); halfwidth (50.0 50.0 50.0);}
+    }
+
+
+    cells
+    {
+      HELL {id 2001; type simpleCell; surfaces (-1); filltype mat; material fuel;}
+      HEAVEN {id 2002; type simpleCell; surfaces (-2); filltype mat; material water;}  
+    }
+
+    universes
+    {
+      root
+      {
+          id 1;
+          type rootUniverse;
+          border 3;
+          fill u<10>;
+      }
+
+      WORLD  { id 10; type cellUniverse; cells (2001 2002); origin (0.0 0.0 0.0); rotation (0.0 0.0 0.0); }
+    }
+}
+
+nuclearData {
+  handles {
+    ce { type aceNeutronDatabase; aceLibrary $SCONE_ACE;}
+  }
+  materials {
+
+    fuel {
+       temp 273;
+       composition {
+        8016.03     4.503180E-02;
+        92235.03     3.728630E-06;
+        92238.03     1.282915E-02;
+        94238.03     1.463060E-04;
+        94239.03     7.233000E-04;
+        94240.03     1.205000E-03;
+        94241.03     3.330220E-04;
+        94242.03     4.180700E-04;
+        95241.03     3.151800E-05;}
+         }
+
+    water {
+       temp 273;
+       composition {
+        1001.03     9.006360E-02;
+        8016.03     4.503180E-02; }
+         }         
+
+}
+
+}
+
+viz {
+
+  bmp {
+    type bmp;
+    output img;
+    what material;
+    centre (0.0 0.0 0.0);
+    // width (25.0 25.0);
+    axis z;
+    res (1000 1000);
+  }  
+}
+
+
+
