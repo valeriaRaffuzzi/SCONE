@@ -103,7 +103,6 @@ contains
         if (p % isPerturbed .or. trim(self % scale_type) == 'uniform') then
           cosines(:) = p % dirGlobal()
           real_vector = dist * cosines
-          current_mat = 1
           if (self % deform_type(current_mat) == 'swelling') then
             virtual_vector(1) = real_vector(1) * self % vector_factor(2,current_mat) * self % vector_factor(3, current_mat)
             virtual_vector(2) = real_vector(2) * self % vector_factor(1,current_mat) * self % vector_factor(3,current_mat)
