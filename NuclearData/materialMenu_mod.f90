@@ -123,6 +123,7 @@ module materialMenu_mod
     type(nuclideInfo),dimension(:),allocatable :: nuclides
     type(dictionary)                           :: extraInfo
     logical(defBool)                           :: hasTMS = .false.
+    logical(defBool)                           :: hasZeta
   contains
     procedure :: init    => init_materialItem
     procedure :: kill    => kill_materialItem
@@ -414,6 +415,9 @@ contains
       call fatalError(Here, 'Nuclides requested for zeta scaling are not present in composition. '// &
               numToChar(nSab)//' nuclides requested but '//numToChar(found)//' nuclides found.')
     end if
+
+    ! ZETA MG CASE ONLY
+    call dict % getOrDefault(self % hasZeta, 'zetaMG', .false.)
 
     ! ><><><><><><><><>< ZETA ><><><><><><><><><><><
 

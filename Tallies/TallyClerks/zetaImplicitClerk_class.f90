@@ -185,73 +185,79 @@ contains
     ! Obtain xss for the whole material
     call mat % getMacroXSs(xssMat, p)
 
-    ! Zero these xss
-    call xssZeta % clean()
+    ! DO MG ZETA CASE
+    if (p % isMG) then
 
-    ! Check if the zeta nuclide are in this material
-    if (mat % zetaMap % length() /= 0) then
+      ! macro xss of the material
+      nuFissXS = xssMat % nuFission
+      absXS    = xssMat % capture + xssMat % fission
 
-      ! Loop over zeta nuclides
-      i = mat % zetaMap % begin()
-      do while (i /= mat % zetaMap % end())
+      s1 = nuFissXS * flux
+      s2 = absXS * flux
 
-        ! Get index of material to get the xss from
-        matIdx = mat % zetaMap % atVal(i)
+      ! Add scores to counters
+      if (mat % hasZetaMG) then
+        call mem % score(s1 * zetaCache, self % getMemAddress() + IMP_PROD_z)
+        call mem % score(s2 * zetaCache, self % getMemAddress() + IMP_ABS_Z)
+      else
+        call mem % score(s1, self % getMemAddress() + IMP_PROD)
+        call mem % score(s2, self % getMemAddress() + IMP_ABS)
+      end if
 
-        ! Get material pointer
-        matZeta => neutronMaterial_CptrCast(xsData % getMaterial(matIdx))
-        if (.not. associated(matZeta)) then
-          call fatalError(Here,'Unrecognised type of material was retrived from nuclearDatabase')
-        end if
+    else  ! DO CE ZETA CASE
 
-        ! Obtain xss and sum them up
-        call matZeta % getMacroXSs(xss, p)
-        call xssZeta % sum(xss, ONE)
+      ! Zero these xss
+      call xssZeta % clean()
 
-        !print*, mat % zetaMap % atKey(i), matIdx
-        !print*, mat % zetaMap % atKey(i), xss % capture, xssZeta % capture
-        !print*, mat % zetaMap % atKey(i), xss % fission, xssZeta % fission
-        !print*, mat % zetaMap % atKey(i), xss % fission + xss % capture, xssZeta % fission + xssZeta % capture
+      ! Check if the zeta nuclide are in this material
+      if (mat % zetaMap % length() /= 0) then
 
-        i = mat % zetaMap % next(i)
+        ! Loop over zeta nuclides
+        i = mat % zetaMap % begin()
+        do while (i /= mat % zetaMap % end())
 
-      end do
+          ! Get index of material to get the xss from
+          matIdx = mat % zetaMap % atVal(i)
+
+          ! Get material pointer
+          matZeta => neutronMaterial_CptrCast(xsData % getMaterial(matIdx))
+          if (.not. associated(matZeta)) then
+            call fatalError(Here,'Unrecognised type of material was retrived from nuclearDatabase')
+          end if
+
+          ! Obtain xss and sum them up
+          call matZeta % getMacroXSs(xss, p)
+          call xssZeta % sum(xss, ONE)
+
+          i = mat % zetaMap % next(i)
+
+        end do
+
+      end if
+
+      ! macro xss of the zeta nuclides
+      nuFissXS = xssZeta % nuFission
+      absXS    = xssZeta % capture + xssZeta % fission
+
+      ! macro xss of the remaining nuclides
+      nuFissXS_mat = xssMat % nuFission - nuFissXS / zetaCache
+      absXS_mat    = xssMat % capture + xssMat % fission - absXS / zetaCache
+
+      if (nuFissXS_mat < ZERO) nuFissXS_mat = ZERO
+      if (absXS_mat < ZERO) absXS_mat = ZERO
+
+      s1 = nuFissXS * flux
+      s2 = absXS * flux
+      s3 = nuFissXS_mat * flux
+      s4 = absXS_mat * flux
+
+      ! Add scores to counters
+      call mem % score(s1, self % getMemAddress() + IMP_PROD_z)
+      call mem % score(s2, self % getMemAddress() + IMP_ABS_Z)
+      call mem % score(s3, self % getMemAddress() + IMP_PROD)
+      call mem % score(s4, self % getMemAddress() + IMP_ABS)
 
     end if
-
-    ! macro xss of the zeta nuclides
-    nuFissXS = xssZeta % nuFission
-    absXS    = xssZeta % capture + xssZeta % fission
-
-    !print*, 'zeta ', nuFissXS, absXS
-
-    !print*, 'mat ', p % matIdx(), xssMat % nuFission, xssMat % capture + xssMat % fission
-
-    ! macro xss of the remaining nuclides
-    nuFissXS_mat = xssMat % nuFission - nuFissXS / zetaCache
-    absXS_mat    = xssMat % capture + xssMat % fission - absXS / zetaCache
-
-    if (nuFissXS_mat < 0 .or. absXS_mat < 0) then
-      !print*, nuFissXS_mat, absXS_mat
-      nuFissXS_mat = ZERO
-      absXS_mat = ZERO
-      !call fatalError(Here,'Negative cross sections')
-    end if
-
-    !print*, 'other: ', nuFissXS_mat, absXS_mat
-
-    s1 = nuFissXS * flux
-    s2 = absXS * flux
-    s3 = nuFissXS_mat * flux
-    s4 = absXS_mat * flux
-
-    !print*, 'scores: ', flux, s1, s2, s3, s4
-
-    ! Add scores to counters
-    call mem % score(s1, self % getMemAddress() + IMP_PROD_z)
-    call mem % score(s2, self % getMemAddress() + IMP_ABS_Z)
-    call mem % score(s3, self % getMemAddress() + IMP_PROD)
-    call mem % score(s4, self % getMemAddress() + IMP_ABS)
 
   end subroutine reportInColl
 
@@ -282,7 +288,7 @@ contains
         score = 2.0_defReal * p % preCollision % wgt
       case(N_4N)
         score = 3.0_defReal * p % preCollision % wgt
-      case(macroAllScatter) ! Catch weight change for MG scattering
+      case(macroAllScatter, macroIEScatter) ! Catch weight change for MG scattering
         score = max(p % w - p % preCollision % wgt, ZERO)
       case default
         score = ZERO
@@ -303,9 +309,12 @@ contains
       ! Check if the zeta nuclide are in this material
       if (mat % zetaMap % length() /= 0) then
         if (mat % zetaMap % getOrDefault(nucIdx, NOT_FOUND) /= NOT_FOUND) then
-          !print*, nucIdx
           idx = SCATT_PROD_z
         end if
+
+      elseif (mat % hasZetaMG .and. p % isMG) then
+        idx   = SCATT_PROD_z
+        score = score * zetaCache
       end if
 
       call mem % score(score, self % getMemAddress() + idx)

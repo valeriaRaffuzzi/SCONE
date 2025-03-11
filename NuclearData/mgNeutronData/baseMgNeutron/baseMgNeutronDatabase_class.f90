@@ -160,22 +160,22 @@ contains
     integer(shortInt), intent(in)               :: matIdx
     real(defReal)                               :: xs
 
-    associate (matCache => materialCache(matIdx))
+    !associate (matCache => materialCache(matIdx))
 
-      if (matCache % G_tot /= p % G) then
+    !  if (matCache % G_tot /= p % G) then
         ! Get cross section
         xs = self % mats(matIdx) % getTotalXS(p % G, p % pRNG)
         ! Update cache
-        matCache % xss % total = xs
-        matCache % G_tot = p % G
+    !    matCache % xss % total = xs
+    !    matCache % G_tot = p % G
 
-      else
+    !  else
         ! Retrieve cross section from cache
-        xs = matCache % xss % total
+    !    xs = matCache % xss % total
 
-      end if
+    !  end if
 
-    end associate
+    !end associate
 
   end function getTotalMatXS
 
@@ -344,7 +344,7 @@ contains
     call dict % get(scatterKey, 'PN')
 
     ! Build materials
-    do i=1,nMat
+    do i = 1,nMat
       ! Get Path to the xsFile
       matDef => mm_getMatPtr(i)
       call matDef % extraInfo % get(path,'xsFile')
@@ -357,6 +357,9 @@ contains
       ! Load dictionary
       call fileToDict(tempDict, path)
       call self % mats(i) % init(tempDict, scatterKey)
+
+      self % mats(i) % hasZetaMG = matDef % hasZeta
+      if (self % mats(i) % hasZetaMG) print*, 'zeta material: ', trim(matDef % name)
 
     end do
 

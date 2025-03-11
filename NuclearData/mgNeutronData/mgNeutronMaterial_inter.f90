@@ -119,22 +119,22 @@ contains
     ! Store p % matIdx() in a dedicated variable to avoid compilation errors with gfortran >= 13.2
     matIdx = p % matIdx()
 
-    associate (matCache => cache_materialCache(matIdx))
+    !associate (matCache => cache_materialCache(matIdx))
 
-      if (matCache % G_tail /= p % G) then
+    !  if (matCache % G_tail /= p % G) then
         ! Get cross sections
         call self % getMacroXSs(xss, p % G, p % pRNG)
         ! Update cache
-        matCache % xss = xss
-        matCache % G_tail = p % G
+    !    matCache % xss = xss
+    !    matCache % G_tail = p % G
 
-      else
+    !  else
         ! Retrieve cross sections from cache
-        xss = matCache % xss
+    !    xss = matCache % xss
 
-      end if
+    !  end if
 
-    end associate
+    !end associate
 
   end subroutine getMacroXSs_byP
 

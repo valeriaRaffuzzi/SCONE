@@ -30,7 +30,8 @@ module neutronMaterial_inter
   !!   getMacroXSs -> Return Macroscopic XSs given particle with energy data
   !!
   type, public, abstract, extends(materialHandle) :: neutronMaterial
-    type(intMap) :: zetaMap
+    type(intMap)     :: zetaMap
+    logical(defBool) :: hasZetaMG
   contains
     generic                              :: getMacroXSs => getMacroXSs_byP
     procedure(isFissile),       deferred :: isFissile

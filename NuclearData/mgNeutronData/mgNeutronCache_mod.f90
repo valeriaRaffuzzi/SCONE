@@ -105,8 +105,8 @@ contains
 
     ! Need to deallocate on all threads
     !$omp parallel
-    if(allocated(materialCache)) deallocate (materialCache)
-    if(allocated(trackingCache)) deallocate (trackingCache)
+    if (allocated(materialCache)) deallocate (materialCache)
+    if (allocated(trackingCache)) deallocate (trackingCache)
     !$omp end parallel
 
   end subroutine kill

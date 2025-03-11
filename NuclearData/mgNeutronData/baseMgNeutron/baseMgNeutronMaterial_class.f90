@@ -11,6 +11,7 @@ module baseMgNeutronMaterial_class
   use materialHandle_inter,    only : materialHandle
   use mgNeutronMaterial_inter, only : mgNeutronMaterial, kill_super => kill
   use neutronXSPackages_class, only : neutronMacroXSs
+  use ceNeutronCache_mod,      only : zetaCache
 
   ! Reaction objects
   use reactionMG_inter,        only : reactionMG
@@ -115,7 +116,7 @@ contains
     character(100), parameter :: Here = ' getMacroXSs (baseMgNeutronMaterial_class.f90)'
 
     ! Verify bounds
-    if(G < 1 .or. self % nGroups() < G) then
+    if (G < 1 .or. self % nGroups() < G) then
       call fatalError(Here,'Invalid group number: '//numToChar(G)// &
                            ' Data has only: ' // numToChar(self % nGroups()))
     end if
@@ -126,12 +127,22 @@ contains
     xss % inelasticScatter = self % data(IESCATTER_XS, G)
     xss % capture          = self % data(CAPTURE_XS, G)
 
-    if(self % isFissile()) then
+    if (self % isFissile()) then
       xss % fission        = self % data(FISSION_XS, G)
       xss % nuFission      = self % data(NU_FISSION, G)
     else
       xss % fission        = ZERO
       xss % nuFission      = ZERO
+    end if
+
+    if (self % hasZetaMG) then
+
+      xss % total            = xss % total / zetaCache
+      xss % inelasticScatter = xss % inelasticScatter / zetaCache
+      xss % capture          = xss % capture / zetaCache
+      xss % fission          = xss % fission / zetaCache
+      xss % nuFission        = xss % nuFission / zetaCache
+
     end if
 
   end subroutine getMacroXSs_byG
@@ -156,6 +167,8 @@ contains
     end if
 
     xs = self % data(TOTAL_XS, G)
+
+    if (self % hasZetaMG) xs = xs / zetaCache
 
   end function getTotalXS
 
@@ -270,6 +283,7 @@ contains
         self % data(TOTAL_XS, i) = self % data(TOTAL_XS, i) + self % data(FISSION_XS, i)
       end if
     end do
+
   end subroutine init
 
   !!
