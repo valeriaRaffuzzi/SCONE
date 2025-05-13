@@ -231,12 +231,8 @@ contains
     nuFissXS_mat = xssMat % nuFission - nuFissXS / zetaCache
     absXS_mat    = xssMat % capture + xssMat % fission - absXS / zetaCache
 
-    if (nuFissXS_mat < 0 .or. absXS_mat < 0) then
-      !print*, nuFissXS_mat, absXS_mat
-      nuFissXS_mat = ZERO
-      absXS_mat = ZERO
-      !call fatalError(Here,'Negative cross sections')
-    end if
+    if (nuFissXS_mat < ZERO) nuFissXS_mat = ZERO
+    if (absXS_mat < ZERO) absXS_mat = ZERO
 
     !print*, 'other: ', nuFissXS_mat, absXS_mat
 
