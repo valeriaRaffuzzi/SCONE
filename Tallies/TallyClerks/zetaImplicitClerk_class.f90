@@ -377,8 +377,9 @@ contains
       ! History
       if (self % cycleCounter <= self % cycles) then
         call mem % accumulate(zeta, addr + ZETA_IMP + self % cycleCounter)
-        self % cycleCounter = self % cycleCounter + 1
       end if
+
+      self % cycleCounter = self % cycleCounter + 1
 
     end if
 
@@ -402,6 +403,11 @@ contains
       call mem % getResult(zeta, STD, self % getMemAddress() + ZETA_IMP, samples = N)
     else
       call mem % getResult(zeta, STD, self % getMemAddress() + ZETA_IMP)
+    end if
+
+    if (self % cycleCounter == 1) then
+      zeta = zetaCache
+      STD = ZERO
     end if
 
     ! Print to console
@@ -455,6 +461,7 @@ contains
     call outFile % printResult(val, STD, name)
 
     name = 'ZETA_IMP'
+
     ! Get result value
     if (self % flush /= huge(1_shortInt)) then
       N = mod(mem % cycles, self % flush)
@@ -502,6 +509,11 @@ contains
       call mem % getResult(zeta, STD, self % getMemAddress() + ZETA_IMP, samples = N)
     else
       call mem % getResult(zeta, STD, self % getMemAddress() + ZETA_IMP)
+    end if
+
+    if (self % cycleCounter == 1) then
+      zeta = zetaCache
+      STD = ZERO
     end if
 
     allocate(res, source = keffResult([zeta, STD]))

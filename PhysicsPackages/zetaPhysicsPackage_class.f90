@@ -363,7 +363,7 @@ contains
     class(dictionary), intent(inout)          :: dict
     class(dictionary),pointer                 :: tempDict
     type(dictionary)                          :: locDict1, locDict2
-    integer(shortInt)                         :: seed_temp, flush
+    integer(shortInt)                         :: seed_temp, flush, batchSize
     integer(longInt)                          :: seed
     character(10)                             :: time
     character(8)                              :: date
@@ -511,10 +511,9 @@ contains
     call locDict2 % init(2)
 
     call locDict2 % store('type','zetaImplicitClerk')
-    if (dict % isPresent('zetaFlush')) then
-      call dict % get(flush, 'zetaFlush')
-      call locDict2 % store('flush',flush)
-    end if
+    flush = self % N_inactive * 2
+    if (dict % isPresent('zetaFlush')) call dict % get(flush, 'zetaFlush')
+    call locDict2 % store('flush',flush)
     call locDict1 % store('zeta', locDict2)
     call locDict1 % store('display',['zeta'])
 
@@ -525,10 +524,14 @@ contains
     call locDict1 % kill()
 
     ! Active tally attachment
-    call locDict1 % init(2)
-    call locDict2 % init(2)
+    call locDict1 % init(3)
+    call locDict2 % init(1)
+
+    batchSize = 1
+    if (dict % isPresent('batchSize')) call dict % get(batchSize, 'batchSize')
 
     call locDict2 % store('type','zetaImplicitClerk')
+    call locDict1 % store('batchSize', batchSize)
     call locDict1 % store('zeta', locDict2)
     call locDict1 % store('display',['zeta'])
 
