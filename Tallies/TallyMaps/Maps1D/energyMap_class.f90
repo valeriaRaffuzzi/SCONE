@@ -159,8 +159,23 @@ contains
       case('casmo7')
         bins = casmo7
 
+      case('ecco3')
+        bins = ecco33
+
+      case('ecco6')
+        bins = ecco33
+
+      case('ecco9')
+        bins = ecco33
+
+      case('ecco16')
+        bins = ecco33
+
       case('ecco33')
         bins = ecco33
+
+      case('ecco330')
+        bins = ecco330
 
       case('vitaminj')
         bins = vitaminj
