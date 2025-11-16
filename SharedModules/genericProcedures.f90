@@ -78,6 +78,10 @@ module genericProcedures
     module procedure RealReal_linlin_elemental_interpolate
   end interface
 
+  interface interpolateToGrid
+    module procedure RealReal_linlin_interpolateToGrid
+  end interface
+
   interface isSorted
     module procedure isSorted_defReal
     module procedure isSorted_shortInt
@@ -133,7 +137,7 @@ module genericProcedures
     top = size(array)
 
     ! Check if the element is in array bounds
-    if ( value < array(bottom) .or. value >array(top)) then
+    if ( value < array(bottom) .or. value > array(top)) then
       idx = valueOutsideArray
       return
     end if
@@ -814,6 +818,49 @@ module genericProcedures
     end select
 
   end function RealReal_endf_interpolate
+
+  !!
+  !! Fits input data from a grid to another with linear-linear interpolation
+  !!
+  function RealReal_linlin_interpolateToGrid(xIn, yIn, xOut) result(yOut)
+    real(defReal), dimension(:), intent(in)  :: xIn, yIn, xOut
+    real(defReal), dimension(:), allocatable :: yOut
+    integer(shortInt)                        :: nIn, nOut, idx1, idxEnd, i, j
+    character(100), parameter :: Here='RealReal_linlin_interpolateToGrid (genericProcedures.f90)'
+
+    ! Save and check sizes
+    nIn  = size(xIn)
+    nOut = size(xOut)
+    if (size(yIn) /= nIn) call fatalError (Here, 'Sizes of input x and y arrays must match')
+
+    ! Allocate an initialise output array
+    allocate(yOut(nOut))
+    yOut = ZERO
+
+    if (xIn(1) > xOut(nOut) .or. xIn(nIn) < xOut(1)) then
+      call fatalError (Here, 'There is no overlap between y grids given')
+    end if
+
+    ! Find first non-zero value
+    if (xIn(1) <= xOut(1)) then
+      idx1 = 1
+    else
+      idx1 = binarySearch(xOut, xIn(1)) + 1
+    end if
+
+    ! Locate last value
+    if (xIn(nIn) >= xOut(nOut)) then
+      idxEnd = nOut
+    else
+      idxEnd = binarySearch(xOut, xIn(1))
+    end if
+
+    do i = idx1, idxEnd
+      j = binarySearch(xIn, xOut(i))
+      yOut(i) = interpolate(xIn(j), xIn(j + 1), yIn(j), yIn(j + 1), xOut(i))
+    end do
+
+  end function RealReal_linlin_interpolateToGrid
 
   !!
   !! Checks if the provided float is an integer. It may not be rebust and requires further

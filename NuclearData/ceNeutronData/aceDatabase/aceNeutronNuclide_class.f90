@@ -3,12 +3,14 @@ module aceNeutronNuclide_class
   use numPrecision
   use endfConstants
   use universalVariables
-  use genericProcedures, only : fatalError, numToChar, binarySearch
+  use genericProcedures, only : fatalError, numToChar, binarySearch, interpolateToGrid
   use RNG_class,         only : RNG
   use aceCard_class,     only : aceCard
   use aceSabCard_class,  only : aceSabCard
   use stack_class,       only : stackInt
   use intMap_class,      only : intMap
+  use dictionary_class,  only : dictionary
+  use dictParser_func,   only : fileToDict
 
   ! Nuclear Data Interfaces
   use ceNeutronDatabase_inter,      only : ceNeutronDatabase
@@ -720,13 +722,19 @@ contains
   !! Errors:
   !!   FatalError if ACE card has NU data but no fission MTs
   !!
-  subroutine init(self, ACE, nucIdx, database)
-    class(aceNeutronNuclide), intent(inout)       :: self
-    class(aceCard), intent(inout)                 :: ACE
-    integer(shortInt), intent(in)                 :: nucIdx
-    class(ceNeutronDatabase), pointer, intent(in) :: database
-    integer(shortInt)                             :: Ngrid, N, K, i, j, MT, bottom, top
-    type(stackInt)                                :: scatterMT, absMT
+  subroutine init(self, ACE, nucIdx, database, dict)
+    class(aceNeutronNuclide), intent(inout)          :: self
+    class(aceCard), intent(inout)                    :: ACE
+    integer(shortInt), intent(in)                    :: nucIdx
+    class(ceNeutronDatabase), pointer, intent(in)    :: database
+    class(dictionary), pointer, intent(in), optional :: dict
+    integer(shortInt)                                :: Ngrid, N, K, i, j, MT, MText, &
+                                                        bottom, top, firstIdxExt
+    type(stackInt)                                   :: scatterMT, absMT
+    character(pathLen)                               :: fileName
+    class(dictionary), pointer                       :: extDataDict
+    real(defReal), dimension(:), allocatable         :: tempXs, tempGrid, extXS
+    logical(defBool)                                 :: extData = .false.
     character(100), parameter :: Here = "init (aceNeutronNuclide_class.f90)"
 
     ! Reset nuclide just in case
@@ -746,7 +754,7 @@ contains
     Ngrid = ACE % gridSize()
 
     ! Allocate space for main XSs
-    if(self % isFissile()) then
+    if (self % isFissile()) then
       N = 6
     else
       N = 4
@@ -756,13 +764,31 @@ contains
     self % mainData = ZERO
 
     ! Load Main XSs
-    self % eGrid =  ACE % ESZ_XS('energyGrid')
-    self % mainData(TOTAL_XS,:)     = ACE % ESZ_XS('totalXS')
-    self % mainData(ESCATTER_XS,:)  = ACE % ESZ_XS('elasticXS')
-    self % mainData(CAPTURE_XS,:)   = ACE % ESZ_XS('absorptionXS')
+    self % eGrid = ACE % ESZ_XS('energyGrid')
+    self % mainData(ESCATTER_XS,:) = ACE % ESZ_XS('elasticXS')
 
     ! Get elastic kinematics
     call self % elasticScatter % init(ACE, N_N_ELASTIC)
+
+    ! Check if reading an external xs file
+    if (associated(dict)) then
+      extData = .true.
+      call dict % get(MText, 'MT')
+      if (any([18,19,20,21,38] == MText)) call fatalError(Here, 'fission not supported')
+      call dict % get(fileName, 'fileName')
+      call fileToDict(extDataDict, fileName)
+
+      call extDataDict % get(tempXs, 'crossSection')
+      call extDataDict % get(tempGrid, 'energy')
+      if (size(tempXs) /= size(tempGrid)) then
+        call fatalError(Here, 'Sizes of energy grid and cross section given in '&
+                        //fileName//' are not consistent')
+      end if
+
+      extXS = interpolateToGrid(tempGrid, tempXs, self % eGrid)
+      firstIdxExt = findLoc(extXS, ZERO, dim = 1, back=.true.) + 1
+
+    end if
 
     ! Load Fission XS data
     ! Set 'bottom' variable to the start index of fission data
@@ -843,37 +869,60 @@ contains
     self % nMT = N
     do i = 1,N
       call scatterMT % pop(MT)
-      self % MTdata(i) % MT       = MT
-      self % MTdata(i) % firstIdx = ACE % firstIdxMT(MT)
-      self % MTdata(i) % xs       = ACE % xsMT(MT)
+      self % MTdata(i) % MT = MT
+
+      if (extData .and. MText == MT) then
+        self % MTdata(i) % firstIdx = firstIdxExt
+        self % MTdata(i) % xs       = extXS
+      else
+        self % MTdata(i) % firstIdx = ACE % firstIdxMT(MT)
+        self % MTdata(i) % xs       = ACE % xsMT(MT)
+      end if
 
       allocate(neutronScatter :: self % MTdata(i) % kinematics)
       call self % MTdata(i) % kinematics % init(ACE, MT)
+
+      ! Populate inelastic scattering cross section
+      do j = 1,size(self % mainData, 2)
+        ! Find bottom and Top of the grid
+        bottom = self % MTdata(i) % firstIdx
+        top    = size(self % MTdata(i) % xs)
+        if (j >= bottom .and. j <= top + bottom) then
+          self % mainData(IESCATTER_XS, j) = self % mainData(IESCATTER_XS, j) + &
+                                             self % MTdata(i) % xs(j-bottom + 1)
+        end if
+      end do
+
     end do
 
     ! Load capture reactions
     K = absMT % size()
     do i = N+1,N+K
       call absMT % pop(MT)
-      self % MTdata(i) % MT       = MT
-      self % MTdata(i) % firstIdx = ACE % firstIdxMT(MT)
-      self % MTdata(i) % xs       = ACE % xsMT(MT)
+      self % MTdata(i) % MT = MT
+
+      if (extData .and. MText == MT) then
+        self % MTdata(i) % firstIdx = firstIdxExt
+        self % MTdata(i) % xs       = extXS
+      else
+        self % MTdata(i) % firstIdx = ACE % firstIdxMT(MT)
+        self % MTdata(i) % xs       = ACE % xsMT(MT)
+      end if
 
       allocate(pureCapture :: self % MTdata(i) % kinematics)
       call self % MTdata(i) % kinematics % init(ACE, MT)
-    end do
 
-    ! Calculate Inelastic scattering XS
-    do i = 1,self % nMT
+      ! Populate absorption cross section
       do j = 1,size(self % mainData, 2)
         ! Find bottom and Top of the grid
         bottom = self % MTdata(i) % firstIdx
         top    = size(self % MTdata(i) % xs)
-        if (j>= bottom .and. j <= top + bottom) then
-          self % mainData(IESCATTER_XS, j) = self % mainData(IESCATTER_XS, j) + &
-                                             self % MTdata(i) % xs(j-bottom + 1)
+        if (j >= bottom .and. j <= top + bottom) then
+          self % mainData(N_DISAP, j) = self % mainData(N_DISAP, j) + &
+                                        self % MTdata(i) % xs(j-bottom + 1)
         end if
       end do
+
     end do
 
     ! Recalculate totalXS
@@ -882,7 +931,7 @@ contains
     else
       K = CAPTURE_XS
     end if
-    self % mainData(TOTAL_XS, :) = sum(self % mainData(ESCATTER_XS:K,:),1)
+    self % mainData(TOTAL_XS, :) = sum(self % mainData(ESCATTER_XS:K,:), 1)
 
     ! Load Map of MT -> local index of a reaction
     do i = 1,size(self % MTdata)

@@ -59,7 +59,7 @@ module aceNeutronDatabase_class
   !!   nuclearData {
   !!   handles {
   !!   ce { type aceNeutronDatabase; DBRC (92238 94242); ures < 1 or 0 >;
-  !!        majorant < 1 or 0 >; aceLibrary <nuclear data path> ;} 
+  !!        majorant < 1 or 0 >; aceLibrary <nuclear data path> ;}
   !!        #avgDist 3.141;# }
   !!
   !! Public Members:
@@ -786,7 +786,7 @@ contains
   !!
   !! See nuclearDatabase documentation for details
   !!
-  subroutine init(self, dict, ptr, silent )
+  subroutine init(self, dict, ptr, silent)
     class(aceNeutronDatabase), target, intent(inout) :: self
     class(dictionary), intent(in)                    :: dict
     class(nuclearDatabase), pointer, intent(in)      :: ptr
@@ -794,6 +794,7 @@ contains
     logical(defBool)                                 :: loud
     type(materialItem), pointer                      :: mat
     class(ceNeutronDatabase), pointer                :: ptr_ceDatabase
+    class(dictionary), pointer                       :: tabDataDict, nucDataDict
     type(charMap)                                    :: nucSet
     type(aceCard)                                    :: ACE
     type(aceSabCard)                                 :: ACE_Sab1, ACE_Sab2
@@ -803,7 +804,7 @@ contains
     integer(shortInt)                                :: maxNuc
     logical(defBool)                                 :: isFissileMat
     integer(shortInt),dimension(:),allocatable       :: nucIdxs, zaidDBRC
-    character(nameLen),dimension(:),allocatable      :: nucDBRC
+    character(nameLen),dimension(:),allocatable      :: nucDBRC, nucKeys
     real(defReal)                                    :: A, nuckT, eUpSab, eUpSabNuc, &
                                                         eLowURR, eLowUrrNuc, alpha, &
                                                         deltakT, eUpper, eLower, kT, &
@@ -901,12 +902,19 @@ contains
 
     end if
 
+    ! Check if some tabulated CE nuclear data is given
+    if (dict % isPresent('tabulatedData')) then
+       tabDataDict => dict % getDictPtr('tabulatedData')
+       call tabDataDict % keys(nucKeys)
+    end if
+
     ! Build nuclide definitions
     allocate(self % nuclides(nucSet % length()))
     i = nucSet % begin()
     nucIdx = 1
     do while (i /= nucSet % end())
 
+      ! Retrieve nuclide zaid, accounting for Sab files
       idx1 = index(nucSet % atKey(i),'+')
       idx2 = index(nucSet % atKey(i),'#')
       if (idx1 /= 0) then
@@ -922,6 +930,16 @@ contains
         name = nucSet % atKey(i)
       end if
 
+      ! Check for match with tabulated data
+      nucDataDict => null()
+      idx = 0
+      if (allocated(nucKeys)) then
+        do idx = 1, size(nucKeys)
+          if (name == nucKeys(idx)) exit
+        end do
+        if (idx /= 0) nucDataDict => dict % getDictPtr(nucKeys(idx))
+      end if
+
       if(loud) then
         print '(A)', "Building: "// trim(name)// " with index: " //numToChar(nucIdx)
         if (idx1 /= 0 .and. idx2 == 0) &
@@ -931,7 +949,7 @@ contains
       end if
 
       call new_neutronACE(ACE, name)
-      call self % nuclides(nucIdx) % init(ACE, nucIdx, ptr_ceDatabase)
+      call self % nuclides(nucIdx) % init(ACE, nucIdx, ptr_ceDatabase, nucDataDict)
 
       ! Initialise S(alpha,beta) tables
       if (idx1 /= 0 ) then
