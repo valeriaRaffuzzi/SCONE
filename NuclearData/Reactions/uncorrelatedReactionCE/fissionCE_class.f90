@@ -374,6 +374,8 @@ contains
         self % delayed(i) % lambda = ACE % readReal() * shakesPerS
         nr = ACE % readInt()
 
+        print*, self % delayed(i) % lambda
+
         if(nr < 0) call fatalError(Here, 'NR < 0. WTF?')
 
         if(nr == 0) then ! Single interpolation region lin-lin

@@ -105,7 +105,7 @@ contains
     type(particleState)                  :: pFiss
     type(outputFile)                     :: out
     real(defReal), dimension(:,:), allocatable :: fiss, capt, transFL, transOS, &
-                                                  nu, chi, P0, P1, P2, P3, P4,  &
+                                                  nu, chi_p, chi_d, P0, P1, P2, P3, P4,  &
                                                   P5, P6, P7, prod
     real(defReal), parameter :: TOL = 1.0E-9
 
@@ -142,14 +142,14 @@ contains
     call mem % closeCycle(ONE)
 
     ! Process and get results
-    call this % clerk_test1 % processRes(mem, capt, fiss, transFL, transOS, nu, chi, P0, P1, prod)
+    call this % clerk_test1 % processRes(mem, capt, fiss, transFL, transOS, nu, chi_p, chi_d, P0, P1, prod)
     call this % clerk_test1 % processPN(mem, P2, P3, P4, P5, P6, P7)
 
     ! Verify results of scoring
     @assertEqual([ZERO, ZERO, TWO, ZERO], capt(1,:), TOL, 'Capture XS' )
     @assertEqual([ZERO, ZERO, 1.5_defReal, ZERO], fiss(1,:), TOL, 'Fission XS' )
     @assertEqual([ZERO, ZERO, TWO, ZERO], nu(1,:), TOL, 'NuFission XS' )
-    @assertEqual([ZERO, ZERO, HALF, HALF], chi(1,:), TOL, 'Chi' )
+    @assertEqual([ZERO, ZERO, HALF, HALF], chi_p(1,:), TOL, 'Chi' )
     @assertEqual([ZERO, ZERO, 4.0_defReal, ZERO], transOS(1,:), TOL, 'Transport XS O.S.' )
     @assertEqual([ZERO, ZERO, 5.5_defReal, ZERO], transFL(1,:), TOL, 'Transport XS F.L.' )
     @assertEqual([ZERO, ZERO, ZERO, ZERO, ZERO, TWO, ZERO, ZERO], P0(1,:), TOL, 'P0' )
@@ -184,7 +184,7 @@ contains
     type(particleState)                  :: pFiss
     type(outputFile)                     :: out
     real(defReal), dimension(:,:), allocatable :: fiss, capt, transFL, transOS, &
-                                                  nu, chi, P0, P1, prod
+                                                  nu, chi_p, chi_d, P0, P1, prod
     real(defReal), parameter :: TOL = 1.0E-9
 
     ! Configure memory
@@ -219,13 +219,13 @@ contains
     call mem % closeCycle(ONE)
 
     ! Process and get results
-    call this % clerk_test2 % processRes(mem, capt, fiss, transFL, transOS, nu, chi, P0, P1, prod)
+    call this % clerk_test2 % processRes(mem, capt, fiss, transFL, transOS, nu, chi_p, chi_d, P0, P1, prod)
 
     ! Verify results of scoring
     @assertEqual([ZERO, ZERO, TWO], capt(1,:), TOL, 'Capture XS' )
     @assertEqual([ZERO, ZERO, 1.5_defReal], fiss(1,:), TOL, 'Fission XS' )
     @assertEqual([ZERO, ZERO, TWO], nu(1,:), TOL, 'NuFission XS' )
-    @assertEqual([HALF, ZERO, HALF], chi(1,:), TOL, 'Chi' )
+    @assertEqual([HALF, ZERO, HALF], chi_p(1,:), TOL, 'Chi' )
     @assertEqual([ZERO, ZERO, 4.0_defReal], transOS(1,:), TOL, 'Transport XS O.S.' )
     @assertEqual([ZERO, ZERO, 5.5_defReal], transFL(1,:), TOL, 'Transport XS F.L.' )
     @assertEqual([ZERO, ZERO, ZERO, ZERO, ZERO, ZERO, ZERO, TWO, ZERO], P0(1,:), TOL, 'P0' )

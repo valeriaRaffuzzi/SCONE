@@ -235,7 +235,7 @@ contains
       r   = p % rGlobal()
 
       do i = 1,n
-        call fission % sampleOut(mu, phi, E_out, p % E, p % pRNG)
+        call fission % sampleOut(mu, phi, E_out, p % E, p % pRNG, p % lambda)
         dir = rotateVector(p % dirGlobal(), mu, phi)
 
         if (E_out > self % maxE) E_out = self % maxE

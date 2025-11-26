@@ -35,6 +35,7 @@ module neutronXsPackages_class
     real(defReal) :: capture          = ZERO
     real(defReal) :: fission          = ZERO
     real(defReal) :: nuFission        = ZERO
+    real(defReal) :: nuFission_p      = ZERO
   contains
     procedure :: clean => clean_neutronMacroXSs
     procedure :: add   => add_neutronMacroXSs
@@ -62,6 +63,7 @@ module neutronXsPackages_class
     real(defReal) :: capture          = ZERO
     real(defReal) :: fission          = ZERO
     real(defReal) :: nuFission        = ZERO
+    real(defReal) :: nuFission_p      = ZERO
   contains
     procedure :: invert => invert_microXSs
   end type neutronMicroXSs
@@ -88,6 +90,7 @@ contains
     self % capture          = ZERO
     self % fission          = ZERO
     self % nuFission        = ZERO
+    self % nuFission_p      = ZERO
 
   end subroutine clean_neutronMacroXSs
 
@@ -114,6 +117,7 @@ contains
     self % capture          = self % capture          + dens * micro % capture
     self % fission          = self % fission          + dens * micro % fission
     self % nuFission        = self % nuFission        + dens * micro % nuFission
+    self % nuFission_p      = self % nuFission_p      + dens * micro % nuFission_p
 
   end subroutine add_neutronMacroXSs
 
@@ -149,6 +153,9 @@ contains
 
       case(macroNuFission)
         xs = self % nuFission
+
+      case(macroNuFissionP)
+        xs = self % nuFission_p
 
       case(macroAbsorbtion)
         xs = self % fission + self % capture

@@ -360,7 +360,7 @@ real(defReal),dimension(7),parameter :: ecco6 = [ &
     7.485183E-04_defReal,&
     1.000010E-11_defReal]
 
-real(defReal),dimension(10),parameter :: ecco9 = [ &
+real(defReal),dimension(9),parameter :: ecco9 = [ &
     1.964033E+01_defReal,&
     2.231302E+00_defReal,&
     4.978707E-01_defReal,&
@@ -369,10 +369,10 @@ real(defReal),dimension(10),parameter :: ecco9 = [ &
     5.530844E-03_defReal,&
     2.034684E-03_defReal,&
     7.485183E-04_defReal,&
-    5.400000E-07_defReal,&
+    !5.400000E-07_defReal,&
     1.000010E-11_defReal]
 
-real(defReal),dimension(17),parameter :: ecco16 = [ &
+real(defReal),dimension(16),parameter :: ecco16 = [ &
     1.964033E+01_defReal,&
     6.065307E+00_defReal,&
     2.231302E+00_defReal,&
@@ -388,10 +388,10 @@ real(defReal),dimension(17),parameter :: ecco16 = [ &
     2.034684E-03_defReal,&
     1.234098E-03_defReal,&
     7.485183E-04_defReal,&
-    5.400000E-07_defReal,&
+    !5.400000E-07_defReal,&
     1.000010E-11_defReal]
 
-real(defReal),dimension(34),parameter :: ecco33 = [ &
+real(defReal),dimension(22),parameter :: ecco33 = [ &
     1.964033E+01_defReal,&
     1.000000E+01_defReal,&
     6.065307E+00_defReal,&
@@ -413,18 +413,18 @@ real(defReal),dimension(34),parameter :: ecco33 = [ &
     2.034684E-03_defReal,&
     1.234098E-03_defReal,&
     7.485183E-04_defReal,&
-    4.539993E-04_defReal,&
-    3.043248E-04_defReal,&
-    1.486254E-04_defReal,&
-    9.166088E-05_defReal,&
-    6.790405E-05_defReal,&
-    4.016900E-05_defReal,&
-    2.260329E-05_defReal,&
-    1.370959E-05_defReal,&
-    8.315287E-06_defReal,&
-    4.000000E-06_defReal,&
-    5.400000E-07_defReal,&
-    1.000000E-07_defReal,&
+    !4.539993E-04_defReal,&
+    !3.043248E-04_defReal,&
+    !1.486254E-04_defReal,&
+    !9.166088E-05_defReal,&
+    !6.790405E-05_defReal,&
+    !4.016900E-05_defReal,&
+    !2.260329E-05_defReal,&
+    !1.370959E-05_defReal,&
+    !8.315287E-06_defReal,&
+    !4.000000E-06_defReal,&
+    !5.400000E-07_defReal,&
+    !1.000000E-07_defReal,&
     1.000010E-11_defReal]
 
 real(defReal),dimension(331),parameter :: ecco330 = [ &

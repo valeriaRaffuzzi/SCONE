@@ -160,16 +160,16 @@ contains
         bins = casmo7
 
       case('ecco3')
-        bins = ecco33
+        bins = ecco3
 
       case('ecco6')
-        bins = ecco33
+        bins = ecco6
 
       case('ecco9')
-        bins = ecco33
+        bins = ecco9
 
       case('ecco16')
-        bins = ecco33
+        bins = ecco16
 
       case('ecco33')
         bins = ecco33

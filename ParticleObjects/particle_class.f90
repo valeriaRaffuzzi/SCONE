@@ -61,6 +61,7 @@ module particle_class
     integer(shortInt)          :: uniqueID = -1     ! Unique id at the lowest coord level
     integer(shortInt)          :: collisionN = 0    ! Number of collisions
     integer(shortInt)          :: broodID = 0       ! ID of the source particle
+    real(defReal)              :: lambda = huge(ONE) ! Delayed neutrons info
   contains
     generic    :: assignment(=)  => fromParticle
     generic    :: operator(.eq.) => equal_particleState
@@ -110,7 +111,7 @@ module particle_class
     ! Particle processing information
     class(RNG), pointer        :: pRNG  => null()  ! Pointer to RNG associated with the particle
     real(defReal)              :: k_eff            ! Value of default keff for implicit source generation
-    real(defReal)              :: c_est = ONE      
+    real(defReal)              :: c_est = ONE
     integer(shortInt)          :: geomIdx          ! Index of the geometry used by the particle
     integer(shortInt)          :: splitCount = 0   ! Counter of number of splits
 
@@ -119,6 +120,9 @@ module particle_class
     type(particleState)        :: preTransition
     type(particleState)        :: prePath
     type(particleState)        :: preCollision
+
+    ! Delayed neutrons info
+    real(defReal)              :: lambda = huge(ONE)
 
   contains
      ! Build procedures
@@ -275,6 +279,7 @@ contains
     LHS % collisionN            = RHS % collisionN
     LHS % splitCount            = 0 ! Reinitialise counter for number of splits
     LHS % broodID               = RHS % broodID
+    LHS % lambda                = RHS % lambda
 
   end subroutine particle_fromParticleState
 
@@ -661,6 +666,8 @@ contains
     LHS % cellIdx  = RHS % coords % cell()
     LHS % collisionN = RHS % collisionN
     LHS % broodID    = RHS % broodID
+
+    LHS % lambda     = RHS % lambda
 
   end subroutine particleState_fromParticle
 
