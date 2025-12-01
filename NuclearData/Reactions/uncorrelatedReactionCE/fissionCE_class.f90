@@ -214,7 +214,7 @@ contains
   !!
   !! See uncorrelatedReactionCE for details
   !!
-  subroutine sampleOut(self, mu, phi, E_out, E_in, rand, lambda)
+  subroutine sampleOut(self, mu, phi, E_out, E_in, rand, lambda, i)
     class(fissionCE), intent(in)         :: self
     real(defReal), intent(out)           :: mu
     real(defReal), intent(out)           :: phi
@@ -222,8 +222,9 @@ contains
     real(defReal), intent(in)            :: E_in
     class(RNG), intent(inout)            :: rand
     real(defReal), intent(out), optional :: lambda
+    integer(shortInt), intent(out), optional :: i
     real(defReal)                        :: p_del, r1, r2
-    integer(shortInt)                    :: i, N
+    integer(shortInt)                    :: j, N
     character(100),parameter :: Here = 'sample (fissionCE_class.f90)'
 
     ! Sample mu
@@ -236,26 +237,28 @@ contains
     E_out = self % eLawPrompt % sample(E_in, rand)
 
     ! Calculate delayed emission probability
-    if(allocated(self % delayed)) then
+    if (allocated(self % delayed)) then
       p_del = self % releaseDelayed(E_in) / self % release(E_in)
     else
       p_del = ZERO
     end if
 
     r1 = rand % get()
-    if( r1 > p_del ) then ! Prompt emission
+    if ( r1 > p_del ) then ! Prompt emission
       E_out = self % eLawPrompt % sample(E_in, rand)
-      if(present(lambda)) lambda = huge(lambda)
+      if (present(lambda)) lambda = huge(lambda)
+      if (present(i)) i = 0
 
     else ! Delayed emission
       r2 = rand % get()
 
       ! Loop over precursor groups
-      precursors: do i=1,size(self % delayed)
-        r2 = r2 - self % delayed(i) % prob % at(E_in)
+      precursors: do j = 1,size(self % delayed)
+        r2 = r2 - self % delayed(j) % prob % at(E_in)
         if( r2 < ZERO) then
-          E_out = self % delayed(i) % eLaw % sample(E_in, rand)
-          if(present(lambda)) lambda = self % delayed(i) % lambda
+          E_out = self % delayed(j) % eLaw % sample(E_in, rand)
+          if (present(lambda)) lambda = self % delayed(j) % lambda
+          if (present(i)) i = j
           return
 
         end if
@@ -264,9 +267,11 @@ contains
       ! Sampling failed -> Choose top precursor group
       N = size(self % delayed)
       E_out = self % delayed(N) % eLaw % sample(E_in, rand)
-      if(present(lambda)) lambda = self % delayed(N) % lambda
+      if (present(lambda)) lambda = self % delayed(N) % lambda
+      if (present(i)) i = N
 
     end if
+
   end subroutine sampleOut
 
   !!
@@ -373,8 +378,6 @@ contains
         ! Convert from 1/shake to 1/s
         self % delayed(i) % lambda = ACE % readReal() * shakesPerS
         nr = ACE % readInt()
-
-        print*, self % delayed(i) % lambda
 
         if(nr < 0) call fatalError(Here, 'NR < 0. WTF?')
 

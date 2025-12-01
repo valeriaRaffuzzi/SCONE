@@ -165,7 +165,7 @@ contains
   !!
   !! See uncorrelatedReactionCE for details
   !!
-  subroutine sampleOut(self, mu, phi, E_out, E_in, rand, lambda)
+  subroutine sampleOut(self, mu, phi, E_out, E_in, rand, lambda, i)
     class(elasticNeutronScatter), intent(in) :: self
     real(defReal), intent(out)               :: mu
     real(defReal), intent(out)               :: phi
@@ -173,6 +173,7 @@ contains
     real(defReal), intent(in)                :: E_in
     class(RNG), intent(inout)                :: rand
     real(defReal), intent(out), optional     :: lambda
+    integer(shortInt), intent(out),optional   :: i
 
     ! Set energy
     E_out = E_in
@@ -191,6 +192,7 @@ contains
 
     ! Only prompt particles. Set delay
     if(present(lambda)) lambda = huge(lambda)
+    if(present(i)) i = 0
 
   end subroutine sampleOut
 

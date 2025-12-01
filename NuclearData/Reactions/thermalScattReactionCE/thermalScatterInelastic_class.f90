@@ -201,7 +201,7 @@ contains
   !!
   !! See uncorrelatedReactionCE for details
   !!
-  subroutine sampleOut(self, mu, phi, E_out, E_in, rand, lambda)
+  subroutine sampleOut(self, mu, phi, E_out, E_in, rand, lambda, i)
     class(thInelasticScatter), intent(in) :: self
     real(defReal), intent(out)            :: mu
     real(defReal), intent(out)            :: phi
@@ -209,10 +209,11 @@ contains
     real(defReal), intent(in)             :: E_in
     class(RNG), intent(inout)             :: rand
     real(defReal), intent(out), optional  :: lambda
+    integer(shortInt), intent(out),optional :: i
     real(defReal)     :: E_min, E_max
     real(defReal)     :: E1, E2, f, eps
     real(defReal)     :: mu_ljk, mu1, mu2, mu3, muLeft, muRight
-    integer(shortInt) :: l1, l2, l, j, k, i
+    integer(shortInt) :: l1, l2, l, j, k, iter
     character(100), parameter :: Here = 'sampleOut(thermalScatterInelastic_class)'
 
     ! Get energy indexes
@@ -250,7 +251,7 @@ contains
       end if
 
       ! Sampling loop
-      sample: do i = 1, 100
+      sample: do iter = 1, 100
 
         ! Sample outgoing energy
         E_out = self % eOutPdf(l) % sample(rand, j, eps)
@@ -291,7 +292,7 @@ contains
 
       end do sample
 
-      if (i == 100) call fatalError(Here,'Failed to find angle: '//numToChar(mu))
+      if (iter == 100) call fatalError(Here,'Failed to find angle: '//numToChar(mu))
 
     end if
 
@@ -304,6 +305,7 @@ contains
 
     ! Only prompt particles. Set delay
     if(present(lambda)) lambda = huge(lambda)
+    if(present(i)) i = 0
 
   end subroutine sampleOut
 

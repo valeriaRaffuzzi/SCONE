@@ -83,6 +83,7 @@ module neutronCEstd_class
     real(defReal) :: threshA
     real(defReal) :: DBRCeMin
     real(defReal) :: DBRCeMax
+    logical(defBool) :: promptOnly
 
   contains
     ! Initialisation procedure
@@ -136,6 +137,9 @@ contains
     ! DBRC energy limits
     call dict % getOrDefault(self % DBRCeMin,'DBRCeMin', (1.0E-8_defReal))
     call dict % getOrDefault(self % DBRCeMax,'DBRCeMax', (200E-6_defReal))
+
+    ! Alpha
+    call dict % getOrDefault(self % promptOnly, 'promptOnly', .false.)
 
   end subroutine init
 
@@ -235,7 +239,10 @@ contains
       r   = p % rGlobal()
 
       do i = 1,n
-        call fission % sampleOut(mu, phi, E_out, p % E, p % pRNG, p % lambda)
+        call fission % sampleOut(mu, phi, E_out, p % E, p % pRNG, p % lambda, p % precID)
+
+        if (p % lambda < huge(defReal) .and. self % promptOnly) cycle
+
         dir = rotateVector(p % dirGlobal(), mu, phi)
 
         if (E_out > self % maxE) E_out = self % maxE

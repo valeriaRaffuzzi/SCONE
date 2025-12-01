@@ -62,6 +62,7 @@ module particle_class
     integer(shortInt)          :: collisionN = 0    ! Number of collisions
     integer(shortInt)          :: broodID = 0       ! ID of the source particle
     real(defReal)              :: lambda = huge(ONE) ! Delayed neutrons info
+    integer(shortInt)          :: precID = 0
   contains
     generic    :: assignment(=)  => fromParticle
     generic    :: operator(.eq.) => equal_particleState
@@ -123,6 +124,7 @@ module particle_class
 
     ! Delayed neutrons info
     real(defReal)              :: lambda = huge(ONE)
+    integer(shortInt)          :: precID = 0
 
   contains
      ! Build procedures
@@ -280,6 +282,7 @@ contains
     LHS % splitCount            = 0 ! Reinitialise counter for number of splits
     LHS % broodID               = RHS % broodID
     LHS % lambda                = RHS % lambda
+    LHS % precID                = RHS % precID
 
   end subroutine particle_fromParticleState
 
@@ -668,6 +671,7 @@ contains
     LHS % broodID    = RHS % broodID
 
     LHS % lambda     = RHS % lambda
+    LHS % precID     = RHS % precID
 
   end subroutine particleState_fromParticle
 
