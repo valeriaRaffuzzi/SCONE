@@ -10,7 +10,7 @@ module thermalScatteringData_iTest
   use aceNeutronNuclide_class,  only : aceNeutronNuclide, aceNeutronNuclide_CptrCast
   use neutronXSPackages_class,  only : neutronMicroXSs
   use materialMenu_mod,         only : mm_init => init
-  use ceNeutronCache_mod,       only : nuclideCache
+  use ceCache_mod,              only : nuclideCache
   use funit
 
   implicit none
@@ -125,7 +125,7 @@ contains
     kTbounds = H1_2 % getSabTBounds()
     @assertEqual(4.0812E-8, kTbounds(1), TOL)
     @assertEqual(4.3087E-8, kTbounds(2), TOL)
-    
+
     kTbounds = C12 % getSabTBounds()
     @assertEqual(8.6173E-8, kTbounds(1), TOL)
     @assertEqual(8.6173E-8, kTbounds(2), TOL)
@@ -138,13 +138,13 @@ contains
 
     val = H1 % thData(1) % getElXS(1.8E-6_defReal)
     @assertEqual(ZERO, val, TOL)
-    
+
     val = H1_2 % thData(1) % getInelXS(1.8E-6_defReal)
     @assertEqual(21.018654322_defReal, val, TOL)
-    
+
     val = H1_2 % thData(2) % getInelXS(1.8E-6_defReal)
     @assertEqual(21.024875613_defReal, val, TOL)
-    
+
     !<><><><><><><><><><><><><><><><><><><><><><><><>
     ! Test Getting material XSs
     ! water

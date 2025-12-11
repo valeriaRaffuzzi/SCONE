@@ -1,4 +1,4 @@
-module ceNeutronNuclide_inter
+module ceProtonNuclide_inter
 
   use numPrecision
   use genericProcedures, only : fatalError, numToChar
@@ -8,11 +8,11 @@ module ceNeutronNuclide_inter
   use nuclideHandle_inter,     only : nuclideHandle
   use neutronXsPackages_class, only : neutronMicroXSs
 
-  ! CE Neutron Interfaces
-  use ceNeutronDatabase_inter, only : ceNeutronDatabase
+  ! CE Proton Interfaces
+  use ceProtonDatabase_inter,  only : ceProtonDatabase
 
   ! Cache
-  use ceNeutronCache_mod,      only : nuclideCache
+  use ceCache_mod,             only : nuclideCache
 
   implicit none
   private
@@ -20,7 +20,7 @@ module ceNeutronNuclide_inter
   !!
   !! Public Pointer Cast
   !!
-  public ceNeutronNuclide_CptrCast
+  public ceProtonNuclide_CptrCast
 
   !!
   !! Procedures to extend in subclasses
@@ -38,7 +38,6 @@ module ceNeutronNuclide_inter
   !!   nucIdx  -> nucIdx for this nuclide
   !!   data    -> pointer to a database to request update of XSs
   !!   fissile -> flag that specifies if the nuclide is fissile
-  !!   DBRC    -> Doppler Broadening Rejection Correction flag
   !!
   !! Interface:
   !!   nuclideHandle Interface
@@ -49,19 +48,15 @@ module ceNeutronNuclide_inter
   !!   isFissile       -> Return .true. if nuclide can fission
   !!   invertInelastic -> Selects type of inelastic neutron scattering
   !!   xsOf            -> Returns microscopic XS given MT number
-  !!   elScatteringXS  -> Returns elastic scattering XS for the nuclide
-  !!   hasDBRC         -> Returns the value of the hasDBRC flag
   !!
-  type, public, abstract, extends(nuclideHandle) :: ceNeutronNuclide
+  type, public, abstract, extends(nuclideHandle) :: ceProtonNuclide
     private
     integer(shortInt)                :: nucIdx  =  0
-    class(ceNeutronDatabase),pointer :: data    => null()
+    class(ceProtonDatabase), pointer :: data    => null()
     logical(defBool)                 :: fissile = .false.
     real(defReal)                    :: mass    =  ZERO
     real(defReal)                    :: kT      =  ZERO
-
-    ! DBRC nuclide flag
-    logical(defBool)                 :: DBRC = .false.
+    integer(shortInt)                :: Z       = ZERO
 
   contains
 
@@ -70,18 +65,16 @@ module ceNeutronNuclide_inter
     procedure, non_overridable :: set
     procedure, non_overridable :: getNucIdx
     procedure, non_overridable :: isFissile
-    procedure, non_overridable :: hasDBRC
-    procedure                  :: getMass
-    procedure                  :: getkT
+    procedure, non_overridable :: getMass
+    procedure, non_overridable :: getkT
+    procedure, non_overridable :: getZ
     procedure                  :: kill
 
     ! Procedures for specific implementations
     procedure(invertInelastic),deferred :: invertInelastic
     procedure(xsOf), deferred           :: xsOf
-    procedure(elScatteringXS), deferred :: elScatteringXS
-    procedure(needsSabEl), deferred     :: needsSabEl
 
-  end type ceNeutronNuclide
+  end type ceProtonNuclide
 
   abstract interface
 
@@ -102,8 +95,8 @@ module ceNeutronNuclide_inter
     !!   FatalError is energy E is out-of-bounds for avalible data.
     !!
     function invertInelastic(self, E, rand) result(MT)
-      import :: ceNeutronNuclide, RNG, shortInt, defReal
-      class(ceNeutronNuclide), intent(in) :: self
+      import :: ceProtonNuclide, RNG, shortInt, defReal
+      class(ceProtonNuclide), intent(in) :: self
       real(defReal), intent(in)           :: E
       class(RNG), intent(inout)           :: rand
       integer(shortInt)                   :: MT
@@ -124,53 +117,13 @@ module ceNeutronNuclide_inter
     !!   fatalError if reaction under MT number is not present
     !!
     function xsOf(self, MT, E) result(xs)
-      import :: ceNeutronNuclide, shortInt, defReal
-      class(ceNeutronNuclide), intent(in) :: self
+      import :: ceProtonNuclide, shortInt, defReal
+      class(ceProtonNuclide), intent(in) :: self
       integer(shortInt), intent(in)       :: MT
       real(defReal), intent(in)           :: E
       real(defReal)                       :: xs
 
     end function xsOf
-
-    !!
-    !! Return elastic scattering XS for the nuclide
-    !!
-    !! Args:
-    !!   E [in]       -> required energy [MeV]
-    !!
-    !! Result:
-    !!   Elastic scattering nuclide microscopic cross-section [barn]
-    !!
-    !! Errors:
-    !!   fatalError if E is out-of-bounds of the present data
-    !!   Invalid idx beyond array bounds -> undefined behaviour
-    !!   Invalid f (outside [0;1]) -> incorrect value of XS
-    !!
-    function elScatteringXS(self, E) result(xs)
-      import :: ceNeutronNuclide, defReal
-      class(ceNeutronNuclide), intent(in) :: self
-      real(defReal), intent(in)           :: E
-      real(defReal)                       :: xs
-
-    end function elScatteringXS
-
-    !!
-    !! Function that checks whether this nuclide at the provided energy should
-    !! have S(a,b) elastic scattering data or not
-    !!
-    !! Args:
-    !!   E [in] -> incident neutron energy
-    !!
-    !! Result:
-    !!    True or false
-    !!
-    elemental function needsSabEl(self, E) result(doesIt)
-      import :: ceNeutronNuclide, defReal, defBool
-      class(ceNeutronNuclide), intent(in)  :: self
-      real(defReal), intent(in)            :: E
-      logical(defBool)                     :: doesIt
-
-    end function needsSabEl
 
   end interface
 
@@ -191,7 +144,7 @@ contains
   !!   fatalError if E is out-of-bounds of the present data
   !!
   function getTotalXS(self, E, kT, rand) result(xs)
-    class(ceNeutronNuclide), intent(in) :: self
+    class(ceProtonNuclide), intent(in) :: self
     real(defReal), intent(in)           :: E
     real(defReal), intent(in)           :: kT
     class(RNG), intent(inout)           :: rand
@@ -219,7 +172,7 @@ contains
   !!   fatalError if E is out-of-bounds for the stored data
   !!
   subroutine getMicroXSs(self, xss, E, kT, rand)
-    class(ceNeutronNuclide), intent(in) :: self
+    class(ceProtonNuclide), intent(in) :: self
     type(neutronMicroXSs), intent(out)  :: xss
     real(defReal), intent(in)           :: E
     real(defReal), intent(in)           :: kT
@@ -245,7 +198,7 @@ contains
   !!
   !! Args:
   !!   nucIdx [in]    -> nuclide index
-  !!   database [in]  -> pointer to a database that updates XSs on the ceNeutronCache
+  !!   database [in]  -> pointer to a database that updates XSs on the ceProtonCache
   !!   fissile [in] -> flag indicating whether fission data is present
   !!   mass [in]      -> Mass of nuclide in neutron masses
   !!   kT [in]        -> Temperature [MeV] of the data in the nuclide
@@ -254,20 +207,19 @@ contains
   !!   fatalError if kT <= 0.0
   !!   fatalError if mass <= 0.0
   !!
-  subroutine set(self, nucIdx, database, fissile, mass, kT, dbrc)
-    class(ceNeutronNuclide), intent(inout)                  :: self
-    integer(shortInt), intent(in),optional                  :: nucIdx
-    class(ceNeutronDatabase), pointer, optional, intent(in) :: database
-    logical(defBool), intent(in), optional                  :: fissile
-    real(defReal), intent(in), optional                     :: mass
-    real(defReal), intent(in), optional                     :: kT
-    logical(defBool), intent(in), optional                  :: dbrc
+  subroutine set(self, nucIdx, database, fissile, mass, kT, Z)
+    class(ceProtonNuclide), intent(inout)                  :: self
+    integer(shortInt), intent(in),optional                 :: nucIdx
+    class(ceProtonDatabase), pointer, optional, intent(in) :: database
+    logical(defBool), intent(in), optional                 :: fissile
+    real(defReal), intent(in), optional                    :: mass
+    real(defReal), intent(in), optional                    :: kT
+    integer(shortInt), intent(in), optional                :: Z
     character(100), parameter :: Here = 'set (ceNuetronNuclide_inter.f90)'
 
     if (present(nucIdx))    self % nucIdx  = nucIdx
     if (present(database))  self % data    => database
     if (present(fissile))   self % fissile = fissile
-    if (present(dbrc))      self % DBRC    = dbrc
 
     if (present(mass)) then
       if (mass <= ZERO) call fatalError(Here,"Mass of nuclide cannot be -ve: "//numToChar(mass))
@@ -279,6 +231,10 @@ contains
       self % kT = kT
     end if
 
+    if (present(Z)) then
+      if (Z < 0) call fatalError(Here, "Atomic number of nuclide cannot be -ve: "//numToChar(Z))
+      self % Z = Z
+    end if
 
   end subroutine set
 
@@ -292,7 +248,7 @@ contains
   !!   Nuclide index of the nuclide
   !!
   elemental function getNucIdx(self) result(nucIdx)
-    class(ceNeutronNuclide), intent(in) :: self
+    class(ceProtonNuclide), intent(in) :: self
     integer(shortInt)                   :: nucIdx
 
     nucIdx = self % nucIdx
@@ -312,32 +268,12 @@ contains
   !!   None
   !!
   pure function isFissile(self) result(isIt)
-    class(ceNeutronNuclide), intent(in) :: self
+    class(ceProtonNuclide), intent(in) :: self
     logical(defBool)                    :: isIt
 
     isIt = self % fissile
 
   end function isFissile
-
-  !!
-  !! Return .true. if the nuclide needs to use DBRC
-  !!
-  !! Args:
-  !!   None
-  !!
-  !! Result:
-  !!   .TRUE. if DBRC is on, .FALSE. otherwise
-  !!
-  !! Errors:
-  !!   None
-  !!
-  pure function hasDBRC(self) result(hasIt)
-    class(ceNeutronNuclide), intent(in) :: self
-    logical(defBool)                    :: hasIt
-
-    hasIt = self % DBRC
-
-  end function hasDBRC
 
     !!
     !! Return a mass of the nuclide
@@ -345,7 +281,7 @@ contains
     !! See nuclideHandle documentation
     !!
     pure function getMass(self) result(M)
-      class(ceNeutronNuclide), intent(in) :: self
+      class(ceProtonNuclide), intent(in) :: self
       real(defReal)                       :: M
 
       M = self % mass
@@ -358,42 +294,55 @@ contains
     !! See nuclideHandle documentation
     !!
     pure function getkT(self) result(kT)
-      class(ceNeutronNuclide), intent(in) :: self
+      class(ceProtonNuclide), intent(in) :: self
       real(defReal)                       :: kT
 
       kT = self % kT
 
     end function getkT
 
+    !!
+    !! Return nuclide atomic number
+    !!
+    !! See nuclideHandle documentation
+    !!
+    pure function getZ(self) result(Z)
+      class(ceProtonNuclide), intent(in) :: self
+      integer(shortInt)                  :: Z
+
+      Z = self % Z
+
+    end function getZ
+
   !!
-  !! Cast nuclideHandle pointer to ceNeutronNuclide pointer
+  !! Cast nuclideHandle pointer to ceProtonNuclide pointer
   !!
   !! Args:
   !!   source [in]    -> source pointer of class nuclideHandle
   !!
   !! Result:
-  !!   Null is source is not of ceNeutronNuclide
+  !!   Null is source is not of ceProtonNuclide
   !!   Pointer to source if source is ceNuclearDatabase class
   !!
-  pure function ceNeutronNuclide_CptrCast(source) result(ptr)
+  pure function ceProtonNuclide_CptrCast(source) result(ptr)
     class(nuclideHandle), pointer, intent(in) :: source
-    class(ceNeutronNuclide), pointer          :: ptr
+    class(ceProtonNuclide), pointer          :: ptr
 
     select type(source)
-      class is(ceNeutronNuclide)
+      class is(ceProtonNuclide)
         ptr => source
 
       class default
         ptr => null()
     end select
 
-  end function ceNeutronNuclide_CptrCast
+  end function ceProtonNuclide_CptrCast
 
   !!
   !! Return to uninitialised state
   !!
   elemental subroutine kill(self)
-    class(ceNeutronNuclide), intent(inout) :: self
+    class(ceProtonNuclide), intent(inout) :: self
 
     self % nucIdx = 0
     self % data => null()
@@ -401,4 +350,4 @@ contains
 
   end subroutine kill
 
-end module ceNeutronNuclide_inter
+end module ceProtonNuclide_inter

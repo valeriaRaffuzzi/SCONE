@@ -328,8 +328,10 @@ contains
         self % particleType = P_NEUTRON_MG
       case('ce')
         self % particleType = P_NEUTRON_CE
+      case('h')
+        self % particleType = P_PROTON_CE
       case default
-        call fatalError(Here,"dataType must be 'mg' or 'ce'.")
+        call fatalError(Here,"dataType must be 'mg', 'ce' or 'h'.")
     end select
 
     ! Read outputfile path

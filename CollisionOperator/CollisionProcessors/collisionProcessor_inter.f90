@@ -85,7 +85,7 @@ module collisionProcessor_inter
   abstract interface
     !!
     !! Procedure interface for all customisable actions associated with
-    !! processing of sollision event (scatter, fission etc.)
+    !! processing of collision event (scatter, fission etc.)
     !!
     subroutine collisionAction(self, p, tally, collDat, thisCycle, nextCycle)
       import :: collisionProcessor, &
@@ -100,6 +100,7 @@ module collisionProcessor_inter
       class(particleDungeon),intent(inout)     :: thisCycle
       class(particleDungeon),intent(inout)     :: nextCycle
     end subroutine collisionAction
+
   end interface
 
 contains

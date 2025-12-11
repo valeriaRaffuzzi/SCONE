@@ -13,6 +13,7 @@
 !! Available ND TYPES:
 !!   CE_NEUTRON
 !!   MG_NEUTRON
+!!   CE_PROTON
 !!
 !! Private members:
 !!   databases           -> Array with defined databases (name, definition,
@@ -53,7 +54,7 @@
 module nuclearDataReg_mod
 
   use numPrecision
-  use universalVariables,    only : P_NEUTRON_CE, P_NEUTRON_MG
+  use universalVariables,    only : P_NEUTRON_CE, P_NEUTRON_MG, P_PROTON_CE
   use genericProcedures,     only : fatalError, numToChar, printParticleType
   use charMap_class,         only : charMap
   use dictionary_class,      only : dictionary
@@ -62,15 +63,19 @@ module nuclearDataReg_mod
   use nuclearDatabase_inter,   only : nuclearDatabase
   use ceNeutronDatabase_inter, only : ceNeutronDatabase, ceNeutronDatabase_CptrCast
   use mgNeutronDatabase_inter, only : mgNeutronDatabase, mgNeutronDatabase_CptrCast
+  use ceProtonDatabase_inter,  only : ceProtonDatabase, ceProtonDatabase_CptrCast
   use materialMenu_mod,        only : mm_init => init, mm_kill => kill, mm_nMat => nMat,&
                                       mm_nameMap => nameMap
 
   ! Implemented Nuclear Databases
   ! Neutron CE
-  use aceNeutronDatabase_class,       only : aceNeutronDatabase
+  use aceNeutronDatabase_class,     only : aceNeutronDatabase
 
   ! Neutron MG
-  use baseMgNeutronDatabase_class, only : baseMgNeutronDatabase
+  use baseMgNeutronDatabase_class,  only : baseMgNeutronDatabase
+
+  ! Proton CE
+  use aceProtonDatabase_class,      only : aceProtonDatabase
 
   implicit none
   private
@@ -97,6 +102,7 @@ module nuclearDataReg_mod
   public :: kill
   public :: getNeutronCE
   public :: getNeutronMG
+  public :: getProtonCE
   public :: get
   public :: getMatNames
 
@@ -110,7 +116,8 @@ module nuclearDataReg_mod
   !! Parameters
   character(nameLen), dimension(*), parameter :: AVAILABLE_NUCLEAR_DATABASES = &
                                                 ['aceNeutronDatabase      ', &
-                                                 'baseMgNeutronDatabase   ']
+                                                 'baseMgNeutronDatabase   ', &
+                                                 'aceProtonDatabase       ']
 
   !! Members
   type(ndBox),dimension(:),allocatable,target :: databases
@@ -121,6 +128,9 @@ module nuclearDataReg_mod
 
   class(mgNeutronDatabase), pointer :: active_mgNeutron => null()
   integer(shortInt)                 :: activeIdx_mgNeutron = 0
+
+  class(ceProtonDatabase), pointer  :: active_ceProton => null()
+  integer(shortInt)                 :: activeIdx_ceProton = 0
 
 contains
 
@@ -174,7 +184,7 @@ contains
 
     ! Load definitions
     ! Associate names with idx's in Map
-    do i=1,size(databases)
+    do i = 1,size(databases)
       databases(i) % name = dataNames(i)
       databases(i) % def  = handles % getDictPtr(dataNames(i)) ! Note deep copy
       call databaseNameMap % add(dataNames(i), i)
@@ -206,7 +216,7 @@ contains
     character(100),parameter :: Here = 'make (nuclearDataReg_mod.f90)'
 
     ! Process optional arguments
-    if(present(silent)) then
+    if (present(silent)) then
       silent_loc = silent
     else
       silent_loc = .false.
@@ -214,14 +224,14 @@ contains
 
     ! Get index
     idx = databaseNameMap % getOrDefault(name, 0)
-    if(idx == 0 ) then
+    if (idx == 0) then
       call fatalError(Here, trim(name)//' is was not defined. Cannot make it!')
     else if(idx < 0) then
       call fatalError(Here, '-ve idx from databaseNameMap. Quite immpossible. WTF?')
     end if
 
     ! Quit if already has been allocated
-    if(allocated(databases(idx) % nd)) return
+    if (allocated(databases(idx) % nd)) return
 
     ! Build Nuclear Database
     call databases(idx) % def % get(type, 'type')
@@ -250,7 +260,7 @@ contains
     idx = databaseNameMap % getOrDefault(name, 0)
     if (idx < 1) return
 
-    if(allocated(databases(idx) % nd)) then
+    if (allocated(databases(idx) % nd)) then
       call databases(idx) % nd % kill()
       deallocate(databases(idx) % nd)
     end if
@@ -307,14 +317,21 @@ contains
       case(P_NEUTRON_CE)
         activeIdx_ceNeutron = idx
         active_ceNeutron => ceNeutronDatabase_CptrCast(ptr)
-        if(.not.associated(active_ceNeutron)) then
+        if (.not.associated(active_ceNeutron)) then
           call fatalError(Here,trim(name)//' is not database for CE neutrons')
         end if
 
       case(P_NEUTRON_MG)
         activeIdx_mgNeutron = idx
         active_mgNeutron => mgNeutronDatabase_CptrCast(ptr)
-        if(.not.associated(active_mgNeutron)) then
+        if (.not.associated(active_mgNeutron)) then
+          call fatalError(Here,trim(name)//' is not database for MG neutrons')
+        end if
+
+      case(P_PROTON_CE)
+        activeIdx_ceProton = idx
+        active_ceProton => ceProtonDatabase_CptrCast(ptr)
+        if (.not.associated(active_ceProton)) then
           call fatalError(Here,trim(name)//' is not database for MG neutrons')
         end if
 
@@ -353,14 +370,21 @@ contains
     if(idx /= 0) activeName = databases(idx) % name
     print '(A)', "  MG NEUTRON DATA: " // trim(activeName)
 
+    ! CE PROTON
+    activeName = 'NONE'
+    idx = activeIdx_ceProton
+    if(idx /= 0) activeName = databases(idx) % name
+    print '(A)', "  CE PROTON DATA: " // trim(activeName)
+
     ! INACTIVE DATABASES
     print '(A)', "INACTIVE DATABASES:"
-    do idx=1,size(databases)
-      if(idx == activeIdx_mgNeutron) cycle
-      if(idx == activeIdx_ceNeutron) cycle
-
+    do idx = 1,size(databases)
+      if (idx == activeIdx_mgNeutron) cycle
+      if (idx == activeIdx_ceNeutron) cycle
+      if (idx == activeIdx_ceProton) cycle
     end do
     print '(A)',repeat('\/',30)
+
   end subroutine display
 
   !!
@@ -368,6 +392,7 @@ contains
   !!
   subroutine kill()
     integer(shortInt) :: it
+
     !! Clean all databases
     it = databaseNameMap % begin()
     do while (it /= databaseNameMap % end())
@@ -377,8 +402,8 @@ contains
     end do
 
     !! Take care of databases array
-    if(allocated(databases)) then
-      do it =1,size(databases)
+    if (allocated(databases)) then
+      do it = 1,size(databases)
         call databases(it) % def % kill()
       end do
       deallocate(databases)
@@ -392,6 +417,10 @@ contains
     ! MG NEUTRON
     activeIdx_mgNeutron = 0
     active_mgNeutron => null()
+
+    ! CE PROTON
+    activeIdx_ceProton = 0
+    active_ceProton => null()
 
   end subroutine kill
 
@@ -434,6 +463,25 @@ contains
   end function getNeutronMG
 
   !!
+  !! Return pointer to an active Proton CE Database
+  !!
+  !! Args:
+  !!   None
+  !!
+  !! Result:
+  !!   ceProtonDatabase class pointer
+  !!
+  !! Errors:
+  !!   If there is no active database returns NULL ptr
+  !!
+  function getProtonCE() result(ptr)
+    class(ceProtonDatabase), pointer :: ptr
+
+    ptr => active_ceProton
+
+  end function getProtonCE
+
+  !!
   !! Return pointer to an active Nuclear Database given particle type
   !!
   !! Args:
@@ -458,6 +506,9 @@ contains
 
       case(P_NEUTRON_MG)
         ptr => getNeutronMG()
+
+      case(P_PROTON_CE)
+        ptr => getProtonCE()
 
       case default
         ptr => null()
@@ -572,11 +623,14 @@ contains
       case('baseMgNeutronDatabase')
         allocate(baseMgNeutronDatabase :: database)
 
+      case('aceProtonDatabase')
+        allocate(aceProtonDatabase :: database)
+
       case default
         ! Print available nuclear database types
         print '(A)', "<><><><><><><><><><><><><><><><><><><><>"
         print '(A)', "Available Nuclear Databases:"
-        do i=1,size(AVAILABLE_NUCLEAR_DATABASES)
+        do i = 1, size(AVAILABLE_NUCLEAR_DATABASES)
           print '(A)', AVAILABLE_NUCLEAR_DATABASES(i)
         end do
 

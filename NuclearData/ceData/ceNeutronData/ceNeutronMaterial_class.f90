@@ -16,7 +16,7 @@ module ceNeutronMaterial_class
   use ceNeutronNuclide_inter,  only : ceNeutronNuclide, ceNeutronNuclide_CptrCast
 
   ! Cache
-  use ceNeutronCache_mod,      only : materialCache, nuclideCache
+  use ceCache_mod,             only : materialCache, nuclideCache
 
   ! Scattering procedures
   use scatteringKernels_func,  only : relativeEnergy_constXS, dopplerCorrectionFactor

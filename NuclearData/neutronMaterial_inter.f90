@@ -1,7 +1,7 @@
 module neutronMaterial_inter
 
   use numPrecision
-  use particle_class,       only : particle
+  use particle_class,          only : particle
 
   ! Nuclear Data Interfaces
   use materialHandle_inter,    only : materialHandle

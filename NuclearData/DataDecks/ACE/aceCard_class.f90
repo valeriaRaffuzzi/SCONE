@@ -1294,7 +1294,7 @@ contains
 
     ! Set coordinate frame for MT
     ! If raw TY is -ve, set CMframe to .true. and convert TY to +ve
-    do i=1,NMT
+    do i = 1,NMT
       if( self % MTdata(i) % TY < 0 ) then
         self % MTdata(i) % TY        = abs(self % MTdata(i) % TY)
         self % MTdata(i) % CMframe   = .true.
@@ -1318,12 +1318,12 @@ contains
     self % MTdata(:) % XSp = self % MTdata(:) % XSp + self % JXS(7)
 
     ! Load number of xs points
-    do i=1,NMT
+    do i = 1,NMT
       self % MTdata(i) % N_xs = real2Int( self % XSS( self % MTdata(i) % XSp),Here)
     end do
 
     ! Load first energy grid index for MT reactions
-    do i=1,NMT
+    do i = 1,NMT
       self % MTdata(i) % IE = real2Int( self % XSS( self % MTdata(i) % XSp-1),Here)
     end do
 
@@ -1335,7 +1335,7 @@ contains
     self % MTdata(1:NMTs) % LOCB = real2Int( self % XSS(ptr : ptr+NMTs-1),Here )
 
     ! Assign pointers to angular distribution data
-    do i=1,NMTs
+    do i = 1,NMTs
       ! Read LOCB
       LOCB = self % MTdata(i) % LOCB
 
@@ -1360,7 +1360,7 @@ contains
 
     ! Read raw LOCC parameters (locators of energy distibutions on DLW block - MCNP manual)
     ptr = self % JXS(10)
-    self % MTdata(1:NMTs) % LOCC = real2Int( self % XSS(ptr : ptr+NMTs-1),Here )
+    self % MTdata(1:NMTs) % LOCC = real2Int( self % XSS(ptr : ptr+NMTs-1), Here)
 
   end subroutine setMTdata
 

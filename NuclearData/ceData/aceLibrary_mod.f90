@@ -1,8 +1,9 @@
 !!
 !! This module is a factory that produces aceCards for a given nuclide
 !!
-!! Two types of ACE cards can be specified
+!! Three types of ACE cards can be specified
 !!   Continious energy neutron data e.g. ZZAAA.TTc
+!!   Continious energy proton data e.g. ZZAAA.TTh
 !!   SAB bard e.g. XXXXX.TT.t
 !!
 !! Library format:
@@ -28,6 +29,7 @@ module aceLibrary_mod
   integer(shortInt), parameter  :: UNDEF   = 0
   integer(shortInt), parameter  :: ACE_CE  = 1
   integer(shortInt), parameter  :: ACE_SAB = 2
+  integer(shortInt), parameter  :: ACE_H   = 3
   integer(shortInt), parameter  :: MAX_COL = 900
   character(*), parameter       :: READ_FMT = '(A900)'
   character(1), parameter       :: COMMENT_TOKEN = '!'
@@ -57,6 +59,7 @@ module aceLibrary_mod
   public :: load
   public :: new_neutronACE
   public :: new_moderACE
+  public :: new_protonACE
   public :: kill
 
 contains
@@ -145,6 +148,9 @@ contains
         case ('t')
           entry(i) % TYPE = ACE_SAB
 
+        case ('h')
+          entry(i) % TYPE = ACE_H
+
         case default
           call fatalError(Here,'Unrecognised ACE CARD type: ' // entry(i) % ZAID(last:last))
 
@@ -189,12 +195,12 @@ contains
 
     ! Find index of the requested ZAID identifier
     idx = map % getOrDefault(ZAID, NOT_FOUND)
-    if(idx == NOT_FOUND) then
+    if (idx == NOT_FOUND) then
       call fatalError(Here, trim(ZAID) //" was not found in ACE library from: "//trim(libFile))
     end if
 
     ! Verify that type is correct
-    if( entry(idx) % type /= ACE_CE) then
+    if (entry(idx) % type /= ACE_CE) then
       call fatalError(Here,trim(ZAID)//" is not a ACE data with CE XSs.")
     end if
 
@@ -232,7 +238,7 @@ contains
     end if
 
     ! Verify that type is correct
-    if( entry(idx) % type /= ACE_SAB) then
+    if (entry(idx) % type /= ACE_SAB) then
       call fatalError(Here,trim(file)//" is not a ACE data with CE XSs.")
     end if
 
@@ -240,6 +246,45 @@ contains
     call ACE % readFromFile(entry(idx) % path, entry(idx) % firstLine)
 
   end subroutine new_moderACE
+
+  !!
+  !! Load new CE Proton XSs data for a given ZAID
+  !!
+  !! Note ZAID is provided without MCNP suffix
+  !!   1001.03 -> will work
+  !!   1001.03h -> will NOT work
+  !!
+  !! Args:
+  !!   ACE [inout] -> ACE Card which will store the data
+  !!   ZAID [in]   -> Requested nuclide ZAID of the form ZZAAA.TT
+  !!
+  !! Errors:
+  !!   fatalError if ZAID is not present in the library
+  !!   fatalError if ZAID points to data which is not for protons, that is does not have a
+  !!     MCNP 'h' suffix e.g. {1001.20h}
+  !!
+  subroutine new_protonACE(ACE, ZAID)
+    class(aceCard), intent(inout)  :: ACE
+    character(nameLen), intent(in) :: ZAID
+    integer(shortInt)              :: idx
+    integer(shortInt), parameter   :: NOT_FOUND = -1
+    character(100), parameter :: Here = 'new_neutronACE (aceLibrary_mod.f90)'
+
+    ! Find index of the requested ZAID identifier
+    idx = map % getOrDefault(ZAID, NOT_FOUND)
+    if (idx == NOT_FOUND) then
+      call fatalError(Here, trim(ZAID) //" was not found in ACE library from: "//trim(libFile))
+    end if
+
+    ! Verify that type is correct
+    if (entry(idx) % type /= ACE_H) then
+      call fatalError(Here,trim(ZAID)//" is not a ACE data with H XSs.")
+    end if
+
+    ! Load data
+    call ACE % readFromFile(entry(idx) % path, entry(idx) % firstLine)
+
+  end subroutine new_protonACE
 
 
   !!

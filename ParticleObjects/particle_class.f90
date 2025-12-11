@@ -14,7 +14,8 @@ module particle_class
   !! Particle types paramethers
   !!
   integer(shortInt), parameter,public :: P_NEUTRON = 1, &
-                                         P_PHOTON  = 2
+                                         P_PHOTON  = 2, &
+                                         P_PROTON  = 3
 
   !!
   !! Public particle type procedures
@@ -403,7 +404,7 @@ contains
   end function matIdx
 
   !!
-  !! Return one of the particle Tpes defined in universal variables
+  !! Return one of the particle types defined in universal variables
   !!
   !! Args:
   !!   None
@@ -420,8 +421,13 @@ contains
 
     if (self % isMG) then
       type = P_NEUTRON_MG
-    else
+
+    elseif (self % type == P_NEUTRON) then
       type = P_NEUTRON_CE
+
+    elseif (self % type == P_PROTON) then
+      type = P_PROTON_CE
+
     end if
 
   end function getType
@@ -459,6 +465,9 @@ contains
 
     elseif (self % type == P_PHOTON) then
       speed = lightSpeed
+
+    elseif (self % type == P_PROTON) then
+        speed = sqrt(TWO * self % E / protonMass) * lightSpeed
 
     else
       call fatalError(Here, 'Particle type requested is neither neutron (1) nor photon (2). It is: ' &
@@ -623,13 +632,13 @@ contains
     character(:), allocatable   :: c
     character(2)                :: eType
 
-    if( self % isMG) then
+    if (self % isMG) then
       eType = 'MG'
     else
       eType = 'CE'
     end if
 
-    c = eType // ' ' // trim(printType( self % type))
+    c = eType // ' ' // trim(printType(self % type))
 
   end function typeToChar
 
@@ -747,6 +756,7 @@ contains
     ! Check against particles types
     isValid = isValid .or. type == P_NEUTRON
     isValid = isValid .or. type == P_PHOTON
+    isValid = isValid .or. type == P_PROTON
 
   end function verifyType
 
@@ -763,6 +773,9 @@ contains
 
       case(P_PHOTON)
         name = 'Photon'
+
+      case(P_PROTON)
+        name = 'Proton'
 
       case default
         name = 'INVALID PARTICLE TYPE'

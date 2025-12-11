@@ -1,5 +1,5 @@
 !!
-!! Global Cache for CE Neutron Nuclear Data
+!! Global Cache for CE Nuclear Data
 !!
 !! Any active nuclear database writes XSs to this module.
 !! Any nuclide or material handles read from this module
@@ -16,7 +16,7 @@
 !!   cache. Any update call can change energy of any value so it would not be possible that the
 !!   energy of XSs pointed by pointers would not change silently.
 !!
-module ceNeutronCache_mod
+module ceCache_mod
 
   use numPrecision
   use genericProcedures,       only : fatalError, numToChar
@@ -200,4 +200,4 @@ contains
   end subroutine kill
 
 
-end module ceNeutronCache_mod
+end module ceCache_mod

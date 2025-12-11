@@ -27,8 +27,8 @@ module aceNeutronNuclide_class
   ! S(alpha,beta) data
   use thermalScatteringData_class,  only : thermalData
 
-  ! CE NEUTRON CACHE
-  use ceNeutronCache_mod,           only : nuclideCache
+  ! CE CACHE
+  use ceCache_mod,                  only : nuclideCache
 
   implicit none
   private

@@ -10,6 +10,10 @@ module genericProcedures
 
   implicit none
 
+  interface sampleNormal
+    module procedure sampleNormalBoxMuller
+  end interface
+
   interface swap
     module procedure swap_shortInt
     module procedure swap_defReal
@@ -101,6 +105,26 @@ module genericProcedures
   end interface
 
   contains
+
+
+  !!
+  !! Standard normal distribution sampling given two random numbers
+  !! It uses the Box-Muller transformation
+  !!
+  !! Args:
+  !!   r1, r2 [in] -> uniform random numbers
+  !!
+  !! Returns:
+  !!   sample -> sample from a standard Gaussian distribution
+  !!
+  pure function sampleNormalBoxMuller(r1, r2) result(sample)
+    real(defReal), intent(in) :: r1
+    real(defReal), intent(in) :: r2
+    real(defReal)             :: sample
+
+    sample = sqrt(-TWO * log(r1)) * cos(TWO_PI * r2)
+
+  end function sampleNormalBoxMuller
 
 
   !!

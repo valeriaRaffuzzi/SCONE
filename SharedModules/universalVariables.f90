@@ -48,8 +48,8 @@ module universalVariables
   integer(shortInt), parameter :: OUTSIDE_FILL = 0,  &
                                   materialFill = 1, &
                                   universeFill = 2, &
-                                  latticeFill  = 3 
-                          
+                                  latticeFill  = 3
+
   ! Define integers for boundary condition types
   integer(shortInt), parameter :: VACUUM_BC     = 0, &
                                   REFLECTIVE_BC = 1, &
@@ -62,7 +62,8 @@ module universalVariables
 
   ! Particle Type Enumeration
   integer(shortInt), parameter :: P_NEUTRON_CE = 1, &
-                                  P_NEUTRON_MG = 2
+                                  P_NEUTRON_MG = 2, &
+                                  P_PROTON_CE  = 3
 
   ! Search error codes
   integer(shortInt), parameter :: valueOutsideArray = -1, &
@@ -78,10 +79,14 @@ module universalVariables
 
   ! Physical constants
   ! Neutron mass and speed of light in vacuum from from https://physics.nist.gov/cuu/Constants/index.html
-  real(defReal), parameter :: neutronMass = 939.56542194_defReal,  & ! Neutron mass in MeV (m*c^2)
-                              lightSpeed  = 2.99792458e10_defReal, & ! Light speed in cm/s
-                              kBoltzmann  = 1.380649e-23_defReal,  & ! Bolztmann constant in J/K
-                              energyPerFission = 200.0_defReal       ! MeV
+  real(defReal), parameter :: neutronMass  = 939.56542194_defReal,  & ! Neutron mass in MeV (m*c^2)
+                              protonMass   = 938.27208943_defReal,  & ! Proton mass in MeV (m*c^2)
+                              electronMass = 0.51099895069_defReal, & ! Electron mass in MeV (m*c^2)
+                              lightSpeed   = 2.99792458e10_defReal, & ! Light speed in cm/s
+                              kBoltzmann   = 1.380649e-23_defReal,  & ! Bolztmann constant in J/K
+                              energyPerFission = 200.0_defReal,     & ! MeV
+                              alpha     = ONE / 137.035999084_defReal, & ! Inverse fine structure constant [-]
+                              h_bar     = 6.582119569e-10_defReal        ! Reduced Plank constant in MeV
 
   ! Unit conversion
   real(defReal), parameter :: joulesPerMeV = 1.60218e-13_defReal  ,&   ! Convert MeV to J

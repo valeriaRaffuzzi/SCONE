@@ -4,7 +4,7 @@ module pointSource_class
   use universalVariables,      only : OUTSIDE_MAT
   use genericProcedures,       only : numToChar, rotateVector
   use errors_mod,              only : fatalError
-  use particle_class,          only : particleState, P_NEUTRON, P_PHOTON
+  use particle_class,          only : particleState, P_NEUTRON, P_PHOTON, P_PROTON
   use dictionary_class,        only : dictionary
   use configSource_inter,      only : configSource, kill_super => kill
   use geometry_inter,          only : geometry
@@ -111,6 +111,9 @@ contains
 
       case('photon')
         self % particleType = P_PHOTON
+
+      case('proton')
+        self % particleType = P_PROTON
 
       case default
         call fatalError(Here, 'Unrecognised particle type')

@@ -8,7 +8,7 @@ module collisionClerk_test
   use scoreMemory_class,              only : scoreMemory
   use testNeutronDatabase_class,      only : testNeutronDatabase
   use outputFile_class,               only : outputFile
-  use ceNeutronCache_mod,             only: cache_init => init, trackingCache
+  use ceCache_mod,                    only: cache_init => init, trackingCache
   use funit
 
   implicit none

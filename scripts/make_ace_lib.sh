@@ -55,6 +55,11 @@ do
     awk -v FILE=$FULL_PATH \
     '/^[[:space:]]*[[:digit:]][[:digit:]][[:digit:]][[:digit:]][[:digit:]]?.[[:digit:]][[:digit:]]c/\
       {print $1 "; " NR "; " FILE "; "}' $var >> $OUTNAME
+      
+  elif [[ $MODE =~ ^H$ ]]; then
+    awk -v FILE=$FULL_PATH \
+    '/^[[:space:]]*[[:digit:]][[:digit:]][[:digit:]][[:digit:]][[:digit:]]?.[[:digit:]][[:digit:]]h/\
+      {print $1 "; " NR "; " FILE "; "}' $var >> $OUTNAME
 
   elif [[ $MODE =~ ^SAB$ ]]; then
     awk -v FILE=$FULL_PATH \

@@ -114,9 +114,10 @@ module materialMenu_mod
   !!       stochastic interpolation between the two data libraries.
   !!
   type, public :: materialItem
-    character(nameLen)                         :: name   = ''
-    integer(shortInt)                          :: matIdx = 0
-    real(defReal)                              :: T      = ZERO
+    character(nameLen)                         :: name    = ''
+    integer(shortInt)                          :: matIdx  = 0
+    real(defReal)                              :: T       = ZERO
+    real(defReal)                              :: excitEn = ZERO
     real(defReal),dimension(:),allocatable     :: dens
     type(nuclideInfo),dimension(:),allocatable :: nuclides
     type(dictionary)                           :: extraInfo
@@ -326,6 +327,10 @@ contains
     if (self % T < ZERO) call fatalError(Here, 'The temperature of material '//numToChar(idx)//&
                                                 ' is negative: '//numToChar(self % T))
 
+    call dict % getOrDefault(self % excitEn, 'excitationEnergy', ZERO)
+    if (self % excitEn < ZERO) call fatalError(Here, 'The excitation energy of material '//numToChar(idx)//&
+                                                ' is negative: '//numToChar(self % excitEn))
+
     ! Get composition dictionary and load composition
     compDict => dict % getDictPtr('composition')
     call compDict % keys(keys)
@@ -345,7 +350,7 @@ contains
 
     ! Load definitions
     foundModer = 0
-    do i =1,size(keys)
+    do i = 1,size(keys)
       ! Check if S(a,b) is on and required for that nuclide
       if ((nSab > 0) .and. moderDict % isPresent(keys(i))) then
         self % nuclides(i) % hasSab = .true.
@@ -381,7 +386,7 @@ contains
     end if
 
     ! Add colour info if present
-    if(dict % isPresent('rgb')) then
+    if (dict % isPresent('rgb')) then
       call dict % get(temp, 'rgb')
 
       if (size(temp) /= 3) then

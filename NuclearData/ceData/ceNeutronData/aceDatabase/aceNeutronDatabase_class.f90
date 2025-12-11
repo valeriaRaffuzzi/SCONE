@@ -31,7 +31,7 @@ module aceNeutronDatabase_class
 
 
   ! CE NEUTRON CACHE
-  use ceNeutronCache_mod,           only : cache_nuclideCache => nuclideCache, &
+  use ceCache_mod,                  only : cache_nuclideCache => nuclideCache, &
                                            cache_materialCache => materialCache, &
                                            cache_majorantCache => majorantCache, &
                                            cache_zaidCache => zaidCache, &
@@ -59,7 +59,7 @@ module aceNeutronDatabase_class
   !!   nuclearData {
   !!   handles {
   !!   ce { type aceNeutronDatabase; DBRC (92238 94242); ures < 1 or 0 >;
-  !!        majorant < 1 or 0 >; aceLibrary <nuclear data path> ;} 
+  !!        majorant < 1 or 0 >; aceLibrary <nuclear data path> ;}
   !!        #avgDist 3.141;# }
   !!
   !! Public Members:

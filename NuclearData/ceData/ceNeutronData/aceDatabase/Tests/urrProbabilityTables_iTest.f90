@@ -10,7 +10,7 @@ module urrProbabilityTables_iTest
   use aceNeutronNuclide_class,  only : aceNeutronNuclide, aceNeutronNuclide_CptrCast
   use neutronXSPackages_class,  only : neutronMicroXSs
   use materialMenu_mod,         only : mm_init => init
-  use ceNeutronCache_mod,       only : zaidCache, nuclideCache
+  use ceCache_mod,              only : zaidCache, nuclideCache
   use funit
 
   implicit none

@@ -252,6 +252,7 @@ contains
       call self % angularData % init(ACE, N_N_ELASTIC)
 
     end if
+
   end subroutine buildFromACE
 
   !!

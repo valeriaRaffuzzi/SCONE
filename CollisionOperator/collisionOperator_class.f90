@@ -3,7 +3,7 @@ module collisionOperator_class
   use numPrecision
   use genericProcedures,     only : fatalError, numToChar
   use dictionary_class,      only : dictionary
-  use particle_class,        only : particle, P_NEUTRON, P_PHOTON, printType
+  use particle_class,        only : particle, P_NEUTRON, P_PHOTON, P_PROTON, printType
   use particleDungeon_class, only : particleDungeon
 
   ! Tally interfaces
@@ -19,10 +19,10 @@ module collisionOperator_class
   !!
   !! Local parameters
   !!
-  integer(shortInt), parameter :: MAX_P_ID = max(P_NEUTRON, P_PHOTON)
+  integer(shortInt), parameter :: MAX_P_ID = max(P_NEUTRON, P_PHOTON, P_PROTON)
   integer(shortInt), parameter :: P_MG = 1, P_CE = 2
   integer(shortInt), parameter :: UNDEF_PHYSICS = -1
-  integer(shortInt), parameter :: MAX_PHYSICS = 3
+  integer(shortInt), parameter :: MAX_PHYSICS = 4
 
 
   !!
@@ -73,14 +73,19 @@ contains
     class(collisionOperator), intent(inout) :: self
     class(dictionary), intent(in)           :: dict
 
-    if(dict % isPresent('neutronCE')) then
+    if (dict % isPresent('neutronCE')) then
       call new_collisionProcessor(self % physicsTable(1) % proc, dict % getDictPtr('neutronCE'))
       self % lookupTable(P_CE, P_NEUTRON) = 1
     end if
 
-    if(dict % isPresent('neutronMG')) then
+    if (dict % isPresent('neutronMG')) then
       call new_collisionProcessor(self % physicsTable(2) % proc, dict % getDictPtr('neutronMG'))
       self % lookupTable(P_MG, P_NEUTRON) = 2
+    end if
+
+    if (dict % isPresent('protonCE')) then
+      call new_collisionProcessor(self % physicsTable(3) % proc, dict % getDictPtr('protonCE'))
+      self % lookupTable(P_CE, P_PROTON) = 3
     end if
 
   end subroutine init
@@ -96,8 +101,8 @@ contains
     self % lookupTable = UNDEF_PHYSICS
 
     ! Deallocate collision processors
-    do i=1,size(self % physicsTable)
-      if(allocated(self % physicsTable(i) % proc)) then
+    do i = 1,size(self % physicsTable)
+      if (allocated(self % physicsTable(i) % proc)) then
         deallocate( self % physicsTable(i) % proc)
       end if
     end do
@@ -117,14 +122,14 @@ contains
     character(100), parameter :: Here = 'collide (collisionOperator_class.f90)'
 
     ! Select processing index with ternary expression
-    if(p % isMG) then
+    if (p % isMG) then
       procType = P_MG
     else
       procType = P_CE
     end if
 
     ! Varify that type is valid
-    if( p % type <= 0 .or. p % type > MAX_P_ID) then
+    if (p % type <= 0 .or. p % type > MAX_P_ID) then
       call fatalError(Here, 'Type of the particle is invalid: ' // numToChar(p % type))
     end if
 
@@ -132,7 +137,7 @@ contains
     idx = self % lookupTable(procType, p % type)
 
     ! Verify index
-    if(idx == UNDEF_PHYSICS) then
+    if (idx == UNDEF_PHYSICS) then
       call fatalError(Here,'Physics is not defined for particle of type : '// p % typeToChar())
     end if
 

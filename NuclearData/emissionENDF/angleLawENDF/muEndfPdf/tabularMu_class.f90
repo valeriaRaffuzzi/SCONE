@@ -103,11 +103,16 @@ contains
     integer(shortInt),intent(in)          :: interFlag
     character(100),parameter              :: Here='init (tabularMu_class.f90)'
 
-    ! Check if the first element of the mu grid corresponds to -1 and last to 1
-    if ( (mu(1) /= -1.0_defReal) .or. (mu(size(mu)) /= 1.0_defReal)) then
-       call fatalError(Here, 'Provided mu does not begin with -1 and ends with 1')
+!print*, mu
+!print*, '**********'
+!print*, CDF
+!print*, '**********'
+!print*, PDF
 
-    end if
+    ! Check if the first element of the mu grid corresponds to -1 and last to 1
+    !if ( (mu(1) /= -1.0_defReal) .or. (mu(size(mu)) /= 1.0_defReal)) then
+    !   call fatalError(Here, 'Provided mu does not begin with -1 and ends with 1')
+    !end if
 
     ! Initialise Probability Table
     call self % pdf % init(mu,PDF,CDF,interFlag)

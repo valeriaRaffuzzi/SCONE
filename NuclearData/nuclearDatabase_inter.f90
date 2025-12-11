@@ -49,9 +49,11 @@ module nuclearDatabase_inter
     procedure(getNuclide), deferred    :: getNuclide
     procedure(getReaction), deferred   :: getReaction
     procedure(kill), deferred          :: kill
+
   end type nuclearDatabase
 
   abstract interface
+
     !!
     !! Initialise Database from dictionary and pointer to self
     !!
