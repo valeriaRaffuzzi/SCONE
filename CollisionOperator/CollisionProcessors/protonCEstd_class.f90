@@ -107,7 +107,7 @@ contains
   !!
   subroutine init(self, dict)
     class(protonCEstd), intent(inout) :: self
-    class(dictionary), intent(in)      :: dict
+    class(dictionary), intent(in)     :: dict
     character(100), parameter :: Here = 'init (protonCEstd_class.f90)'
 
     ! Call superclass
@@ -187,68 +187,9 @@ contains
     type(collisionData), intent(inout)   :: collDat
     class(particleDungeon),intent(inout) :: thisCycle
     class(particleDungeon),intent(inout) :: nextCycle
-    type(fissionCE), pointer             :: fission
-    type(neutronMicroXSs)                :: microXSs
-    type(particleState)                  :: pTemp
-    real(defReal),dimension(3)           :: r, dir
-    integer(shortInt)                    :: n, i
-    real(defReal)                        :: wgt, w0, rand1, E_out, mu, phi
-    real(defReal)                        :: sig_nufiss, sig_tot, k_eff
     character(100),parameter             :: Here = 'implicit (protonCEstd_class.f90)'
 
-    ! Generate fission sites if nuclide is fissile
-    if (self % nuc % isFissile()) then
-
-      ! Obtain required data
-      wgt   = p % w                ! Current weight
-      w0    = p % preHistory % wgt ! Starting weight
-      k_eff = p % k_eff            ! k_eff for normalisation
-      rand1 = p % pRNG % get()     ! Random number to sample sites
-
-      ! Retrieve cross section at the energy used for reaction sampling
-      call self % nuc % getMicroXSs(microXSs, collDat % E, self % mat % kT, p % pRNG)
-
-      sig_nufiss = microXSs % nuFission
-      sig_tot    = microXSs % total
-
-      ! Sample number of fission sites generated
-      ! Support -ve weight particles
-      n = int(abs( (wgt * sig_nufiss) / (w0 * sig_tot * k_eff)) + rand1, shortInt)
-
-      ! Shortcut particle generation if no particles were sampled
-      if (n < 1) return
-
-      ! Get fission Reaction
-      fission => fissionCE_TptrCast(self % xsData % getReaction(N_FISSION, collDat % nucIdx))
-      if(.not.associated(fission)) call fatalError(Here, "Failed to get fissionCE")
-
-      ! Store new sites in the next cycle dungeon
-      wgt =  sign(w0, wgt)
-      r   = p % rGlobal()
-
-      do i = 1,n
-        call fission % sampleOut(mu, phi, E_out, p % E, p % pRNG)
-        dir = rotateVector(p % dirGlobal(), mu, phi)
-
-        if (E_out > self % maxE) E_out = self % maxE
-
-        ! Copy extra detail from parent particle (i.e. time, flags ect.)
-        pTemp       = p
-
-        ! Overwrite position, direction, energy and weight
-        pTemp % r   = r
-        pTemp % dir = dir
-        pTemp % E   = E_out
-        pTemp % wgt = wgt
-        pTemp % collisionN = 0
-
-        call nextCycle % detain(pTemp)
-
-        ! Report birth of new particle
-        call tally % reportSpawn(N_FISSION, p, pTemp)
-
-      end do
-    end if
+    ! Does nothing
 
   end subroutine implicit
 
@@ -363,7 +304,7 @@ contains
     class(particleDungeon),intent(inout) :: thisCycle
     class(particleDungeon),intent(inout) :: nextCycle
 
-    if (p % E < self % minE ) p % isDead = .true.
+    if (p % E < self % minE) p % isDead = .true.
 
   end subroutine cutoffs
 

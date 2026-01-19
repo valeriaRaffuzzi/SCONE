@@ -38,6 +38,11 @@ module nuclearDatabase_inter
   type, public,abstract :: nuclearDatabase
     real(defReal)                      :: collisionXS = ZERO
   contains
+
+    ! To be overridden ???
+    procedure(getEnergyLoss)        :: getEnergyLoss
+    procedure(getMoliereVolatility) :: getMoliereVolatility
+
     procedure(init), deferred          :: init
     procedure(activate), deferred      :: activate
     procedure(getTrackingXS), deferred :: getTrackingXS
@@ -53,6 +58,28 @@ module nuclearDatabase_inter
   end type nuclearDatabase
 
   abstract interface
+
+    !!
+    !! Nothing happens, but satisfies the interface
+    !!
+    function getEnergyLoss(self, p, matIdx) result(deltaE)
+      import :: nuclearDatabase, particle, shortInt, defReal
+      class(nuclearDatabase), intent(in) :: self
+      class(particle), intent(in)        :: p
+      integer(shortInt), intent(in)      :: matIdx
+      real(defReal)                      :: deltaE
+    end function getEnergyLoss
+
+    !!
+    !! Nothing happens, but satisfies the interface
+    !!
+    function getMoliereVolatility(self, p, matIdx) result(sigma)
+      import :: nuclearDatabase, particle, shortInt, defReal
+      class(nuclearDatabase), intent(in) :: self
+      class(particle), intent(in)        :: p
+      integer(shortInt), intent(in)      :: matIdx
+      real(defReal)                      :: sigma
+    end function getMoliereVolatility
 
     !!
     !! Initialise Database from dictionary and pointer to self

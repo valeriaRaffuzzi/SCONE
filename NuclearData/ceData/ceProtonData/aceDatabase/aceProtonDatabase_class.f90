@@ -90,9 +90,6 @@ module aceProtonDatabase_class
     procedure :: init
     procedure :: activate
 
-    ! override nuclearDatabase Procedure
-    procedure :: getEnergyLoss
-
     ! ceProtonDatabase Procedures
     procedure :: energyBounds
     procedure :: updateTrackMatXS
@@ -101,6 +98,8 @@ module aceProtonDatabase_class
     procedure :: updateTotalNucXS
     procedure :: updateMicroXSs
     procedure :: getMaterialMTxs
+    procedure :: getMaterialEnLoss
+    procedure :: getMaterialVolatility
 
   end type aceProtonDatabase
 
@@ -234,7 +233,7 @@ contains
   !!
   !! See nuclearDatabase for more details
   !!
-  function getEnergyLoss(self, E, matIdx, rand) result(deltaE)
+  function getMaterialEnLoss(self, E, matIdx, rand) result(deltaE)
     class(aceProtonDatabase), intent(in) :: self
     real(defReal), intent(in)             :: E
     integer(shortInt), intent(in)         :: matIdx
@@ -267,7 +266,47 @@ contains
     r2 = rand % get()
     deltaE = sumSigma1 + sampleNormal(r1, r2) * sqrt(sumSigma2)
 
-  end function getEnergyLoss
+  end function getMaterialEnLoss
+
+  !!
+  !! Calculates the energy loss per cm
+  !!
+  !! See nuclearDatabase for more details
+  !!
+  function getMaterialVolatility(self, E, matIdx, rand) result(sigma)
+    class(aceProtonDatabase), intent(in) :: self
+    real(defReal), intent(in)             :: E
+    integer(shortInt), intent(in)         :: matIdx
+    class(RNG), intent(inout)             :: rand
+    real(defReal)                         :: sigma
+    integer(shortInt)                     :: i, nucIdx
+    real(defReal)                         :: dens, sigma1, sigma2, sumSigma1, &
+                                             sumSigma2, r1, r2
+
+    sumSigma1 = ZERO
+    sumSigma2 = ZERO
+
+    associate (mat => self % materials(matIdx))
+
+      ! Construct macro XS for the MT number requested
+      do i = 1, size(mat % nuclides)
+        dens   = mat % dens(i)
+        nucIdx = mat % nuclides(i)
+
+        call self % nuclides(nucIdx) % betheBloch(sigma1, sigma2, E, mat % excitEn)
+
+        sumSigma1 = sumSigma1 + sigma1 * dens
+        sumSigma2 = sumSigma2 + sigma2 * dens
+
+      end do
+
+    end associate
+
+    r1 = rand % get()
+    r2 = rand % get()
+    deltaE = sumSigma1 + sampleNormal(r1, r2) * sqrt(sumSigma2)
+
+  end function getMaterialVolatility
 
   !!
   !! Return energy bounds for data in the database
