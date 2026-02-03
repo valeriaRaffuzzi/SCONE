@@ -728,13 +728,13 @@ contains
     integer(shortInt), intent(in)                    :: nucIdx
     class(ceNeutronDatabase), pointer, intent(in)    :: database
     class(dictionary), pointer, intent(in), optional :: dict
-    integer(shortInt)                                :: Ngrid, N, K, i, j, MT, MText, &
+    integer(shortInt)                                :: Ngrid, N, K, i, j, MT, &
                                                         bottom, top, firstIdxExt
     type(stackInt)                                   :: scatterMT, absMT
     character(pathLen)                               :: fileName
     class(dictionary), pointer                       :: extDataDict
     real(defReal), dimension(:), allocatable         :: tempXs, tempGrid, extXS
-    logical(defBool)                                 :: extData = .false.
+    character(nameLen), dimension(:), allocatable    :: mtIdxs
     character(100), parameter :: Here = "init (aceNeutronNuclide_class.f90)"
 
     ! Reset nuclide just in case
@@ -772,22 +772,9 @@ contains
 
     ! Check if reading an external xs file
     if (associated(dict)) then
-      extData = .true.
-      call dict % get(MText, 'MT')
-      if (any([18,19,20,21,38] == MText)) call fatalError(Here, 'fission not supported')
-      call dict % get(fileName, 'fileName')
-      call fileToDict(extDataDict, fileName)
-
-      call extDataDict % get(tempXs, 'crossSection')
-      call extDataDict % get(tempGrid, 'energy')
-      if (size(tempXs) /= size(tempGrid)) then
-        call fatalError(Here, 'Sizes of energy grid and cross section given in '&
-                        //fileName//' are not consistent')
-      end if
-
-      extXS = interpolateToGrid(tempGrid, tempXs, self % eGrid)
-      firstIdxExt = findLoc(extXS, ZERO, dim = 1, back=.true.) + 1
-
+      call dict % keys(mtIdxs)
+    else
+      mtIdxs = ''
     end if
 
     ! Load Fission XS data
@@ -867,11 +854,24 @@ contains
     ! Load scattering reactions
     N = scatterMT % size()
     self % nMT = N
-    do i = 1,N
+    do i = 1, N
       call scatterMT % pop(MT)
       self % MTdata(i) % MT = MT
 
-      if (extData .and. MText == MT) then
+      if (any(mtIdxs == numToChar(MT))) then
+        call dict % get(fileName, numToChar(MT))
+        call fileToDict(extDataDict, fileName)
+
+        call extDataDict % get(tempXs, 'crossSection')
+        call extDataDict % get(tempGrid, 'energy')
+        if (size(tempXs) /= size(tempGrid)) then
+          call fatalError(Here, 'Sizes of energy grid and cross section given in '&
+                          //fileName//' are not consistent')
+        end if
+
+        extXS = interpolateToGrid(tempGrid, tempXs, self % eGrid)
+        firstIdxExt = findLoc(extXS, ZERO, dim = 1, back=.true.) + 1
+
         self % MTdata(i) % firstIdx = firstIdxExt
         self % MTdata(i) % xs       = extXS
       else
@@ -901,7 +901,20 @@ contains
       call absMT % pop(MT)
       self % MTdata(i) % MT = MT
 
-      if (extData .and. MText == MT) then
+      if (any(mtIdxs == numToChar(MT))) then
+        call dict % get(fileName, numToChar(MT))
+        call fileToDict(extDataDict, fileName)
+
+        call extDataDict % get(tempXs, 'crossSection')
+        call extDataDict % get(tempGrid, 'energy')
+        if (size(tempXs) /= size(tempGrid)) then
+          call fatalError(Here, 'Sizes of energy grid and cross section given in '&
+                          //fileName//' are not consistent')
+        end if
+
+        extXS = interpolateToGrid(tempGrid, tempXs, self % eGrid)
+        firstIdxExt = findLoc(extXS, ZERO, dim = 1, back=.true.) + 1
+
         self % MTdata(i) % firstIdx = firstIdxExt
         self % MTdata(i) % xs       = extXS
       else
