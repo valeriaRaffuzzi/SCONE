@@ -255,7 +255,7 @@ contains
     ! Obtain value
     if (idxMT > 0) then
       idx = idx - self % MTdata(idxMT) % firstIdx + 1
-      if (idx < 0) then
+      if (idx <= 0) then
         topXS = ZERO
         bottomXS = ZERO
       else
@@ -725,11 +725,12 @@ contains
     class(ceNeutronDatabase), pointer, intent(in)    :: database
     class(dictionary), pointer, intent(in), optional :: dict
     integer(shortInt)                                :: Ngrid, N, K, i, j, MT, bottom, &
-                                                        top, firstIdxExt, firstIdxMT4
+                                                        top, firstIdx, firstIdxMT4
     type(stackInt)                                   :: scatterMT, absMT
     character(pathLen)                               :: fileName
-    class(dictionary), pointer                       :: extDataDict
-    real(defReal), dimension(:), allocatable         :: xsMT4, tempXs, tempGrid, extXS
+    type(dictionary)                                 :: extDataDict
+    real(defReal), dimension(:), allocatable         :: xsMT4, tempXS, tempGrid, extXS, &
+                                                        MTxs, aceXS
     character(nameLen), dimension(:), allocatable    :: mtIdxs
     character(100), parameter :: Here = "init (aceNeutronNuclide_class.f90)"
 
@@ -769,8 +770,10 @@ contains
     ! Check if reading an external xs file
     if (associated(dict)) then
       call dict % keys(mtIdxs)
+      allocate(aceXS(Ngrid))
     else
-      mtIdxs = ''
+      allocate(mtIdxs(1))
+      mtIdxs = '0'
     end if
 
     ! Load Fission XS data
@@ -858,22 +861,28 @@ contains
       call scatterMT % pop(MT)
       self % MTdata(i) % MT = MT
 
+      ! Check if one needs to apply an external MT number
       if (any(mtIdxs == numToChar(MT))) then
+
+        ! Read dictionary and get data
         call dict % get(fileName, numToChar(MT))
         call fileToDict(extDataDict, fileName)
-
-        call extDataDict % get(tempXs, 'crossSection')
+        call extDataDict % get(tempXS, 'crossSection')
         call extDataDict % get(tempGrid, 'energy')
-        if (size(tempXs) /= size(tempGrid)) then
-          call fatalError(Here, 'Sizes of energy grid and cross section given in '&
-                          //fileName//' are not consistent')
-        end if
 
-        extXS = interpolateToGrid(tempGrid, tempXs, self % eGrid)
-        firstIdxExt = findLoc(extXS, ZERO, dim = 1, back=.true.) + 1
+        ! Initialise cross section from ACE file
+        aceXS = ZERO
+        aceXS(ACE % firstIdxMT(MT):Ngrid) = ACE % xsMT(MT)
 
-        self % MTdata(i) % firstIdx = firstIdxExt
-        self % MTdata(i) % xs       = extXS
+        ! Interpolate the external cross section into ACE energy grid
+        extXS = interpolateToGrid(tempGrid, tempXS, self % eGrid)
+
+        ! Replace ACE data with external data where present and find new threshold index
+        MTxs = merge(extXS, aceXS, extXS /= ZERO)
+        firstIdx = findLoc(MTxs /= ZERO, .true., dim = 1) - 1
+
+        self % MTdata(i) % firstIdx = firstIdx
+        self % MTdata(i) % xs       = MTxs(firstIdx:Ngrid)
       else
         self % MTdata(i) % firstIdx = ACE % firstIdxMT(MT)
         self % MTdata(i) % xs       = ACE % xsMT(MT)
@@ -912,22 +921,28 @@ contains
       call absMT % pop(MT)
       self % MTdata(i) % MT = MT
 
+      ! Check if one needs to apply an external MT number
       if (any(mtIdxs == numToChar(MT))) then
+
+        ! Read dictionary and get data
         call dict % get(fileName, numToChar(MT))
         call fileToDict(extDataDict, fileName)
-
-        call extDataDict % get(tempXs, 'crossSection')
+        call extDataDict % get(tempXS, 'crossSection')
         call extDataDict % get(tempGrid, 'energy')
-        if (size(tempXs) /= size(tempGrid)) then
-          call fatalError(Here, 'Sizes of energy grid and cross section given in '&
-                          //fileName//' are not consistent')
-        end if
 
-        extXS = interpolateToGrid(tempGrid, tempXs, self % eGrid)
-        firstIdxExt = findLoc(extXS, ZERO, dim = 1, back=.true.) + 1
+        ! Initialise cross section from ACE file
+        aceXS = ZERO
+        aceXS(ACE % firstIdxMT(MT):Ngrid) = ACE % xsMT(MT)
 
-        self % MTdata(i) % firstIdx = firstIdxExt
-        self % MTdata(i) % xs       = extXS
+        ! Interpolate the external cross section into ACE energy grid
+        extXS = interpolateToGrid(tempGrid, tempXS, self % eGrid)
+
+        ! Replace ACE data with external data where present and find new threshold index
+        MTxs = merge(extXS, aceXS, extXS /= ZERO)
+        firstIdx = findLoc(MTxs /= ZERO, .true., dim = 1) - 1
+
+        self % MTdata(i) % firstIdx = firstIdx
+        self % MTdata(i) % xs       = MTxs(firstIdx:Ngrid)
       else
         self % MTdata(i) % firstIdx = ACE % firstIdxMT(MT)
         self % MTdata(i) % xs       = ACE % xsMT(MT)

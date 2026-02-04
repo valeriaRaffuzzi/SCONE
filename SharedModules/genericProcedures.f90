@@ -848,7 +848,7 @@ module genericProcedures
     if (xIn(nIn) >= xOut(nOut)) then
       idxEnd = nOut
     else
-      idxEnd = binarySearch(xOut, xIn(1))
+      idxEnd = binarySearch(xOut, xIn(nIn))
     end if
 
     do i = idx1, idxEnd

@@ -935,17 +935,20 @@ contains
       nucDataDict => null()
       idx = 0
       if (allocated(nucKeys)) then
-        do idx = 1, size(nucKeys)
-          if (name == nucKeys(idx)) exit
+        do j = 1, size(nucKeys)
+          if (nucKeys(j) == name) then
+            idx = j
+            exit
+          end if
         end do
-        if (idx /= 0) nucDataDict => dict % getDictPtr(nucKeys(idx))
+        if (idx /= 0) nucDataDict => tabDataDict % getDictPtr(nucKeys(idx))
       end if
 
-      if(loud) then
+      if (loud) then
         call statusMsg("Building: "// trim(name)// " with index: " //numToChar(nucIdx))
-        if (idx /= 0 .and. idx2 == 0) &
+        if (idx1 /= 0 .and. idx2 == 0) &
             call statusMsg("including S(alpha,beta) tables with file: " //trim(name_file1))
-        if (idx /= 0 .and. idx2 /= 0) &
+        if (idx1 /= 0 .and. idx2 /= 0) &
             call statusMsg("including S(alpha,beta) tables with files: " //trim(name_file1)//' '//trim(name_file2))
       end if
 
@@ -953,7 +956,7 @@ contains
       call self % nuclides(nucIdx) % init(ACE, nucIdx, ptr_ceDatabase, nucDataDict)
 
       ! Initialise S(alpha,beta) tables
-      if (idx1 /= 0 ) then
+      if (idx1 /= 0) then
         call new_moderACE(ACE_Sab1, name_file1)
         if (idx2 /= 0) then
           call new_moderACE(ACE_Sab2, name_file2)
