@@ -62,11 +62,12 @@ module nuclearDatabase_inter
     !!
     !! Nothing happens, but satisfies the interface
     !!
-    function getEnergyLoss(self, p, matIdx) result(deltaE)
+    function getEnergyLoss(self, p, matIdx, dist) result(deltaE)
       import :: nuclearDatabase, particle, shortInt, defReal
       class(nuclearDatabase), intent(in) :: self
       class(particle), intent(in)        :: p
       integer(shortInt), intent(in)      :: matIdx
+      real(defReal), intent(in)          :: dist
       real(defReal)                      :: deltaE
     end function getEnergyLoss
 

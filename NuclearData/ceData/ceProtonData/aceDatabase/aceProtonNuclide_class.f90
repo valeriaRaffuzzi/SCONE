@@ -363,11 +363,10 @@ contains
     real(defReal), intent(in)           :: I
     real(defReal)                       :: beta2, lorentz2, speed, num, denom
 
-    ! Calculate proton speed in cm/s
-    speed = sqrt(TWO * E / protonMass) * lightSpeed
-
-    ! Calculate energy dependent factors
-    beta2    = (TWO * protonMass + E) * E / (protonMass + E)**2
+    ! Calculate beta^2
+    beta2 = (TWO * protonMass + E) * E / (protonMass + E)**2
+    ! Speed is calculated from beta^2 - this takes into account relativistic effects
+    speed = sqrt(beta2) * lightSpeed
     lorentz2 = ONE / (ONE - speed * speed / lightSpeed / lightSpeed)
 
     num   = TWO * electronMass * beta2

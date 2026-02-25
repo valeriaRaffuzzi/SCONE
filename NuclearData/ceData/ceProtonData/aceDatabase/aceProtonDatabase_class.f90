@@ -233,11 +233,12 @@ contains
   !!
   !! See nuclearDatabase for more details
   !!
-  function getMaterialEnLoss(self, E, matIdx, rand) result(deltaE)
+  function getMaterialEnLoss(self, E, matIdx, rand, dist) result(deltaE)
     class(aceProtonDatabase), intent(in) :: self
     real(defReal), intent(in)             :: E
     integer(shortInt), intent(in)         :: matIdx
     class(RNG), intent(inout)             :: rand
+    real(defReal), intent(in)             :: dist
     real(defReal)                         :: deltaE
     integer(shortInt)                     :: i, nucIdx
     real(defReal)                         :: dens, sigma1, sigma2, sumSigma1, &
@@ -264,7 +265,7 @@ contains
 
     r1 = rand % get()
     r2 = rand % get()
-    deltaE = sumSigma1 + sampleNormal(r1, r2) * sqrt(sumSigma2)
+    deltaE = sumSigma1 * dist + sampleNormal(r1, r2) * sqrt(sumSigma2 * dist)
 
   end function getMaterialEnLoss
 

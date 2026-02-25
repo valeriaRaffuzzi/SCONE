@@ -420,10 +420,11 @@ contains
   !! Error:
   !!   fatalError if particle is not CE Proton, is MG, and the material is undefined
   !!
-  function getEnergyLoss(self, p, matIdx) result(deltaE)
+  function getEnergyLoss(self, p, matIdx, dist) result(deltaE)
     class(nuclearDatabase), intent(in) :: self
     class(particle), intent(in)        :: p
     integer(shortInt), intent(in)      :: matIdx
+    real(defReal), intent(in)          :: dist
     real(defReal)                      :: deltaE
 
     ! Check dynamic type of the particle
@@ -441,7 +442,7 @@ contains
               //numToChar(matIdx))
     end if
 
-    deltaE = self % getMaterialEnLoss(p % E, matIdx, p % pRNG)
+    deltaE = self % getMaterialEnLoss(p % E, matIdx, p % pRNG, dist)
 
   end function getEnergyLoss
 
