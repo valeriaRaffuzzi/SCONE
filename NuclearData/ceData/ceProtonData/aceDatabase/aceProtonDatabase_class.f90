@@ -233,16 +233,16 @@ contains
   !!
   !! See nuclearDatabase for more details
   !!
-  function getMaterialEnLoss(self, E, matIdx, rand, dist) result(deltaE)
+  function getMaterialEnLoss(self, E, matIdx, dist, rand) result(deltaE)
     class(aceProtonDatabase), intent(in) :: self
-    real(defReal), intent(in)             :: E
-    integer(shortInt), intent(in)         :: matIdx
-    class(RNG), intent(inout)             :: rand
-    real(defReal), intent(in)             :: dist
-    real(defReal)                         :: deltaE
-    integer(shortInt)                     :: i, nucIdx
-    real(defReal)                         :: dens, sigma1, sigma2, sumSigma1, &
-                                             sumSigma2, r1, r2
+    real(defReal), intent(in)            :: E
+    integer(shortInt), intent(in)        :: matIdx
+    real(defReal), intent(in)            :: dist
+    class(RNG), intent(inout)            :: rand
+    real(defReal)                        :: deltaE
+    integer(shortInt)                    :: i, nucIdx
+    real(defReal)                        :: dens, sigma1, sigma2, sumSigma1, &
+                                            sumSigma2, r1, r2
 
     sumSigma1 = ZERO
     sumSigma2 = ZERO
@@ -274,18 +274,21 @@ contains
   !!
   !! See nuclearDatabase for more details
   !!
-  function getMaterialVolatility(self, E, matIdx, rand) result(sigma)
+  function getMaterialVolatility(self, E, matIdx, dist, rand) result(sigma)
     class(aceProtonDatabase), intent(in) :: self
-    real(defReal), intent(in)             :: E
-    integer(shortInt), intent(in)         :: matIdx
-    class(RNG), intent(inout)             :: rand
-    real(defReal)                         :: sigma
-    integer(shortInt)                     :: i, nucIdx
-    real(defReal)                         :: dens, sigma1, sigma2, sumSigma1, &
-                                             sumSigma2, r1, r2
+    real(defReal), intent(in)            :: E
+    integer(shortInt), intent(in)        :: matIdx
+    real(defReal), intent(in)            :: dist
+    class(RNG), intent(inout)            :: rand
+    real(defReal)                        :: sigma
+    integer(shortInt)                    :: i, nucIdx
+    real(defReal)                        :: dens, chiAnum, chiAden, chiC, sumChiANum, &
+                                            sumChiADen, sumChiA, sumChiC, F, omega
 
-    sumSigma1 = ZERO
-    sumSigma2 = ZERO
+    sumChiANum = ZERO
+    sumChiADen = ZERO
+    sumChiC    = ZERO
+    F = 0.98_defReal  ! Hardcoded here, could be an input later on
 
     associate (mat => self % materials(matIdx))
 
@@ -294,18 +297,19 @@ contains
         dens   = mat % dens(i)
         nucIdx = mat % nuclides(i)
 
-        call self % nuclides(nucIdx) % betheBloch(sigma1, sigma2, E, mat % excitEn)
+        call self % nuclides(nucIdx) % moliereScattering(chiAnum, chiAden, chiC, E)
 
-        sumSigma1 = sumSigma1 + sigma1 * dens
-        sumSigma2 = sumSigma2 + sigma2 * dens
+        sumChiC    = sumChiC + chiC * dist
+        sumChiANum = sumChiANum + chiAnum
+        sumChiADen = sumChiADen + chiAden
 
       end do
 
     end associate
 
-    r1 = rand % get()
-    r2 = rand % get()
-    deltaE = sumSigma1 + sampleNormal(r1, r2) * sqrt(sumSigma2)
+    sumChiA = exp(sumChiANum/sumChiADen)
+    omega   = sumChiC / (TWO * sumChiA * (ONE - F))
+    sigma   = sqrt( sumChiC * ((ONE + omega) * log(ONE + omega) / omega - ONE) / (ONE + F**2) )
 
   end function getMaterialVolatility
 

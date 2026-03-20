@@ -54,6 +54,7 @@ module ceProtonDatabase_inter
     procedure :: getTrackMatXS
     procedure :: getTotalMatXS
     procedure :: getMajorantXS
+
     ! Overrides procedure
     procedure :: getEnergyLoss
     procedure :: getMoliereVolatility
@@ -236,11 +237,12 @@ module ceProtonDatabase_inter
     !!   matIdx [in]  -> material index
     !!   rand [inout] -> random number generator
     !!
-    function getMaterialEnLoss(self, E, matIdx, rand) result(deltaE)
+    function getMaterialEnLoss(self, E, matIdx, dist, rand) result(deltaE)
       import :: ceProtonDatabase, defReal, shortInt, RNG
       class(ceProtonDatabase), intent(in) :: self
       real(defReal), intent(in)           :: E
       integer(shortInt), intent(in)       :: matIdx
+      real(defReal), intent(in)           :: dist
       class(RNG), intent(inout)           :: rand
       real(defReal)                       :: deltaE
     end function getMaterialEnLoss
@@ -256,14 +258,15 @@ module ceProtonDatabase_inter
     !!   matIdx [in]  -> material index
     !!   rand [inout] -> random number generator
     !!
-    function getMaterialEnLoss(self, E, matIdx, rand) result(sigma)
+    function getMaterialVolatility(self, E, matIdx, dist, rand) result(sigma)
       import :: ceProtonDatabase, defReal, shortInt, RNG
       class(ceProtonDatabase), intent(in) :: self
       real(defReal), intent(in)           :: E
       integer(shortInt), intent(in)       :: matIdx
+      real(defReal), intent(in)           :: dist
       class(RNG), intent(inout)           :: rand
       real(defReal)                       :: sigma
-    end function getMaterialEnLoss
+    end function getMaterialVolatility
 
   end interface
 contains
@@ -421,11 +424,12 @@ contains
   !!   fatalError if particle is not CE Proton, is MG, and the material is undefined
   !!
   function getEnergyLoss(self, p, matIdx, dist) result(deltaE)
-    class(nuclearDatabase), intent(in) :: self
-    class(particle), intent(in)        :: p
-    integer(shortInt), intent(in)      :: matIdx
-    real(defReal), intent(in)          :: dist
-    real(defReal)                      :: deltaE
+    class(ceProtonDatabase), intent(inout) :: self
+    class(particle), intent(in)            :: p
+    integer(shortInt), intent(in)          :: matIdx
+    real(defReal), intent(in)              :: dist
+    real(defReal)                          :: deltaE
+    character(100), parameter :: Here = 'getEnergyLoss (ceProtonDatabase_inter.f90)'
 
     ! Check dynamic type of the particle
     if (p % isMG .or. p % type /= P_PROTON) then
@@ -442,7 +446,7 @@ contains
               //numToChar(matIdx))
     end if
 
-    deltaE = self % getMaterialEnLoss(p % E, matIdx, p % pRNG, dist)
+    deltaE = self % getMaterialEnLoss(p % E, matIdx, dist, p % pRNG)
 
   end function getEnergyLoss
 
@@ -454,11 +458,13 @@ contains
   !! Error:
   !!   fatalError if particle is not CE Proton, is MG, and the material is undefined
   !!
-  function getMoliereVolatility(self, p, matIdx) result(sigma)
-    class(nuclearDatabase), intent(in) :: self
-    class(particle), intent(in)        :: p
-    integer(shortInt), intent(in)      :: matIdx
-    real(defReal)                      :: sigma
+  function getMoliereVolatility(self, p, matIdx, dist) result(sigma)
+    class(ceProtonDatabase), intent(inout) :: self
+    class(particle), intent(in)            :: p
+    integer(shortInt), intent(in)          :: matIdx
+    real(defReal), intent(in)              :: dist
+    real(defReal)                          :: sigma
+    character(100),parameter :: Here = 'getMoliereVolatility (ceProtonDatabase_inter.f90)'
 
     ! Check dynamic type of the particle
     if (p % isMG .or. p % type /= P_PROTON) then
@@ -475,7 +481,7 @@ contains
               //numToChar(matIdx))
     end if
 
-    sigma = self % getMaterialVolatility(p % E, matIdx, p % pRNG)
+    sigma = self % getMaterialVolatility(p % E, matIdx, dist, p % pRNG)
 
   end function getMoliereVolatility
 

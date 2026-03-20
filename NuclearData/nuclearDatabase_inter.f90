@@ -35,13 +35,13 @@ module nuclearDatabase_inter
   !!   getReaction   -> returns a pointer to a reaction for given matidx or nucIdx and MT number
   !!   kill          -> return to uninitialised state, clean memory
   !!
-  type, public,abstract :: nuclearDatabase
+  type, public, abstract :: nuclearDatabase
     real(defReal)                      :: collisionXS = ZERO
   contains
 
-    ! To be overridden ???
-    procedure(getEnergyLoss)        :: getEnergyLoss
-    procedure(getMoliereVolatility) :: getMoliereVolatility
+    ! Proton procedures
+    procedure :: getEnergyLoss
+    procedure :: getMoliereVolatility
 
     procedure(init), deferred          :: init
     procedure(activate), deferred      :: activate
@@ -58,29 +58,6 @@ module nuclearDatabase_inter
   end type nuclearDatabase
 
   abstract interface
-
-    !!
-    !! Nothing happens, but satisfies the interface
-    !!
-    function getEnergyLoss(self, p, matIdx, dist) result(deltaE)
-      import :: nuclearDatabase, particle, shortInt, defReal
-      class(nuclearDatabase), intent(in) :: self
-      class(particle), intent(in)        :: p
-      integer(shortInt), intent(in)      :: matIdx
-      real(defReal), intent(in)          :: dist
-      real(defReal)                      :: deltaE
-    end function getEnergyLoss
-
-    !!
-    !! Nothing happens, but satisfies the interface
-    !!
-    function getMoliereVolatility(self, p, matIdx) result(sigma)
-      import :: nuclearDatabase, particle, shortInt, defReal
-      class(nuclearDatabase), intent(in) :: self
-      class(particle), intent(in)        :: p
-      integer(shortInt), intent(in)      :: matIdx
-      real(defReal)                      :: sigma
-    end function getMoliereVolatility
 
     !!
     !! Initialise Database from dictionary and pointer to self
@@ -323,5 +300,39 @@ module nuclearDatabase_inter
       class(nuclearDatabase), intent(inout) :: self
     end subroutine kill
   end interface
+
+  contains
+
+    !!
+    !! Nothing happens, but satisfies the interface
+    !!
+    function getEnergyLoss(self, p, matIdx, dist) result(deltaE)
+      class(nuclearDatabase), intent(inout) :: self
+      class(particle), intent(in)           :: p
+      integer(shortInt), intent(in)         :: matIdx
+      real(defReal), intent(in)             :: dist
+      real(defReal)                         :: deltaE
+
+      ! WILL IDEALLY BE OVERRIDDEN BY THE EXTENSION
+      ! Avoid warning
+      deltaE = ZERO
+
+    end function getEnergyLoss
+
+    !!
+    !! Nothing happens, but satisfies the interface
+    !!
+    function getMoliereVolatility(self, p, matIdx, dist) result(sigma)
+      class(nuclearDatabase), intent(inout) :: self
+      class(particle), intent(in)           :: p
+      integer(shortInt), intent(in)         :: matIdx
+      real(defReal), intent(in)             :: dist
+      real(defReal)                         :: sigma
+
+      ! WILL IDEALLY BE OVERRIDDEN BY THE EXTENSION
+      ! Avoid warning
+      sigma = ZERO
+
+    end function getMoliereVolatility
 
 end module nuclearDatabase_inter

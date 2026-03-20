@@ -104,6 +104,7 @@ module aceProtonNuclide_class
     procedure :: totalXS
     procedure :: microXSs
     procedure :: betheBloch
+    procedure :: moliereScattering
     procedure :: init
     procedure :: display
 
@@ -377,6 +378,31 @@ contains
              & lorentz2 * (ONE - HALF * beta2)
 
   end subroutine betheBloch
+
+  !!
+  !! Return evaluated cross sections for energy loss calculation
+  !!
+  !! Does not perform any check for valid input!
+  !!
+  !! Args:
+  !!   chiA [out] ->
+  !!   chiC [out] ->
+  !!   E [in]     -> particle energy [MeV]
+  !!
+  elemental subroutine moliereScattering(self, chiAnum, chiAden, chiC, E)
+    class(aceProtonNuclide), intent(in) :: self
+    real(defReal), intent(out)          :: chiAnum
+    real(defReal), intent(out)          :: chiAden
+    real(defReal), intent(out)          :: chiC
+    real(defReal), intent(in)           :: E
+    real(defReal)                       :: beta2, speed
+
+    ! Calculate beta^2
+    beta2 = (TWO * protonMass + E) * E / (protonMass + E)**2
+    ! Speed is calculated from beta^2 - this takes into account relativistic effects
+    speed = sqrt(beta2) * lightSpeed
+
+  end subroutine moliereScattering
 
   !!
   !! Initialise from an ACE Card
