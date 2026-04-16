@@ -191,10 +191,74 @@ Example: ::
 
         varianceReduction { <Weight windows definition> }
 
+alphaPhysicsPackage
+###################
+
+alphaPhysicsPackage, used to estimate the alpha eigenvalue by the k-alpha algorithm.
+
+* pop: number of particles used per cycle
+* active: number of active cycles
+* inactive: number of inactive cycles
+* dataType: determines type of nuclear data used; can be ``ce`` or ``mg``
+* XSdata: keyword to the name of the nuclearDataHandle used
+* keff_0: initial guess for the k factor. Can help stabilise calculations if
+  chosen well.
+* alpha_0: initial guess for the alpha eigenvalue. Vital to choose this with an
+  appropriate sign for stability: positive if supercritical, negative if subcritical.
+  In units of 1/s.
+* eta: stabilisation factor for alpha calculations. Usually chosen as 1. Only takes
+  effect in subcritical systems.
+* seed (*optional*): initial seed for the pseudo random number generator
+* outputFile (*optional*, default = 'output'): name of the output file
+* outputFormat (*optional*, default = ``asciiMATLAB``): type of output file.
+  Choices are ``asciiMATLAB`` and ``asciiJSON``
+* reproducible (*optional*, default = 1): 1 for true; 0 for false; if running
+  with MPI, this ensures that the particle normalisation procedure used maintains
+  reproducibility (given that the RNG seed is fixed, and mpiSync is on for tallies)
+  when running with different numbers of MPI ranks. However, the (MPI) parallel 
+  scaling performance of this option is slightly worse than using the alternative 
+  procedure, that doesn't ensure reproducibility
+* printSource (*optional*, default = 0): 1 for true; 0 for false; requests
+  to print the particle source (location, direction, energy of each particle
+  in the particleDungeon) to a text file. If running with MPI, this is done 
+  by each MPI rank separately
+
+Example: ::
+
+        type alphaPhysicsPackage;
+        pop    100000;
+        active 100;
+        inactive 50;
+        dataType ce;
+        XSdata   ceData;
+        seed     -244654;
+        keff_0 1.2;
+        alpha_0 100000;
+        outputFile PuSphere;
+        outputFormat asciiJSON;
+
+        transportOperator { <Transport operator definition> }
+        collisionOperator { <Collision operator definition> }
+        inactiveTally { <Inactive tally definition> }
+        activeTally { <Active tally definition> }
+        geometry { <Geometry definition> }
+        nuclearData { <Nuclear data definition> }
+
+*Optional entries* ::
+
+        uniformFissionSites { <Uniform fission sites definition> }
+        varianceReduction { <Weight windows definition> }
+        source { <Source definition> }
+
+.. note::
+   Although a ``source`` definition is not required, it can be included to replace
+   the default uniform fission source guess used in the first cycle
+
+
 rayVolPhysicsPackage
 ####################
 
-rayVolPhysicsPackage, used to perform ray-tracing based volume calculation
+rayVolPhysicsPackage, used to perform ray-tracing based volume calculations.
 
 * pop: number of rays used per cycle
 * cycles: number of cycles
@@ -262,8 +326,8 @@ materialSource
 ##############
 
 A material source is a particle source which can only be produced in a given material.
-It is a type of volumetric source. For the moment it is constrained to neutrons.
-The properties of a material source are:
+It is a type of volumetric source. For the moment it is constrained to neutrons. Allows sampling
+particles uniformly in time. The properties of a material source are:
 
 * mat: the name of the material from which to sample (must be defined in materials).
 * data (*optional*, default = continuous energy): data type for source particles. Can be ``ce``
@@ -275,11 +339,14 @@ The properties of a material source are:
 * boundingBox (*optional*, default is the geometry bounding box):
   (x_min y_min z_min x_max y_max z_max) vector describing a bounding box to improve sampling
   efficiency or to localise material sampling to a particular region.
+* boundingTime (*optional*, default is 0, 0): time range over which to sample particles uniformly.
+  If not provided, particles are sampled at time t = 0
 
 Hence, an input would look like: ::
 
       source { type materialSource; mat myMat; data ce; E 2.0;
-      boundingBox (-5.0 -3.0 2.0 5.0 4.0 3.0); }
+      boundingBox (-5.0 -3.0 2.0 5.0 4.0 3.0); 
+      boundingTime (0 4); }
 
 fileSource
 ##########
@@ -465,8 +532,15 @@ Example: ::
 
       collisionOperator { neutronMG { type neutronMGimp; weightWindows 1; maxSplit 50; } }
 
+Fields
+------
+
+Fields allow specifying quantities which vary in space and, potentially, energy. These are
+specified independently of the geometry. SCONE supports several named fields which modify
+the geometry and/or particle transport.
+
 Weight Windows
---------------
+**************
 
 Weight windows can be used if, inside the collision operator ``neutronCEimp``, the
 keyword ``weightWindows`` is set to 1. Then, in the input file, one needs to add: ::
@@ -493,7 +567,7 @@ Example: ::
       wUpper (2.0 1.2 1.5 1.1 2.0 4.0);
 
 Uniform Fission Sites
----------------------
+*********************
 
 Uniform Fission Sites can be used if, inside the collision operator ``neutronCEimp``, the
 keyword ``UFS`` is set to 1. Then, in the input file, one needs to add: ::
@@ -515,6 +589,58 @@ Example: ::
       uniformFissionSites { type uniFissSitesField; uniformVolMap 0; popVolumes 1.0e8;
       map { <Map definition> }
       }
+
+Temperature and density fields
+##############################
+
+The value of temperature and density at any point in the geometry can be overwritten by imposing
+a field. In order to support surface tracking this is done with fields which are picewise constant
+and endowed with a distance calculation compute the distance until the value of the field changes.
+These piecewise constant fields can be initialised either with an explicit definition or with a path 
+to the field definition. 
+
+A temperature field is invoked with a dictionary named ``temperature`` while a density field is invoked 
+with a dictionary named ``density``. The temperature field specifies local temperatures in kelvin while
+the density field specifies the local dimensionless factors by which material density should be scaled.
+
+Currently there is only one available PieceConstantField:
+
+* cartesianField. This is similar to a latUniverse: the value of the field varies over a regular 
+  Cartesian lattice with a given shape and size. The field also allows specifying different values 
+  in different materials, or uniformly across all materials.
+  
+  - shape: (x y z) array of integers, stating the numbers of x, y and z
+    elements of the field. For a 2D field, the z entry has to be 0.
+  - pitch: (x y z) array with the x, y and z field pitches. In a 2D field,
+    the value entered in the third dimension is not used. [cm]
+  - origin (*optional*, default = (0.0 0.0 0.0)): (x y z) array with the
+    origin of the field. [cm]
+  - materials: list of material names, corresponding to materials in nuclearData.
+    Optionally, ``all`` can be used, applying the values of the field to all materials.
+  - names of each material: a map, named after every material present in the materials list. 
+    The entries of the map are the values that the field takes in that material in that
+    element of the field. The order is: increasing x, increasing y and then increasing z.
+  - default: the value taken by the field when a point is either outside of the field or
+    in a material which is not included in the field.
+
+Example: ::
+
+      temperature { type cartesianField; shape (3 2 2); pitch (1.0 1.0 1.5);
+      materials (uo2 water); 
+      uo2 (
+      901 902 903
+      904 905 906
+      907 908 909
+      910 911 912 ); 
+      water (
+      601 602 603
+      604 605 606 
+      607 608 609 
+      610 611 612);
+      default 302; }
+
+      density { type cartesianField; file ./myDensityField; }
+
 
 Geometry
 --------
@@ -770,6 +896,10 @@ Similarly to the surfaces and cells, the **universes** in the geometry can be de
       <nameN> { id <idNumberN>; type <universeType>; *keywords* }
       }
 
+One can disable the translation of a given universe, should it be nested in others, by the use
+of the keyword ``global 1;``. This evaluates a particle's position in the universe using the
+global frame of reference.
+
 Several ``universeTypes`` are possible:
 
 * cellUniverse, composed of the union of different cells. Note that overlaps are
@@ -828,6 +958,13 @@ Example: ::
     origin of the universe. [cm]
   - rotation (*optional*, default = (0.0 0.0 0.0)): (x y z) array with the
     rotation angles in degrees applied to the universe. [°]
+  - offsetMap (*optional*, default = all elements offset): map that specifies which elements
+    of the lattice are offset with respect to the lattice origin. Elements with 1 are offset,
+    while elements with a 0 are not. Must have the same size as the map. Allows creating, e.g.,
+    BWR assemblies with water rods covering multiple lattice elements.
+  - offset (*optional*, default = true): enables/disables the offset of all entries in
+    the latUniverse. Has relatively specialised use cases, e.g., imposing a discretisation
+    by placing another universe inside the lattice.
 
 Example: ::
 
@@ -835,7 +972,7 @@ Example: ::
       1 2 3 // x: 1-3, y: 2, z: 2
       4 5 6 // x: 1-3, y: 1, z: 2
       7 8 9 // x: 1-3, y: 2, z: 1
-      10 11 12 ) } // x: 1-3, y: 1, z: 1
+      10 11 12 ); } // x: 1-3, y: 1, z: 1
 
 .. note::
    The order of the elements in the lattice is different from other MC codes, e.g.,
@@ -865,6 +1002,8 @@ The possible types of files that the geometry is plotted in are:
 vtk
 ###
 
+This produces a VTK output of the 3D geometry.
+
 * corner: (x y z) array with the corner of the geometry [cm]
 * width: (x y z) array with the width of the mesh in each direction [cm]
 * vox: (x y z) array with the number of voxels requested in each direction
@@ -878,6 +1017,8 @@ Example: ::
 
 bmp
 ###
+
+This produces a 2D slice plot of the geometry.
 
 * centre: (x y z) array with the coordinates of the center of the plot [cm]
 * axis: ``x``, ``y`` or ``z``, it's the axis normal to the 2D plot
@@ -896,6 +1037,39 @@ Example: ::
 
       plotBMP { type bmp; axis z; centre (0.0 0.0 0.0); width (50 10);
                 res (1000 200); output geomZ; what material; }
+
+ray
+###
+
+This produce a ray-traced plot of the geometry, coloured by material, with lighting.
+
+* centre: (x y z) array with the coordinates of the center of the plot [cm]
+* camera: (x y z) array with the coordinates of the camera, which points towards centre [cm]
+* res: (x y) array with the resolution of the plot in each direction
+* output: name of the output file, with extension ``.bmp``
+* light (*optional*, default = camera): (x y z) array with the coordinates of the light source [cm]. 
+  Defaults to the position of the camera.
+* up (*optional*, default = (0 0 1)): (x y z) array which defines which direction is up [-]. Used
+  to change the orientation of the camera.
+* ambient (*optional*, default = 0.3): real value between 0 and 1 which defines the fraction of light
+  contributed by ambient sources, rather than directly from the light source [-]. 
+* fov (*optional*, default = 70): real value between 0 and 180 which defines the horizontal field of view
+  of the camera. [degrees] 
+* offset (*optional*, default = random): An integer (positive or negative) that
+  shifts the sequence of colours assigned to materials. Allows to change colours
+  from the default sequence in a parametric way.
+* transparent (*optional*, default = void): A list of material names which are transparent to the rays.
+  It is advisable to include a few materials here to have an interesting plot. Void is always included as
+  a transparent material.
+
+Example: ::
+
+
+     ray_plot {
+       type ray; output myRayPlot; centre (0.0 0.0 0.0); camera (-10.0 0.0 20.0);
+       res (300 300); light  (10.0 0.0 20.0); up (0.0 0.0 1.0); diffuse 0.2;
+       fov 70; offset 978; transparent (coolant, air, outerSteel );
+     }
 
 .. note::
    SCONE can be run to visualise geometry without actually doing transport, by
@@ -939,7 +1113,8 @@ aceNeutronDatabase, used for continuous energy data. In this case, the data is r
 from ACE files.
 
 * aceLibrary: includes the path to the *.aceXS* file, which includes the paths to
-  the ACE files
+  the ACE files. If the environmental variable ``SCONE_ACE`` is defined this can be
+  used instead of the path.
 * ures (*optional*, default = 0): 1 for true; 0 for false; activates the unresolved
   resonance probability tables treatment
 * DBRC (*optional*, default = no DBRC): list of ZAIDs of nuclides for which DBRC has
@@ -949,11 +1124,15 @@ from ACE files.
 * avgDist (*optional*, default = infinity): the minimum average distance until a
   collision, which may be virtual. Used to obtain better statistics for the
   collision estimator in low density materials, especially when using surface tracking.
+* energyPerFission (*optional*, default = 202.27 MeV): the energy per fission of U-235
+  in MeV.
   
 Example: ::
 
       ceData { type aceNuclearDatabase; aceLibrary ./myFolder/ACElib/JEF311.aceXS;
-      ures 1; DBRC (92238 94242); avgDist 32; }
+      ures 1; DBRC (92238 94242); avgDist 32; energyPerFission 200.0;}
+
+      ceData { type aceNuclearDatabase; aceLibrary SCONE_ACE;}
 
 .. note::
    If DBRC is applied, the 0K cross section ace files of the relevant nuclides must
@@ -1082,6 +1261,10 @@ structure of such cross section files is the following: they must include
 * chi (*optional*): vector of size N with the material-wise fission spectrum. The order
   of the elements corresponds to groups from fast (group 1) to thermal (group N).
   Must be included only if the materials is fissile
+* kappa (*optional*): vector of size N with the material-wise energy release per fission
+  in MeV. The order of the elements corresponds to groups from fast (group 1) to thermal 
+  (group N). Can be included only if the materials is fissile. If not included, kappa
+  is assumed to be 202.27 MeV.
 * P0: P0 scattering matrix, of size NxN. In the case of a 3x3 matrix, the elements are
   ordered as: ::
 
@@ -1214,6 +1397,8 @@ Example: ::
 * keffImplicitClerk, implicit k_eff estimator
   - handleVirtual (*optional*, default = 1): if set to 1, delta tracking virtual collisions
     and TMS rejected collisions are tallied with a collisionClerk as well as physical collisions
+  - setting (*optional*, default = 1): decides whether to score fission production of all neutrons
+    (option 1), prompt neutrons only (option 2), or delayed neutrons only (option 3).
 
 .. note::
   If TMS is on, the keffImplicitClerk is biased for results in the TMS materials unless virtual 
@@ -1344,6 +1529,14 @@ Example: ::
       fissionMat { type simpleFMClerk; map { <Map definition> } }
       }
 
+* removalTimeClerk, estimates the average lifetime of neutrons implicitly.
+
+Example: ::
+
+      tally {
+        tau { type removalTimeClerk; }
+      }
+
 Tally Responses
 ###############
 
@@ -1370,8 +1563,9 @@ Example: ::
 * macroResponse: used to score macroscopic reaction rates
 
   - MT: MT number of the desired reaction. The options are: -1 (total), -2 (disappearance),
-    -3 (elastic scattering), -4 (total inelastic scattering), -6 (fission), -7 nu*fission),
-    -20 (total scattering), -21 (absorption), -22 (total non elastic, i.e., absorption + inelastic).
+    -3 (elastic scattering), -4 (total inelastic scattering), -6 (fission), -7 (nu*fission),
+    -20 (total scattering), -21 (absorption), -22 (total non elastic, i.e., absorption + inelastic),
+    -80 (kappa*fission).
     Additionally, all the MT numbers allowed by microResponse can be used here.
 
 Example: ::
@@ -1385,7 +1579,7 @@ Example: ::
 * microResponse: used to score microscopic reaction rates
 
   - MT: MT number of the desired reaction. The options are: 1, 2, 3, 4, 5, 11, 16-25, 27-30,
-    32-38, 41, 42, 44, 45, 51-90, 91, 101-109, 111-117, 203-207, 875-890. These MT numbers
+    32-38, 41, 42, 44, 45, 51-90, 91, 101-109, 111-117, 203-207, 301, 875-890. These MT numbers
     are defined in the conventional way, i.e., following the ENDF standard
   - material: material name where to score the reaction. The material must be
     defined to include only one nuclide; its density could be anything, it doesn't

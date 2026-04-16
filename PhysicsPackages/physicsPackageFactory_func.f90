@@ -16,6 +16,7 @@ module physicsPackageFactory_func
   use vizPhysicsPackage_class,         only : vizPhysicsPackage
   use rayVolPhysicsPackage_class,      only : rayVolPhysicsPackage
   use kineticPhysicsPackage_class,     only : kineticPhysicsPackage
+  use alphaPhysicsPackage_class,       only : alphaPhysicsPackage
 !  use dynamPhysicsPackage_class, only : dynamPhysicsPackage
 
   implicit none
@@ -29,6 +30,7 @@ module physicsPackageFactory_func
                                                                              'fixedSourcePhysicsPackage',&
                                                                              'vizPhysicsPackage        ',&
                                                                              'kineticPhysicsPackage    ',&
+                                                                             'alphaPhysicsPackage      ',&
                                                                              'rayVolPhysicsPackage     ']
 
   !!
@@ -62,12 +64,15 @@ contains
       case('kineticPhysicsPackage')
         allocate( kineticPhysicsPackage :: new)
 
+      case('alphaPhysicsPackage')
+        allocate( alphaPhysicsPackage :: new)
+
       case('vizPhysicsPackage')
         allocate( vizPhysicsPackage :: new)
 
       case('rayVolPhysicsPackage')
         allocate( rayVolPhysicsPackage :: new)
-
+      
       case default
         print *, AVAILABLE_physicsPackages
         call fatalError(Here, 'Unrecognised type of Physics Package : ' // trim(type))
