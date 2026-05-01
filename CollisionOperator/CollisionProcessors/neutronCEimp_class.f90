@@ -562,6 +562,8 @@ contains
     character(100),parameter :: Here = 'elastic (neutronCEimp_class.f90)'
 
     ! Assess if thermal scattering data is needed or not
+    ! Note that if using TMS, this check is performed with the sampled nuclide relative
+    ! energy rather than the original particle energy
     if (self % nuc % needsSabEl(collDat % E)) collDat % MT = N_N_ThermEL
 
     ! Get reaction
@@ -572,6 +574,8 @@ contains
     collDat % A =  self % nuc % getMass()
 
     ! Retrieve kT from either material or nuclide
+    ! Note that if using TMS, this check is performed with the sampled nuclide relative
+    ! energy rather than the original particle energy
     if (self % mat % useTMS(collDat % E)) then
       collDat % kT = self % mat % kT
     else
@@ -609,7 +613,9 @@ contains
     class(uncorrelatedReactionCE), pointer :: reac
     character(100),parameter  :: Here =' inelastic (neutronCEimp_class.f90)'
 
-    ! Invert inelastic scattering and Get reaction
+    ! Invert inelastic scattering and get reaction
+    ! Note that if using TMS, this lookup (which might result in selecting a Sab reaction)
+    ! is performed with the sampled nuclide relative energy
     collDat % MT = self % nuc % invertInelastic(collDat % E, p % pRNG)
     reac => uncorrelatedReactionCE_CptrCast(self % xsData % getReaction(collDat % MT, collDat % nucIdx))
     if(.not.associated(reac)) call fatalError(Here, "Failed to get scattering reaction")
