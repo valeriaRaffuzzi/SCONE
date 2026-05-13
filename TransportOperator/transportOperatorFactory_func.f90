@@ -11,8 +11,9 @@ module transportOperatorFactory_func
   use transportOperator_inter,          only : transportOperator
   use transportOperatorST_class,        only : transportOperatorST
   use transportOperatorDT_class,        only : transportOperatorDT
+  use transportOperatorDTField_class,   only : transportOperatorDTField
   use transportOperatorHT_class,        only : transportOperatorHT
-  !use transportOperatorDynamicDT_class, only : transportOperatorDynamicDT
+  use transportOperatorHTField_class,   only : transportOperatorHTField
 
   implicit none
   private
@@ -21,9 +22,11 @@ module transportOperatorFactory_func
   ! It is printed if type was unrecognised
   ! NOTE:
   ! For now  it is necessary to adjust trailing blanks so all enteries have the same length
-  character(nameLen),dimension(*),parameter :: AVALIBLE_transportOps = [ 'transportOperatorST', &
-                                                                         'transportOperatorDT', &
-                                                                         'transportOperatorHT']
+  character(nameLen),dimension(*),parameter :: AVALIBLE_transportOps = [ 'transportOperatorST     ', &
+                                                                         'transportOperatorDT     ', &
+                                                                         'transportOperatorDTField', &
+                                                                         'transportOperatorHT     ', &
+                                                                         'transportOperatorDTField']
 
   public :: new_transportOperator
 
@@ -52,8 +55,14 @@ contains
       case('transportOperatorDT')
         allocate( transportOperatorDT :: new)
 
+      case('transportOperatorDTField')
+        allocate( transportOperatorDTField :: new)
+
       case('transportOperatorHT')
         allocate( transportOperatorHT :: new)
+
+      case('transportOperatorHTField')
+        allocate( transportOperatorHTField :: new)
 
       case default
         print *, AVALIBLE_transportOps

@@ -526,7 +526,7 @@ contains
       call viz % makeViz()
       call viz % kill()
     endif
-    
+
     ! If present, build temperature field
     if (dict % isPresent('temperature')) then
       tempDict => dict % getDictPtr('temperature')
@@ -548,7 +548,7 @@ contains
     else
       maxDensityScale = NO_DENSITY
     end if
-    
+
     ! Update majorant in case of density and temperature fields
     call self % nucData % initMajorant(.false., maxTemp = maxTemperature, scaleDensity = maxDensityScale)
 
@@ -575,6 +575,13 @@ contains
     ! Build collision operator
     tempDict => dict % getDictPtr('collisionOperator')
     call self % collOp % init(tempDict)
+
+    ! Read geometry deformation
+    if (dict % isPresent('geometryDeformation')) then
+      ! Build and initialise
+      tempDict => dict % getDictPtr('geometryDeformation')
+      call new_field(tempDict, 'geomDeformation')
+    end if
 
     ! Build transport operator
     tempDict => dict % getDictPtr('transportOperator')

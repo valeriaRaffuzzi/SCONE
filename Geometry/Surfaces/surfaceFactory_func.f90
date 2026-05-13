@@ -18,6 +18,7 @@ module surfaceFactory_func
   use truncCylinder_class,  only : truncCylinder
   use truncCone_class,      only : truncCone
   use wedge_class,          only : wedge
+  use funcCylinder_class,   only : funcCylinder
 
   implicit none
   private
@@ -45,7 +46,10 @@ module surfaceFactory_func
                                                                       'zTruncCylinder ',&
                                                                       'xWedge         ',&
                                                                       'yWedge         ',&
-                                                                      'zWedge         ']
+                                                                      'zWedge         ',&
+                                                                      'xFuncCylinder  ',&
+                                                                      'yFuncCylinder  ',&
+                                                                      'zFuncCylinder  ' ]
 
   ! Public interface
   public :: new_surface_ptr
@@ -85,7 +89,7 @@ contains
 
       case ('sphere')
         allocate (sphere :: new)
-      
+
       case ('quadric')
         allocate (quadric :: new)
 
@@ -106,6 +110,9 @@ contains
 
       case ('xWedge', 'yWedge', 'zWedge')
         allocate (wedge :: new)
+
+      case ('xFuncCylinder', 'yFuncCylinder', 'zFuncCylinder')
+        allocate (funcCylinder :: new)
 
       case default
         print '(A)' , ' AVAILABLE SURFACES: '

@@ -16,6 +16,7 @@ module vizPhysicsPackage_class
   use geometry_inter,                 only : geometry
   use geometryReg_mod,                only : gr_geomPtr  => geomPtr, gr_geomIdx  => geomIdx
   use geometryFactory_func,           only : new_geometry
+  use fieldFactory_func,              only : new_field
 
   ! Nuclear Data
   use materialMenu_mod,               only : mm_nMat           => nMat
@@ -86,6 +87,13 @@ contains
     call new_geometry(tempDict, geomName)
     self % geomIdx = gr_geomIdx(geomName)
     self % geom    => gr_geomPtr(self % geomIdx)
+
+    ! Read geometry deformation
+    if (dict % isPresent('geometryDeformation')) then
+      ! Build and initialise
+      tempDict => dict % getDictPtr('geometryDeformation')
+      call new_field(tempDict, 'geomDeformation')
+    end if
 
     ! Call visualisation
     if (dict % isPresent('viz')) then

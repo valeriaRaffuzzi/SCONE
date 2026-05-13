@@ -9,6 +9,7 @@ add_sources(./surface_inter.f90
             ./CompositeSurfaces/truncCylinder_class.f90
             ./CompositeSurfaces/wedge_class.f90
             ./CompositeSurfaces/squareCylinder_class.f90
+            ./funcCylinder_class.f90
             ./surfaceFactory_func.f90
             ./surfaceShelf_class.f90
            )
