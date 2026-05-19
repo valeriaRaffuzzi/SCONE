@@ -8,6 +8,8 @@ module endfLaw61_class
   use correlatedLawENDF_inter,  only : correlatedLawENDF
   use law61Pdf_class,           only : law61Pdf
 
+  use ceNeutronCache_mod,       only : cacheIdx
+
   implicit none
   private
 
@@ -25,6 +27,7 @@ module endfLaw61_class
     private
     real(defReal), dimension(:), allocatable :: eGrid
     type(law61Pdf),dimension(:), allocatable :: pdfs
+    integer(shortInt)                        :: MT
   contains
     ! Interface implementation
     procedure :: sample
@@ -41,19 +44,20 @@ contains
   !!
   !! Samples mu and E_out givent incident energy E_in and random nummber generator
   !!
-  subroutine sample(self, mu, E_out, E_in, rand)
-    class(endfLaw61), intent(in) :: self
-    real(defReal), intent(out)   :: mu
-    real(defReal), intent(out)   :: E_out
-    real(defReal), intent(in)    :: E_in
-    class(RNG), intent(inout)    :: rand
-    integer(shortInt)            :: idx
-    real(defReal)                :: E_min_low, E_max_low
-    real(defReal)                :: E_min_up, E_max_up
-    real(defReal)                :: E_min, E_max
-    real(defReal)                :: factor
-    real(defReal)                :: r, eps
-    character(100),parameter     :: Here='sample (kendfLaw61_class.f90)'
+  subroutine sample(self, mu, E_out, E_in, rand, E_1)
+    class(endfLaw61), intent(in)         :: self
+    real(defReal), intent(out)           :: mu
+    real(defReal), intent(out)           :: E_out
+    real(defReal), intent(in)            :: E_in
+    class(RNG), intent(inout)            :: rand
+    real(defReal), intent(in), optional  :: E_1
+    integer(shortInt)                    :: idx
+    real(defReal)                        :: E_min_low, E_max_low
+    real(defReal)                        :: E_min_up, E_max_up
+    real(defReal)                        :: E_min, E_max
+    real(defReal)                        :: factor
+    real(defReal)                        :: r, eps
+    character(100),parameter             :: Here='sample (kendfLaw61_class.f90)'
 
     ! Find Interval index
     idx = binarySearch(self % eGrid, E_in)
@@ -77,18 +81,28 @@ contains
 
     ! Calculate interpolation between bounds of the distribution from which
     ! outgoing energy was sampled
-    if(r < eps) then
-      call self % pdfs(idx+1) % sample(mu, E_out, rand)
-      factor = (E_out- E_min_up)/(E_max_up - E_min_up)
+
+    if (self % MT == 16 .and. present(E_1)) then
+        call self % pdfs(cacheIdx % idx) % sample(mu, E_out, rand, E_1 = cacheIdx % E)
 
     else
-      call self % pdfs(idx) % sample(mu, E_out, rand)
-      factor = (E_out- E_min_low)/(E_max_low - E_min_low)
+
+      if (r < eps) then
+        call self % pdfs(idx + 1) % sample(mu, E_out, rand)
+        factor = (E_out - E_min_up)/(E_max_up - E_min_up)
+        cacheIdx % idx = idx + 1
+      else
+        call self % pdfs(idx) % sample(mu, E_out, rand)
+        factor = (E_out - E_min_low)/(E_max_low - E_min_low)
+        cacheIdx % idx = idx
+      end if
+
+      cacheIdx % E = E_out
 
     end if
 
     ! Interpolate outgoing energy
-    E_out = E_min *(ONE - factor) + factor * E_max
+    !E_out = E_min *( ONE - factor) + factor * E_max
 
   end subroutine sample
 
@@ -141,12 +155,17 @@ contains
   !! Initialise endfLaw61 from ACE
   !! aceCard read head needs to be set to the beginning of the data
   !!
-  subroutine init_fromACE(self, ACE)
+  subroutine init_fromACE(self, ACE, MT)
     class(endfLaw61), intent(inout)            :: self
     class(aceCard), intent(inout)              :: ACE
+    integer(shortInt), intent(in)              :: MT
     integer(shortInt)                          :: NR, numE, i
+    logical(defBool)                           :: marginal = .false.
     integer(shortInt),dimension(:),allocatable :: L
     character(100),parameter :: Here = 'init_fromACE (endfLaw61_class.f90)'
+
+    self % MT = MT
+    if (MT == 16) marginal = .true.
 
     ! Read number of interpolation regions.
     NR = ACE % readInt()
@@ -165,10 +184,9 @@ contains
     allocate(self % pdfs(numE))
 
     ! Read mu-E PDFs
-    do i=1, numE
+    do i = 1, numE
       call ACE % setToEnergyLaw(L(i))
-      call self % pdfs(i) % init(ACE)
-
+      call self % pdfs(i) % init(ACE, marginal)
     end do
 
   end subroutine init_fromACE
@@ -176,11 +194,12 @@ contains
   !!
   !! Build new instance of endfLaw61 from ACE
   !!
-  function new_endfLaw61_fromACE(ACE) result(new)
+  function new_endfLaw61_fromACE(ACE, MT) result(new)
     class(aceCard), intent(inout) :: ACE
+    integer(shortInt), intent(in) :: MT
     type(endfLaw61)               :: new
 
-    call new % init_fromACE(ACE)
+    call new % init_fromACE(ACE, MT)
 
   end function new_endfLaw61_fromACE
 

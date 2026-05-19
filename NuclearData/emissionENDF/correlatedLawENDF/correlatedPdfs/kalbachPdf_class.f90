@@ -39,19 +39,24 @@ contains
   !!
   !! Sample outgoing angle mu and energy E_out given  random number generator
   !!
-  subroutine sample(self,mu,E_out,rand)
-    class(kalbachPdf), intent(in)   :: self
-    real(defReal),intent(out)       :: mu
-    real(defReal),intent(out)       :: E_out
-    class(RNG),intent(inout)        :: rand
-    real(defReal)                   :: R,A,T
-    real(defReal)                   :: r1,r2,r3
+  subroutine sample(self, mu, E_out, rand, E_1)
+    class(kalbachPdf), intent(in)       :: self
+    real(defReal),intent(out)           :: mu
+    real(defReal),intent(out)           :: E_out
+    class(RNG),intent(inout)            :: rand
+    real(defReal), intent(in), optional :: E_1
+    real(defReal)                       :: R,A,T
+    real(defReal)                       :: r1,r2,r3
 
     ! Generate random number
     r1 = rand % get()
 
     ! Sample outgoing energy
-    call self % table % sample(r1,E_out,R,A)
+    if (present(E_1)) then
+      call self % table % sampleConditional(r1, E_1, E_out, R, A)
+    else
+      call self % table % sample(r1, E_out, R, A)
+    end if
 
     ! Sample mu -> scheme copied from MCNP manual Chapter 2
     r2 = rand % get()
@@ -136,7 +141,7 @@ contains
   !! Initialise with PDF and CDF
   !! Does NOT check if PDF and CDF are consistant
   !!
-  subroutine init_withCDF(self,E,pdf,cdf,R,A,interFlag)
+  subroutine init_withCDF(self,E,pdf,cdf,R,A,interFlag, marginal)
     class(kalbachPdf), intent(inout)       :: self
     real(defReal),dimension(:),intent(in)  :: E
     real(defReal),dimension(:),intent(in)  :: pdf
@@ -144,13 +149,18 @@ contains
     real(defReal),dimension(:),intent(in)  :: R
     real(defReal),dimension(:),intent(in)  :: A
     integer(shortInt),intent(in)           :: interFlag
+    logical(defBool), intent(in), optional :: marginal
     character(100),parameter :: Here ='init_withCDF (kalbachPdf_class.f90)'
 
     ! Perform checks
     if(any( E < 0.0 ) ) call fatalError(Here,'E contains -ve values')
 
     ! Initialise table
-    call self % table % init(E,pdf,cdf,R,A,interFlag)
+    if (present(marginal)) then
+      call self % table % init(E, pdf, cdf, R, A, interFlag, marginal = marginal)
+    else
+      call self % table % init(E, pdf, cdf, R, A, interFlag)
+    end if
 
   end subroutine init_withCDF
 
@@ -191,8 +201,9 @@ contains
   !! Constructor from ACE
   !! aceCard read head needs to point to the beginning of data
   !!
-  function new_kalbachPdf_fromACE(ACE) result(new)
+  function new_kalbachPdf_fromACE(ACE, marginal) result(new)
     type(aceCard), intent(inout)            :: ACE
+    logical(defBool), intent(in), optional  :: marginal
     type(kalbachPdf)                        :: new
     real(defReal),dimension(:),allocatable  :: E
     real(defReal),dimension(:),allocatable  :: pdf
@@ -216,7 +227,11 @@ contains
     A   = ACE % readRealArray(N) ! Angular distribution slope
 
     ! initialise
-    call new % init(E,pdf,cdf,R,A,interFlag)
+    if (present(marginal)) then
+      call new % init(E, pdf, cdf, R, A, interFlag, marginal = marginal)
+    else
+      call new % init(E, pdf, cdf, R, A, interFlag)
+    end if
 
   end function new_kalbachPdf_fromACE
 

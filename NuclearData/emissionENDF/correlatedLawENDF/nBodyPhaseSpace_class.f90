@@ -96,14 +96,15 @@ contains
   !! Samples mu and E_out givent incident energy E_in and random nummber generator
   !! See description of the class for details about the sampling algorithm
   !!
-  subroutine sample(self, mu, E_out, E_in, rand)
-    class(nBodyPhaseSpace), intent(in) :: self
-    real(defReal), intent(out)         :: mu
-    real(defReal), intent(out)         :: E_out
-    real(defReal), intent(in)          :: E_in
-    class(RNG), intent(inout)          :: rand
-    real(defReal)                      :: G1, G2, r1, r2, r3, r4, r5, r6, Emax
-    type(maxwellEnergyPdf)             :: maxwellPdf
+  subroutine sample(self, mu, E_out, E_in, rand, E_1)
+    class(nBodyPhaseSpace), intent(in)  :: self
+    real(defReal), intent(out)          :: mu
+    real(defReal), intent(out)          :: E_out
+    real(defReal), intent(in)           :: E_in
+    class(RNG), intent(inout)           :: rand
+    real(defReal), intent(in), optional :: E_1
+    real(defReal)                       :: G1, G2, r1, r2, r3, r4, r5, r6, Emax
+    type(maxwellEnergyPdf)              :: maxwellPdf
     character(100),parameter :: Here ='smaple (nBodyPhaseSpace_class.f90)'
 
     ! Sample mu

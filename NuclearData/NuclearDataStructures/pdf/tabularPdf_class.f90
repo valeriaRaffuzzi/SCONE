@@ -18,16 +18,20 @@ module tabularPdf_class
   !! Simple probability table for one quantity x
   !!
   type, public :: tabularPdf
-    private
-    real(defReal),dimension(:),allocatable       :: x
-    real(defReal),dimension(:),allocatable       :: pdf
-    real(defReal),dimension(:),allocatable       :: cdf
+    !private
+    real(defReal), dimension(:), allocatable     :: x
+    real(defReal), dimension(:), allocatable     :: pdf
+    real(defReal), dimension(:), allocatable     :: cdf
+    real(defReal), dimension(:), allocatable     :: marginalCdf
     integer(shortInt)                            :: flag            !Interpolation flag
+    logical(defBool)                             :: marginal
   contains
+
     !! Public interface
     generic   :: init          => initPdf, initCdf
     generic   :: getInterF     => getInterF_withBin, getInterF_withoutBin
     procedure :: sample
+    procedure :: sampleConditional
     procedure :: bounds
     procedure :: probabilityOf
     procedure :: kill
@@ -37,6 +41,8 @@ module tabularPdf_class
     procedure, private :: getInterF_withoutBin
     procedure, private :: initPdf
     procedure, private :: initCdf
+
+    procedure, private :: initMarginalCdf
 
   end type tabularPdf
 contains
@@ -90,6 +96,55 @@ contains
     if (present(eps)) eps = (r - ci)/(self % cdf(idx+1) - ci)
 
   end function sample
+
+  !!
+  !! Samples x given number r in <0;1> within the marginal cdf
+  !! Does not check range of r
+  !! Optionaly return index of a sampled bin
+  !!
+  function sampleConditional(self, r, x1, res_idx, eps) result (x)
+    class(tabularPdf), intent(in)            :: self
+    real(defReal), intent(in)                :: r    ! Random Number
+    real(defReal), intent(in)                :: x1
+    integer(ShortInt), intent(out), optional :: res_idx
+    real(defReal), intent(out), optional     :: eps
+    real(defReal)                            :: x
+    integer(shortInt)                        :: idx
+    real(defReal)                            :: xLim, gLim, f, rng
+    character(100),parameter :: Here='sample (tabularPdf_class.f90)'
+
+    ! Initialise wrong
+    x = -ONE
+
+    ! Find maximum allowable value
+    xLim = self % x(size(self % x)) - x1
+
+    ! Search index in data grid
+    idx = linearSearchFloor(self % x, xLim)
+    if (idx < 0) then
+      print*, xLim, self % x(size(self % x)), x1
+      print*, size(self % x), res_idx
+      return
+    end if
+    call searchError(idx, Here)
+
+    ! Find corresponding limit in cdf and normalise random number
+    gLim = self % marginalCdf(idx)
+    rng  = r * gLim
+
+    ! Sample bin
+    idx = linearSearchFloor(self % marginalCdf, rng)
+    call searchError(idx, Here)
+
+    ! Smooth data
+    f = (rng - self % marginalCdf(idx)) / (self % marginalCdf(idx + 1) - self % marginalCdf(idx))
+    x = self % x(idx + 1) * f + self % x(idx) * (ONE - f)
+
+    ! Return the sampled index
+    if (present(res_idx)) res_idx = idx
+    if (present(eps)) eps = f
+
+  end function sampleConditional
 
   !!
   !! Subroutine assigns x(1) to x_min and x(N) to x_max
@@ -197,17 +252,16 @@ contains
 
   end function getInterF_withBin
 
-
   !!
   !! Initialise table using PDF only
   !!
-  subroutine initPdf(self,x,pdf,flag)
-    class(tabularPdf), intent(inout) :: self
-    real(defReal),dimension(:),intent(in)  :: x
-    real(defReal),dimension(:),intent(in)  :: pdf
-    integer(shortInt),intent(in)           :: flag ! Interpolation scheme flag
-    integer(shortInt)                      :: i
-    character(100),parameter               :: Here='init (tabularPdf_class.f90)'
+  subroutine initPdf(self, x , pdf, flag)
+    class(tabularPdf), intent(inout)        :: self
+    real(defReal), dimension(:), intent(in) :: x
+    real(defReal), dimension(:), intent(in) :: pdf
+    integer(shortInt), intent(in)           :: flag ! Interpolation scheme flag
+    integer(shortInt)                       :: i
+    character(100),parameter                :: Here='init (tabularPdf_class.f90)'
 
     ! Check Input
     if( size(x) /= size(pdf)) call fatalError(Here,'PDF and x have diffrent size')
@@ -229,7 +283,7 @@ contains
       case(histogram)
         self % flag = histogram
         self % cdf(1) = 0.0
-        do i=2,size(x)
+        do i = 2,size(x)
           self % cdf(i) = pdf(i-1) * (x(i)-x(i-1)) + self % cdf(i-1)
         end do
 
@@ -240,8 +294,8 @@ contains
       case(linLin)
         self % flag = linLin
         self % cdf(1) = 0.0
-        do i=2,size(x)
-          self % cdf(i) = 0.5 * (pdf(i)+pdf(i-1)) * (x(i)- x(i-1)) + self % cdf(i-1)
+        do i = 2,size(x)
+          self % cdf(i) = 0.5 * (pdf(i) + pdf(i-1)) * (x(i)- x(i-1)) + self % cdf(i-1)
         end do
 
         if (abs(self % cdf(size(x))-1.0_defReal) > TOL) then
@@ -264,13 +318,14 @@ contains
   !!
   !! Initialise table using both PDF and CDF
   !!
-  subroutine initCdf(self,x,pdf,cdf,flag)
-    class(tabularPdf), intent(inout) :: self
-    real(defReal),dimension(:),intent(in)  :: x
-    real(defReal),dimension(:),intent(in)  :: pdf
-    real(defReal),dimension(:),intent(in)  :: cdf
-    integer(shortInt),intent(in)           :: flag ! Interpolation scheme flag
-    character(100),parameter               :: Here='init (tabularPdf_class.f90)'
+  subroutine initCdf(self, x, pdf, cdf, flag, marginal)
+    class(tabularPdf), intent(inout)        :: self
+    real(defReal), dimension(:), intent(in) :: x
+    real(defReal), dimension(:), intent(in) :: pdf
+    real(defReal), dimension(:), intent(in) :: cdf
+    integer(shortInt), intent(in)           :: flag ! Interpolation scheme flag
+    logical(defBool), intent(in), optional  :: marginal
+    character(100), parameter :: Here = 'init (tabularPdf_class.f90)'
 
     ! Check Input
     if( size(x) /= size(pdf)) call fatalError(Here,'PDF and x have diffrent size')
@@ -301,6 +356,7 @@ contains
     self % cdf(size(cdf)) = ONE
 
     select case (flag)
+
       case(histogram)
         self % flag = histogram
 
@@ -312,6 +368,81 @@ contains
 
     end select
 
+    if (present(marginal)) then
+      self % marginal = marginal
+      if (marginal) call self % initMarginalCdf()
+    end if
+
   end subroutine initCdf
+
+  !!
+  !! Initialise table using both PDF and CDF
+  !!
+  subroutine initMarginalCdf(self)
+    class(tabularPdf),intent(inout)        :: self
+    real(defReal),dimension(:),allocatable :: dF, dF_bar, dG
+    integer(shortInt)                      :: N, i, bin
+    real(defReal)                          :: xMax, dx, xRef, f, sumG, denom, tail
+    real(defReal), parameter :: TOL = 1.0e-12_defReal
+    character(100),parameter :: Here = 'initMarginalCdf (tabularPdf_class.f90)'
+
+    ! Save edge values
+    N = size(self % x)
+    xMax = self % x(N)
+
+    ! Allocate stuff
+    allocate(dF(N), dF_bar(N), dG(N), self % marginalCdf(N))
+
+    ! Populate cumulative probabilities
+    dF     = ZERO
+    dF_bar = ZERO
+    do i = 1, N - 1
+
+      dx = self % x(i + 1) - self % x(i)
+      dF(i) = self % pdf(i) * dx
+
+      xRef = xMax - self % x(i)
+      bin  = linearSearchFloor(self % x, xRef)
+      f    = self % getInterF_withBin(xRef, bin)
+      dF_bar(i) = (self % pdf(bin + 1) * f + self % pdf(bin) * (ONE - f)) * dx
+
+    end do
+
+    ! Compute the marginal cdf recursively
+    sumG  = ZERO
+    denom = ZERO
+    dG = ZERO
+
+    do i = N, 1, -1
+
+      tail = ONE - sumG
+
+      if (tail < TOL) then
+        dG(i) = ZERO
+      else
+        denom = denom + dF_bar(i) / tail
+
+        if (denom < TOL) then
+          dG(i) = ZERO
+        else
+          dG(i) = dF(i) / denom
+        end if
+
+      end if
+
+      sumG = sumG + dG(i)
+
+    end do
+
+    ! Construct the actual cdf
+    self % marginalCdf = ZERO
+    do i = 2, N
+      self % marginalCdf(i) = self % marginalCdf(i-1) + dG(i)
+    end do
+
+    ! Normalise
+    self % marginalCdf = self % marginalCdf / self % marginalCdf(N)
+
+  end subroutine initMarginalCdf
 
 end module tabularPdf_class

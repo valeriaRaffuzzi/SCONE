@@ -22,7 +22,7 @@ module tabularEnergy_class
   !!       the data (Energies must be +ve)
   !!
   type, public:: tabularEnergy
-    private
+    !private
     type(tabularPdf) :: pdf
   contains
     procedure :: sample
@@ -47,16 +47,44 @@ contains
   !!
   !! Sample outgoing energy given Random Number Generator
   !!
-  function sample(self, rand, bin, f) result (E)
+  function sample(self, rand, bin, f, E_1) result (E)
     class(tabularEnergy), intent(in)         :: self
     class(RNG), intent(inout)                :: rand
     integer(shortInt), intent(out), optional :: bin
     real(defReal), intent(out), optional     :: f
+    real(defReal), intent(in), optional      :: E_1
     real(defReal)                            :: E
     real(defReal)                            :: r
+    integer(shortInt) :: i
+
+    !open(unit=1, file="test.m", status="new", action="write")
+
+    !write(1,*) self % pdf % x
+    !write(1,*) self % pdf % pdf
+    !write(1,*) self % pdf % cdf
+    !write(1,*) self % pdf % marginalCdf
+
+    !write(1,*) 'E = ['
+
+    !do i = 1, 50000
 
     r = rand % get()
-    E = self % pdf % sample(r, bin, f)
+
+    if (present(E_1)) then
+      E = self % pdf % sampleConditional(r, E_1, bin, f)
+    else
+      E = self % pdf % sample(r, bin, f)
+    end if
+
+    !  write(1,*) E, E2
+
+    !end do
+
+    !write(1,*) '];'
+
+    !close(1)
+
+    !call fatalError('End', 'goodbye')
 
   end function sample
 
@@ -132,9 +160,10 @@ contains
   !! Head of aceCard needs to be set to the beginning of energy pdf data
   !! Uses the CDF in ACE data to initialise.
   !!
-  subroutine init_fromACE(self, ACE)
+  subroutine init_fromACE(self, ACE, marginal)
     class(tabularEnergy), intent(inout)     :: self
     class(aceCard), intent(inout)           :: ACE
+    logical(defBool), intent(in), optional  :: marginal
     integer(shortInt)                       :: INTT
     integer(shortInt)                       :: NP
     real(defReal),dimension(:), allocatable :: eGrid
@@ -146,10 +175,7 @@ contains
     INTT = ACE % readInt()
 
     ! Call error if interpolation flag indicates photon lines
-    if( INTT > 10 ) then
-      call fatalError(Here,'INTT > 10. Discrete photons lines are not yet implemented')
-
-    end if
+    if (INTT > 10 ) call fatalError(Here,'INTT > 10. Discrete photons lines are not yet implemented')
 
     ! Read rest of the data
     NP    = ACE % readInt()         ! Number of points
@@ -158,7 +184,11 @@ contains
     cdf   = ACE % readRealArray(NP) ! Cumulative distribution function
 
     ! Initialise
-    call self % init(eGrid, pdf, cdf, INTT)
+    if (present(marginal)) then
+      call self % pdf % init(eGrid, pdf, cdf, INTT, marginal = marginal)
+    else
+      call self % pdf % init(eGrid, pdf, cdf, INTT)
+    end if
 
   end subroutine init_fromACE
 
@@ -230,9 +260,10 @@ contains
   !! Head of aceCard needs to be set to the beginning of energy pdf data
   !! Uses the CDF in ACE data to initialise.
   !!
-  function new_tabularEnergy_fromACE(ACE) result (new)
-    class(aceCard), intent(inout)            :: ACE
+  function new_tabularEnergy_fromACE(ACE, marginal) result (new)
+    class(aceCard), intent(inout)           :: ACE
     type(tabularEnergy)                     :: new
+    logical(defBool), intent(in), optional  :: marginal
 
     ! Initialise
     call new % init_fromACE(ACE)

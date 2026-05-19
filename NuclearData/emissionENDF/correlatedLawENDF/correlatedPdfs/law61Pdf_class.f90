@@ -16,7 +16,7 @@ module law61Pdf_class
   !! Each pdf corresponds to a single point on incident energy grid in ACE LAW 61 formulation
   !!
   type, public :: law61Pdf
-    private
+    !private
     type(tabularEnergy)                           :: ePdf
     type(muEndfPdfSlot),dimension(:), allocatable :: muPdfs
   contains
@@ -36,26 +36,30 @@ contains
   !!
   !! Samples mu and E_out given random nummber generator
   !!
-  subroutine sample(self, mu, E_out, rand)
-    class(law61Pdf), intent(in) :: self
-    real(defReal), intent(out)  :: mu
-    real(defReal), intent(out)  :: E_out
-    class(RNG), intent(inout)   :: rand
-    real(defReal)               :: eps, r
-    integer(shortInt)           :: bin
+  subroutine sample(self, mu, E_out, rand, E_1)
+    class(law61Pdf), intent(in)         :: self
+    real(defReal), intent(out)          :: mu
+    real(defReal), intent(out)          :: E_out
+    class(RNG), intent(inout)           :: rand
+    real(defReal), intent(in), optional :: E_1
+    real(defReal)                       :: eps, r
+    integer(shortInt)                   :: bin
 
     ! Sample Energy
-    E_out = self % ePdf % sample(rand, bin)
+    if (present(E_1)) then
+      E_out = self % ePdf % sample(rand, bin, E_1 = E_1)
+    else
+      E_out = self % ePdf % sample(rand, bin)
+    end if
 
     ! Sample Angle
     eps = self % ePdf % getInterF(E_out, bin)
     r = rand % get()
 
-    if(r < eps) then
+    if (r < eps) then
       mu = self % muPdfs(bin+1) % sample(rand)
     else
       mu = self % muPdfs(bin) % sample(rand)
-
     end if
 
   end subroutine sample
@@ -111,9 +115,10 @@ contains
   !!
   !! Initialise from ACE. Overwrite and extend superclass procedure
   !!
-  subroutine init_fromACE(self, ACE)
+  subroutine init_fromACE(self, ACE, marginal)
     class(law61Pdf), intent(inout)              :: self
     class(aceCard), intent(inout)               :: ACE
+    logical(defBool), intent(in), optional      :: marginal
     integer(shortInt)                           :: NP, i
     integer(shortInt),dimension(:), allocatable :: LCs
     character(100), parameter :: Here = 'init_fromACE (law61Pdf_class.f90)'
@@ -124,7 +129,11 @@ contains
     call ACE % advanceHEad(-1)
 
     ! Call superclass initialisation
-    call self % ePdf % init(ACE)
+    if (present(marginal)) then
+      call self % ePdf % init(ACE, marginal = marginal)
+    else
+      call self % ePdf % init(ACE)
+    end if
 
     ! Read LC table (locators of angular distributions) and allocate space
     LCs = ACE % readIntArray(NP)

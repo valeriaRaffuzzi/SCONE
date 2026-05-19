@@ -34,12 +34,13 @@ contains
   !!
   !! See correlatedLawENDF_inter for detauils
   !!
-  subroutine sample(self, mu, E_out, E_in, rand)
+  subroutine sample(self, mu, E_out, E_in, rand, E_1)
     class(testCorrelatedLaw), intent(in) :: self
     real(defReal), intent(out)           :: mu
     real(defReal), intent(out)           :: E_out
     real(defReal), intent(in)            :: E_in
     class(RNG), intent(inout)            :: rand
+    real(defReal), intent(in), optional  :: E_1
 
     mu    = self % mu
     E_out = self % E_out

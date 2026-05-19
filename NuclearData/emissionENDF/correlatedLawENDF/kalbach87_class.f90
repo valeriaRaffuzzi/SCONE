@@ -7,6 +7,8 @@ module kalbach87_class
   use kalbachPdf_class,        only : kalbachPdf
   use correlatedLawENDF_inter, only : correlatedLawENDF
 
+  use ceNeutronCache_mod,       only : cacheIdx
+
   implicit none
   private
 
@@ -24,8 +26,9 @@ module kalbach87_class
   !!
   type, public,extends(correlatedLawENDF) :: kalbach87
     private
-    real(defReal),dimension(:),allocatable    :: eGrid
-    type(kalbachPdf),dimension(:),allocatable :: pdfs
+    real(defReal), dimension(:), allocatable    :: eGrid
+    type(kalbachPdf), dimension(:), allocatable :: pdfs
+    integer(shortInt)                           :: MT
   contains
     procedure :: sample
     procedure :: probabilityOf
@@ -40,19 +43,20 @@ contains
   !!
   !! Samples mu and E_out given incident energy E_in and random number generator
   !!
-  subroutine sample(self,mu,E_out,E_in,rand)
-    class(kalbach87), intent(in)  :: self
-    real(defReal), intent(out)    :: mu
-    real(defReal), intent(out)    :: E_out
-    real(defReal), intent(in)     :: E_in
-    class(RNG), intent(inout)     :: rand
-    integer(shortInt)             :: idx
-    real(defReal)                 :: E_min_low, E_max_low
-    real(defReal)                 :: E_min_up, E_max_up
-    real(defReal)                 :: E_min, E_max
-    real(defReal)                 :: factor
-    real(defReal)                 :: r, eps
-    character(100),parameter      :: Here='sample (kalbach87_class.f90)'
+  subroutine sample(self, mu, E_out, E_in, rand, E_1)
+    class(kalbach87), intent(in)        :: self
+    real(defReal), intent(out)          :: mu
+    real(defReal), intent(out)          :: E_out
+    real(defReal), intent(in)           :: E_in
+    class(RNG), intent(inout)           :: rand
+    real(defReal), intent(in), optional :: E_1
+    integer(shortInt)                   :: idx
+    real(defReal)                       :: E_min_low, E_max_low
+    real(defReal)                       :: E_min_up, E_max_up
+    real(defReal)                       :: E_min, E_max
+    real(defReal)                       :: factor
+    real(defReal)                       :: r, eps
+    character(100), parameter :: Here='sample (kalbach87_class.f90)'
 
     ! Find Interval index
     idx = binarySearch(self % eGrid,E_in)
@@ -77,18 +81,29 @@ contains
 
     ! Calculate interpolation between bounds of the distribution from which
     ! outgoing energy was sampled
-    if(r < eps) then
-      call self % pdfs(idx+1) % sample(mu, E_out, rand)
-      factor = (E_out- E_min_up)/(E_max_up - E_min_up)
+    if (self % MT == 16 .and. present(E_1)) then
+      call self % pdfs(cacheIdx % idx) % sample(mu, E_out, rand, E_1 = cacheIdx % E)
 
     else
-      call self % pdfs(idx) % sample(mu, E_out, rand)
-      factor = (E_out- E_min_low)/(E_max_low - E_min_low)
+
+      if (r < eps) then
+        call self % pdfs(idx+1) % sample(mu, E_out, rand)
+        factor = (E_out- E_min_up)/(E_max_up - E_min_up)
+        cacheIdx % idx = idx + 1
+
+      else
+        call self % pdfs(idx) % sample(mu, E_out, rand)
+        factor = (E_out- E_min_low)/(E_max_low - E_min_low)
+        cacheIdx % idx = idx
+
+      end if
+
+      cacheIdx % E = E_out
 
     end if
 
     ! Interpolate outgoing energy
-    E_out = E_min *(ONE - factor) + factor * E_max
+    !E_out = E_min *(ONE - factor) + factor * E_max
 
   end subroutine sample
 
@@ -141,7 +156,7 @@ contains
   !!
   !! Initialise
   !!
-  subroutine init(self,eGrid,pdfs)
+  subroutine init(self, eGrid, pdfs)
     class(kalbach87), intent(inout) :: self
     real(defReal),dimension(:)      :: eGrid
     type(kalbachPdf),dimension(:)   :: pdfs
@@ -166,7 +181,7 @@ contains
   !!
   !! Constructor
   !!
-  function new_kalbach87(eGrid,pdfs) result(new)
+  function new_kalbach87(eGrid, pdfs) result(new)
     real(defReal),dimension(:),intent(in)    :: eGrid
     type(kalbachPdf),dimension(:),intent(in) :: pdfs
     type(kalbach87)                          :: new
@@ -179,20 +194,25 @@ contains
   !! Constructor from ACE
   !! aceCard read head needs to be set to the beginning of the data
   !!
-  function new_kalbach87_fromACE(ACE) result(new)
+  function new_kalbach87_fromACE(ACE, MT) result(new)
     type(aceCard), intent(inout)               :: ACE
+    integer(shortInt), intent(in)              :: MT
     type(kalbach87)                            :: new
     real(defReal),dimension(:),allocatable     :: eGrid
     type(kalbachPdf),dimension(:),allocatable  :: pdfs
     integer(shortInt),dimension(:),allocatable :: locKal
     integer(shortInt)                          :: NR, N, i
+    logical(defBool)                           :: marginal = .false.
     character(100),parameter :: Here ='new_kalbach87_fromACE (kalbach87_class.f90)'
+
+    new % MT = MT
+    if (MT == 16) marginal = .true.
 
     ! Read number of interpolation regions
     NR = ACE % readInt()
 
     ! Return error if there are multiple regions
-    if(NR /= 0) then
+    if (NR /= 0) then
       call fatalError(Here,'Many inter. regions on energy distr. table are not supported')
     end if
 
@@ -204,13 +224,13 @@ contains
     allocate(pdfs(N))
 
     ! Loop over all locations and read PDF at the given energy
-    do i=1,N
+    do i = 1, N
       call ACE % setToEnergyLaw(locKal(i))
-      pdfs(i) = kalbachPdf(ACE)
+      pdfs(i) = kalbachPdf(ACE, marginal)
     end do
 
     ! Initialise
-    call new % init(eGrid,pdfs)
+    call new % init(eGrid, pdfs)
 
   end function new_kalbach87_fromACE
 

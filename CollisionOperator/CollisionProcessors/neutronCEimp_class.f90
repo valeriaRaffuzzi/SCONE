@@ -117,6 +117,7 @@ module neutronCEimp_class
     integer(shortInt) :: maxSplit
     logical(defBool) :: makePrec = .false.
     logical(defBool) :: neglectDelayed = .false.
+    logical(defBool) :: corr_n2n = .false.
 
     ! Variance reduction options
     logical(defBool)  :: weightWindows
@@ -201,6 +202,8 @@ contains
     ! Precursor settings
     call dict % getOrDefault(self % makePrec, 'makePrec', .false.)
     call dict % getOrDefault(self % neglectDelayed, 'neglectDelayed', .false.)
+
+    call dict % getOrDefault(self % corr_n2n, 'correlated_n2n', .false.)
 
     if (self % splitting) then
       if (self % maxWgt < 2 * self % minWgt) call fatalError(Here,&
@@ -611,6 +614,8 @@ contains
     class(particleDungeon),intent(inout)   :: thisCycle
     class(particleDungeon),intent(inout)   :: nextCycle
     class(uncorrelatedReactionCE), pointer :: reac
+    type(particleState)                    :: pTemp, pPre
+    real(defReal)                          :: phi, E_out, E_outCM, mu
     character(100),parameter  :: Here =' inelastic (neutronCEimp_class.f90)'
 
     ! Invert inelastic scattering and get reaction
@@ -620,6 +625,8 @@ contains
     reac => uncorrelatedReactionCE_CptrCast(self % xsData % getReaction(collDat % MT, collDat % nucIdx))
     if(.not.associated(reac)) call fatalError(Here, "Failed to get scattering reaction")
 
+    pPre = p
+
     ! Scatter particle
     if (reac % inCMFrame()) then
       collDat % A =  self % nuc % getMass()
@@ -628,8 +635,24 @@ contains
       call self % scatterInLAB(p, collDat, reac)
     end if
 
-    ! Apply weigth change using ingoing collision particle energy
-    p % w = p % w * reac % release(collDat % E)
+    if (self % corr_n2n .and. collDat % MT == 16) then
+      call reac % sampleOut(mu, phi, E_out, collDat % E, p % pRNG, E_1 = p % E)
+
+      if (reac % inCMFrame()) then
+        E_outCM = E_out
+        E_out   =  collDat % E
+        call asymptoticInelasticScatter(E_out, mu, E_outCM, collDat % A)
+      end if
+
+      pTemp = p
+      pTemp % E = E_out
+      pTemp % dir = rotateVector(pPre % dir, mu, phi)
+      call thisCycle % detain(pTemp)
+
+    else
+      ! Apply weigth change using ingoing collision particle energy
+      p % w = p % w * reac % release(collDat % E)
+    end if
 
   end subroutine inelastic
 
@@ -784,7 +807,7 @@ contains
     MT     = collDat % MT
     nucIdx = collDat % nucIdx
 
-    ! Sample mu , phi and outgoing energy
+    ! Sample mu, phi and outgoing energy
     call reac % sampleOut(mu, phi, E_outCM, collDat % E, p % pRNG)
 
     ! Save incident energy

@@ -152,11 +152,12 @@ contains
     call ACE % setRelativeTo(root, offset)
 
     select case(LAW)
+
       case(kalbach87Formalism)
-        allocate(lawENDF, source = kalbach87(ACE))
+        allocate(lawENDF, source = kalbach87(ACE, MT))
 
       case(endfEnergyLaw61)
-        allocate(lawENDF, source = endfLaw61(ACE))
+        allocate(lawENDF, source = endfLaw61(ACE, MT))
 
       case(nBodyPhaseSpaceDistribution)
         !! Get Q & A value

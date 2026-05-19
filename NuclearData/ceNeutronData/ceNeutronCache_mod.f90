@@ -121,13 +121,21 @@ module ceNeutronCache_mod
     real(defReal) :: xi = ZERO
   end type cacheZAID
 
+
+
+  type, public :: cacheInt
+    real(defReal)     :: E   = ZERO
+    integer(shortInt) :: idx = 0
+  end type cacheInt
+
   ! MEMBERS OF THE MODULE ARE GIVEN HERE
   type(cacheMatDat), dimension(:), allocatable, public   :: materialCache
   type(cacheNucDat), dimension(:), allocatable, public   :: nuclideCache
   type(cacheSingleXS), dimension(:), allocatable, public :: majorantCache
   type(cacheSingleXS), dimension(:), allocatable, public :: trackingCache
   type(cacheZAID), dimension(:), allocatable, public     :: zaidCache
-  !$omp threadprivate(materialCache, nuclideCache, majorantCache, trackingCache, zaidCache)
+  type(cacheInt), public :: cacheIdx
+  !$omp threadprivate(materialCache, nuclideCache, majorantCache, trackingCache, zaidCache, cacheIdx)
 
   ! Public procedures
   public :: init

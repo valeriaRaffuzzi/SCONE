@@ -17,9 +17,11 @@ module correlatedLawENDF_inter
   type, public,abstract :: correlatedLawENDF
     private
     contains
-      procedure(sample),deferred        :: sample
-      procedure(probabilityOf),deferred :: probabilityOf
-      procedure(kill),deferred          :: kill
+
+      procedure(sample), deferred            :: sample
+      procedure(probabilityOf), deferred     :: probabilityOf
+      procedure(kill), deferred              :: kill
+
   end type correlatedLawENDF
 
   abstract interface
@@ -31,12 +33,13 @@ module correlatedLawENDF_inter
     !!   mu [out]     -> Cosing of polar deflection angle in <-1;1>
     !!   E_out [out]  -> Outgoing energy [MeV]
     !!   E_in [in]    -> Incident energy [Mev]
+    !!   E_1 [in]     -> Optional: already sampled energy for conditional sampling
     !!   rand [inout] -> Random number generator
     !!
     !! Error:
     !!   fatalError if sampling fails for any reason
     !!
-    subroutine sample(self, mu, E_out, E_in, rand)
+    subroutine sample(self, mu, E_out, E_in, rand, E_1)
       import :: correlatedLawENDF, &
                 defReal, &
                 RNG
@@ -45,6 +48,7 @@ module correlatedLawENDF_inter
       real(defReal), intent(out)           :: E_out
       real(defReal), intent(in)            :: E_in
       class(RNG), intent(inout)            :: rand
+      real(defReal), intent(in), optional  :: E_1
     end subroutine
 
     !!

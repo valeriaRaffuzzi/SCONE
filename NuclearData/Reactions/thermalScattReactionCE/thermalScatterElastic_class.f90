@@ -164,7 +164,7 @@ contains
   !!
   !! See uncorrelatedReactionCE for details
   !!
-  subroutine sampleOut(self, mu, phi, E_out, E_in, rand, lambda)
+  subroutine sampleOut(self, mu, phi, E_out, E_in, rand, lambda, E_1)
     class(thElasticScatter), intent(in) :: self
     real(defReal), intent(out)               :: mu
     real(defReal), intent(out)               :: phi
@@ -172,6 +172,7 @@ contains
     real(defReal), intent(in)                :: E_in
     class(RNG), intent(inout)                :: rand
     real(defReal), intent(out), optional     :: lambda
+    real(defReal), intent(in), optional      :: E_1
     real(defReal), dimension(:), allocatable :: prob
     real(defReal)        :: E1, E2, f, mu_l1k, mu1, mu2, mu3, muLeft, muRight, r
     integer(shortInt)    :: l1, l2, k, i

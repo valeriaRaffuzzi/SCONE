@@ -87,6 +87,7 @@ module neutronCEstd_class
     real(defReal) :: threshA
     real(defReal) :: DBRCeMin
     real(defReal) :: DBRCeMax
+    logical(defBool) :: corr_n2n = .false.
     logical(defBool) :: makePrec = .false.
     logical(defBool) :: neglectDelayed = .false.
 
@@ -135,6 +136,8 @@ contains
     ! Precursor settings
     call dict % getOrDefault(self % makePrec, 'makePrec', .false.)
     call dict % getOrDefault(self % neglectDelayed, 'neglectDelayed', .false.)
+
+    call dict % getOrDefault(self % corr_n2n, 'correlated_n2n', .false.)
 
     ! Verify settings
     if (self % minE < ZERO) call fatalError(Here,'-ve minEnergy')
@@ -412,6 +415,8 @@ contains
     class(particleDungeon),intent(inout)   :: thisCycle
     class(particleDungeon),intent(inout)   :: nextCycle
     class(uncorrelatedReactionCE), pointer :: reac
+    type(particleState)                    :: pTemp, pPre
+    real(defReal)                          :: phi, E_out, E_outCM, mu
     character(100),parameter  :: Here =' inelastic (neutronCEstd_class.f90)'
 
     ! Invert inelastic scattering and get reaction
@@ -421,6 +426,8 @@ contains
     reac => uncorrelatedReactionCE_CptrCast(self % xsData % getReaction(collDat % MT, collDat % nucIdx))
     if (.not.associated(reac)) call fatalError(Here, "Failed to get scattering reaction")
 
+    pPre = p
+
     ! Scatter particle
     if (reac % inCMFrame()) then
       collDat % A =  self % nuc % getMass()
@@ -429,8 +436,24 @@ contains
       call self % scatterInLAB(p, collDat, reac)
     end if
 
-    ! Apply weigth change using ingoing collision particle energy
-    p % w = p % w * reac % release(collDat % E)
+    if (self % corr_n2n .and. collDat % MT == 16) then
+      call reac % sampleOut(mu, phi, E_out, collDat % E, p % pRNG, E_1 = p % E)
+
+      if (reac % inCMFrame()) then
+        E_outCM = E_out
+        E_out   =  collDat % E
+        call asymptoticInelasticScatter(E_out, mu, E_outCM, collDat % A)
+      end if
+
+      pTemp = p
+      pTemp % E = E_out
+      pTemp % dir = rotateVector(pPre % dir, mu, phi)
+      call thisCycle % detain(pTemp)
+
+    else
+      ! Apply weigth change using ingoing collision particle energy
+      p % w = p % w * reac % release(collDat % E)
+    end if
 
   end subroutine inelastic
 
@@ -458,8 +481,7 @@ contains
     class(particle), intent(inout)            :: p
     type(collisionData), intent(inout)        :: collDat
     class(uncorrelatedReactionCE), intent(in) :: reac
-    real(defReal)                             :: phi    ! Azimuthal scatter angle
-    real(defReal)                             :: E_out, mu
+    real(defReal)                             :: phi, E_out, mu
 
     ! Sample scattering angles and post-collision energy
     call reac % sampleOut(mu, phi, E_out, collDat % E, p % pRNG)

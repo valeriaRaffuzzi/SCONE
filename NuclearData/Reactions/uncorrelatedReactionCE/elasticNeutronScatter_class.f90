@@ -165,7 +165,7 @@ contains
   !!
   !! See uncorrelatedReactionCE for details
   !!
-  subroutine sampleOut(self, mu, phi, E_out, E_in, rand, lambda)
+  subroutine sampleOut(self, mu, phi, E_out, E_in, rand, lambda, E_1)
     class(elasticNeutronScatter), intent(in) :: self
     real(defReal), intent(out)               :: mu
     real(defReal), intent(out)               :: phi
@@ -173,6 +173,7 @@ contains
     real(defReal), intent(in)                :: E_in
     class(RNG), intent(inout)                :: rand
     real(defReal), intent(out), optional     :: lambda
+    real(defReal), intent(in), optional      :: E_1
 
     ! Set energy
     E_out = E_in

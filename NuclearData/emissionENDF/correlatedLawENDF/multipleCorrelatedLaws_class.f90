@@ -68,12 +68,13 @@ contains
   !!
   !! See correlatedLawENDF_inter for details
   !!
-  subroutine sample(self, mu, E_out, E_in, rand)
+  subroutine sample(self, mu, E_out, E_in, rand, E_1)
     class(multipleCorrelatedLaws), intent(in) :: self
     real(defReal), intent(out)                :: mu
     real(defReal), intent(out)                :: E_out
     real(defReal), intent(in)                 :: E_in
     class(RNG), intent(inout)                 :: rand
+    real(defReal), intent(in), optional       :: E_1
     real(defReal)                             :: r, E, prob
     integer(shortInt)                         :: i
     character(100), parameter :: Here = 'sample (multipleCorrelatedLaws_class.f90)'

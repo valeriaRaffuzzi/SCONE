@@ -29,7 +29,7 @@ contains
   !!
   !! Initialise
   !!
-  subroutine init(self,release)
+  subroutine init(self, release)
     class(constantRelease), intent(inout) :: self
     real(defReal), intent(in)             :: release
     character(100),parameter              :: Here='init (constantRelease_class.f90)'
@@ -50,7 +50,7 @@ contains
     release = self % secondaryRelease
 
   end function releaseAt
-    
+
   !!
   !! Return whether a given energy is available with the law.
   !! Always true
@@ -59,7 +59,7 @@ contains
     class(constantRelease), intent(in)  :: self
     real(defReal), intent(in)          :: E_in
     logical(defBool)                   :: has
-  
+
     has = .true.
 
   end function hasEnergy

@@ -28,21 +28,22 @@ contains
   !!
   !! Samples mu and E_out givent incident energy E_in and random nummber generator
   !!
-  subroutine sample(self,mu,E_out,E_in,rand)
+  subroutine sample(self, mu, E_out, E_in, rand, E_1)
     class(correlatedLawENDFslot), intent(in) :: self
     real(defReal), intent(out)               :: mu
     real(defReal), intent(out)               :: E_out
     real(defReal), intent(in)                :: E_in
     class(RNG), intent(inout)                :: rand
+    real(defReal), intent(in), optional      :: E_1
 
-    call self % slot % sample(mu,E_out,E_in,rand)
+    call self % slot % sample(mu, E_out, E_in, rand)
 
   end subroutine
 
   !!
   !! Returns probability that neutron was emmited at mu & E_out given incident energy E_in
   !!
-  function probabilityOf(self,mu,E_out,E_in) result(prob)
+  function probabilityOf(self, mu, E_out, E_in) result(prob)
     class(correlatedLawENDFslot), intent(in) :: self
     real(defReal), intent(in)                :: mu
     real(defReal), intent(in)                :: E_out

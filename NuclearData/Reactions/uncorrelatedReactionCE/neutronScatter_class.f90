@@ -65,6 +65,11 @@ module neutronScatter_class
     class(angleLawENDF),allocatable      :: muLaw
     class(energyLawENDF),allocatable     :: eLaw
     class(correlatedLawENDF),allocatable :: corrLaw
+
+    ! Reaction physics
+    real(defReal)     :: Q = ZERO
+    integer(shortInt) :: MT
+
   contains
     !! Superclass interface
     procedure :: init
@@ -78,6 +83,7 @@ module neutronScatter_class
 
     !! Instance procedures
     procedure :: buildFromACE
+    procedure :: getQ
 
   end type neutronScatter
 
@@ -93,8 +99,8 @@ contains
   !!
   subroutine init(self, data, MT)
     class(neutronScatter), intent(inout) :: self
-    class(dataDeck), intent(inout)              :: data
-    integer(shortInt), intent(in)               :: MT
+    class(dataDeck), intent(inout)       :: data
+    integer(shortInt), intent(in)        :: MT
     character(100), parameter :: Here = 'init (neutronScatter_class.f90)'
 
     ! Select buld procedure approperiate for given dataDeck
@@ -133,6 +139,17 @@ contains
     if (allocated(self % corrLaw))    deallocate(self % corrLaw)
 
   end subroutine kill
+
+  !!
+  !! Returns the Q-value
+  !!
+  pure function getQ(self) result(Q)
+    class(neutronScatter), intent(in) :: self
+    real(defReal)                     :: Q
+
+    Q = self % Q
+
+  end function getQ
 
   !!
   !! Returns true if reaction is in Centre-Of-Mass frame
@@ -194,7 +211,7 @@ contains
   !!
   !! See uncorrelatedReactionCE for details
   !!
-  subroutine sampleOut(self, mu, phi, E_out, E_in, rand, lambda)
+  subroutine sampleOut(self, mu, phi, E_out, E_in, rand, lambda, E_1)
     class(neutronScatter), intent(in) :: self
     real(defReal), intent(out)               :: mu
     real(defReal), intent(out)               :: phi
@@ -202,10 +219,16 @@ contains
     real(defReal), intent(in)                :: E_in
     class(RNG), intent(inout)                :: rand
     real(defReal), intent(out), optional     :: lambda
+    real(defReal), intent(in), optional      :: E_1
 
     ! Sample energy an angle
     if (self % correlated) then
-      call self % corrLaw % sample(mu, E_out, E_in, rand)
+
+      if (self % MT == 16 .and. present(E_1)) then
+        call self % corrLaw % sample(mu, E_out, E_in, rand, E_1 = E_1)
+      else
+        call self % corrLaw % sample(mu, E_out, E_in, rand)
+      end if
 
     else
       mu    = self % muLaw % sample(E_in,rand)
@@ -287,6 +310,10 @@ contains
 
     ! Read if data for reaction is in Centre-of-Mass frame
     self % cmFrame = ACE % isCMframe(MT)
+
+    ! Read Q value
+    self % Q  = ACE % QforMT(MT)
+    self % MT = MT
 
     ! Read number of 2nd-ary particles
     TY = ACE % neutronReleaseMT(MT)
