@@ -72,7 +72,7 @@ contains
     class(dictionary), intent(inout)        :: dict
     class(dictionary),pointer               :: tempDict
     class(geometry), pointer                :: geom
-    character(nameLen)                      :: geomName
+    character(nameLen)                      :: name
     character(100), parameter :: Here ='init (vizPhysicsPackage_class.f90)'
 
     ! Register timer
@@ -83,16 +83,16 @@ contains
 
     ! Build geometry
     tempDict => dict % getDictPtr('geometry')
-    geomName = 'visualGeom'
-    call new_geometry(tempDict, geomName)
-    self % geomIdx = gr_geomIdx(geomName)
+    name = 'visualGeom'
+    call new_geometry(tempDict, name)
+    self % geomIdx = gr_geomIdx(name)
     self % geom    => gr_geomPtr(self % geomIdx)
 
     ! Read geometry deformation
     if (dict % isPresent('geometryDeformation')) then
       ! Build and initialise
       tempDict => dict % getDictPtr('geometryDeformation')
-      call new_field(tempDict, 'geomDeformation')
+      call new_field(tempDict, nameGeomDef)
     end if
 
     ! Call visualisation

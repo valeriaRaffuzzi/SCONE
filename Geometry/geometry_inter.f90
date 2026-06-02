@@ -7,6 +7,9 @@ module geometry_inter
   use charMap_class,      only : charMap
   use coord_class,        only : coordList
 
+  ! Field interface
+  use displacementField_inter, only : displacementField
+
   implicit none
   private
 
@@ -319,19 +322,28 @@ contains
   !!   width [in]  -> Optional. Width of the plot in both directions. Direction lower in
   !!     sequence {x,y,z} is given first.
   !!
-  subroutine slicePlot(self, img, centre, dir, what, width)
-    class(geometry), intent(in)                       :: self
-    integer(shortInt), dimension(:,:), intent(out)    :: img
-    real(defReal), dimension(3), intent(in)           :: centre
-    character(1), intent(in)                          :: dir
-    character(*), intent(in)                          :: what
-    real(defReal), dimension(2), optional, intent(in) :: width
-    real(defReal), dimension(3)     :: low, top , step, point, corner
+  subroutine slicePlot(self, img, centre, dir, what, width, defField)
+    class(geometry), intent(in)                             :: self
+    integer(shortInt), dimension(:,:), intent(out)          :: img
+    real(defReal), dimension(3), intent(in)                 :: centre
+    character(1), intent(in)                                :: dir
+    character(*), intent(in)                                :: what
+    real(defReal), dimension(2), optional, intent(in)       :: width
+    class(displacementField), pointer, optional, intent(in) :: defField
+    real(defReal), dimension(3)     :: low, top, step, point, corner, disp, r
     real(defReal), dimension(6)     :: aabb
     integer(shortInt), dimension(2) :: plane
     integer(shortInt)               :: ax, i, j, matIdx, uniqueID
-    logical(defBool)                :: printMat
+    logical(defBool)                :: printMat, hasField
+    type(coordList)                 :: coords
     character(100), parameter :: Here = 'slicePlot (geometry_inter.f90)'
+
+    ! Check if deformation field exists
+    if (present(defField)) then
+      hasField = .true.
+    else
+      hasField = .false.
+    end if
 
     ! Select plane of the plot
     select case (dir)
@@ -357,17 +369,13 @@ contains
     if (present(width)) then
       low(plane) = centre(plane) - width * HALF
       top(plane) = centre(plane) + width * HALF
-      low(ax) = centre(ax)
-      top(ax) = centre(ax)
-
     else
       aabb = self % bounds()
       low = aabb(1:3)
       top = aabb(4:6)
-      low(ax) = centre(ax)
-      top(ax) = centre(ax)
-
     end if
+    low(ax) = centre(ax)
+    top(ax) = centre(ax)
 
     ! Calculate step size in all directions
     step(ax) = ZERO
@@ -391,15 +399,23 @@ contains
     corner = low - HALF * step
     point(ax) = corner(ax)
 
-    !$omp parallel do firstprivate(point) private(matIdx, uniqueID)
+    !$omp parallel do firstprivate(point) private(r, coords, disp, matIdx, uniqueID)
     do j = 1, size(img, 2)
       point(plane(2)) = corner(plane(2)) + step(plane(2)) * j
 
       do i = 1, size(img, 1)
         point(plane(1)) = corner(plane(1)) + step(plane(1)) * i
 
+        r = point
+
+        if (hasField) then
+          call coords % assignPosition(r)
+          disp  = defField % backwards(coords)
+          r = r + disp
+        end if
+
         ! Find material and paint image
-        call self % whatIsAt(matIdx, uniqueID, point)
+        call self % whatIsAt(matIdx, uniqueID, r)
 
         ! Paint the pixel
         if (printMat) then
@@ -527,7 +543,7 @@ contains
   end subroutine rayPlot
 
   !!
-  !! Procedure for tracing from a camera until an opaque object is hit. 
+  !! Procedure for tracing from a camera until an opaque object is hit.
   !! Then calculates the luminous contribution from a light source.
   !!
   subroutine phongTrace(self, ray, matIdx, bright, mats, ambient, light)
@@ -574,7 +590,7 @@ contains
       ! Make sure normal is oriented correctly
       dotP = dot_product(ray % lvl(1) % dir, normal0)
       if (dotP > ZERO) normal0 = -normal0
-      
+
       ! Flip ray and nudge it backwards to get it out of the opaque material
       ! This nudge may cause problems! Any better solutions?
       dNudge = 1.0E-6
@@ -585,18 +601,18 @@ contains
       dir = dir / norm2(dir)
       call ray % assignDirection(dir)
       call self % placeCoord(ray)
-      
+
       ! Compute product betwen normal and light direction
       dotP = max(dot_product(normal0, dir), ZERO)
 
       ! Does the ray fly directly to the light?
       matIdx0 = ray % matIdx
       do while (any(mats == matIdx0))
-      
+
         ! Find maximum flight distance
         dist = norm2(ray % lvl(1) % r - light)
         call self % moveNoBC(ray, dist, event, normal)
-        
+
         matIdx0 = ray % matIdx
 
         ! The ray flew straight to the light
@@ -605,12 +621,12 @@ contains
 
           exit
         end if
-      
+
       end do
 
       ! Add ambient contribution
       bright = bright + ambient
-   
+
     end if
 
   end subroutine phongTrace

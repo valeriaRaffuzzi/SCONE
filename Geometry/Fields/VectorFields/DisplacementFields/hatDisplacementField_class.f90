@@ -1,12 +1,12 @@
 module hatDisplacementField_class
 
   use numPrecision
-  use genericProcedures,  only : fatalError, numToChar
-  use dictionary_class,   only : dictionary
-  use particle_class,     only : particle, particleState
-  use coord_class,        only : coordList
-  use field_inter,        only : field
-  use vectorField_inter,  only : vectorField
+  use genericProcedures,       only : fatalError, numToChar
+  use dictionary_class,        only : dictionary
+  use particle_class,          only : particle, particleState
+  use coord_class,             only : coordList
+  use field_inter,             only : field
+  use displacementField_inter, only : displacementField
 
   ! Tally Maps
   use tallyMap_inter,             only : tallyMap
@@ -35,13 +35,14 @@ module hatDisplacementField_class
   !! Interface:
   !!   vectorField interface
   !!
-  type, public, extends(vectorField) :: hatDisplacementField
+  type, public, extends(displacementField) :: hatDisplacementField
     real(defReal), dimension(3) :: centre  ! Centre of the circle
     real(defReal)               :: r_outer ! Radius support circle
     real(defReal)               :: r_shift ! Radius of the top displacement
     real(defReal)               :: delta   ! Displacement of the top
+    real(defReal)               :: r_backShift
+    real(defReal)               :: backDelta
     logical(defBool)            :: radial = .false.
-    class(tallyMap), allocatable                 :: map
     integer(shortInt), dimension(:), allocatable :: normal
     integer(shortInt), dimension(:), allocatable :: direction
   contains
@@ -51,6 +52,8 @@ module hatDisplacementField_class
     procedure :: kill
     procedure :: at
     procedure :: atP
+    procedure :: backwards
+    procedure :: getDelta
 
     ! Subclass interface
     procedure :: build
@@ -126,10 +129,15 @@ contains
     real(defReal), intent(in)                  :: delta
     character(100), parameter :: Here = 'build (hatDisplacementField_class.f90)'
 
+    ! Forward field
     self % centre  = centre
     self % r_outer = r_outer
     self % r_shift = r_shift
     self % delta   = delta
+
+    ! Backward field
+    self % r_backShift = self % r_shift + delta
+    self % backDelta   = -delta
 
   end subroutine build
 
@@ -161,44 +169,22 @@ contains
     class(hatDisplacementField), intent(in) :: self
     class(coordList), intent(in)            :: coords
     real(defReal), dimension(3)             :: val
-
-    ! Does nothing
-    val = ZERO
-
-  end function at
-
-  !!
-  !! Get value of the scalar field at the co-ordinate point
-  !!
-  !! See vectorField_inter for details
-  !!
-  function atP(self, p) result(val)
-    class(hatDisplacementField), intent(in) :: self
-    class(particle), intent(in)             :: p
-    type(particleState)                     :: state
     real(defReal), dimension(3)             :: position
     real(defReal)                           :: r, dr
-    real(defReal), dimension(3)             :: val
-    integer(shortInt)                       :: axis
 
     ! Initialise result
     val = ZERO
 
-    ! Check if p is in the right domain
-    state = p
-    if (allocated(self % map)) then
-      if (self % map % map(state) == 0) return
-    end if
+    if (.not. self % inDomain(coords)) return
 
     ! Calculate the position vector
-    position = p % rGlobal() - self % centre
+    position = coords % lvl(1) % r - self % centre
     position(self % normal) = ZERO
 
     if (self % radial) then
       r = norm2(position)
     else
-      axis = self % direction(1)
-      r    = position(axis)
+      r = position(self % direction(1))
     end if
 
     if (r <= ZERO .or. r > self % r_outer) return
@@ -212,7 +198,75 @@ contains
 
     val = dr * position / norm2(position)
 
+  end function at
+
+  !!
+  !! Get value of the scalar field at the co-ordinate point
+  !!
+  !! See vectorField_inter for details
+  !!
+  function atP(self, p) result(val)
+    class(hatDisplacementField), intent(in) :: self
+    class(particle), intent(in)             :: p
+    real(defReal), dimension(3)             :: val
+
+    val = self % at(p % coords)
+
   end function atP
+
+  !!
+  !! Get value of the scalar field at the co-ordinate point
+  !!
+  !! See vectorField_inter for details
+  !!
+  function backwards(self, coords, delta) result(val)
+    class(hatDisplacementField), intent(in) :: self
+    class(coordList), intent(in)            :: coords
+    real(defReal), intent(in), optional     :: delta
+    real(defReal), dimension(3)             :: val
+    real(defReal), dimension(3)             :: position
+    real(defReal)                           :: r, dr
+
+    ! Initialise result
+    val = ZERO
+
+    ! Check domain
+    if (.not. self % inDomain(coords)) return
+
+    ! Calculate the position vector
+    position = coords % lvl(1) % r - self % centre
+    position(self % normal) = ZERO
+
+    if (self % radial) then
+      r = norm2(position)
+    else
+      r = position(self % direction(1))
+    end if
+
+    if (r <= ZERO .or. r > self % r_outer) return
+
+    ! Calculate the displacement
+    if (r > self % r_backShift) then
+      dr = self % backDelta * (self % r_outer - r) / (self % r_outer - self % r_backShift)
+    else
+      dr = self % backDelta * (r / self % r_backShift)
+    end if
+
+    val = dr * position / norm2(position)
+
+  end function backwards
+
+  !!
+  !! Get value of delta
+  !!
+  function getDelta(self, coords) result(val)
+    class(hatDisplacementField), intent(in) :: self
+    class(coordList), intent(in)            :: coords
+    real(defReal)                           :: val
+
+    val = self % delta
+
+  end function getDelta
 
   !!
   !! Cast field pointer to hatDisplacementField pointer

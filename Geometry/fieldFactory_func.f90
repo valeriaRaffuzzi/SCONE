@@ -8,12 +8,16 @@ module fieldFactory_func
   use dictionary_class,  only : dictionary
 
   ! Fields
-  use field_inter,              only : field
-  use uniformScalarField_class, only : uniformScalarField
-  use uniformVectorField_class, only : uniformVectorField
-  use uniFissSitesField_class,  only : uniFissSitesField
-  use weightWindowsField_class, only : weightWindowsField
-  use cartesianField_class,     only : cartesianField
+  use field_inter,                 only : field
+  use uniformScalarField_class,    only : uniformScalarField
+  use uniformVectorField_class,    only : uniformVectorField
+  use uniFissSitesField_class,     only : uniFissSitesField
+  use weightWindowsField_class,    only : weightWindowsField
+  use cartesianField_class,        only : cartesianField
+  use hatDisplacementField_class,  only : hatDisplacementField
+  use trapDisplacementField_class, only : trapDisplacementField
+  use funcDisplacementField_class, only : funcDisplacementField
+  use latDisplacementField_class,  only : latDisplacementField
 
   ! Geometry
   use geometryReg_mod,          only : gr_addField => addField
@@ -23,11 +27,15 @@ module fieldFactory_func
 
 
   !! Parameters
-  character(nameLen), dimension(*), parameter :: AVAILABLE_FIELDS = ['uniformScalarField',&
-                                                                     'uniformVectorField',&
-                                                                     'uniFissSitesField ',&
-                                                                     'weightWindowsField',&
-                                                                     'cartesianField    ']
+  character(nameLen), dimension(*), parameter :: AVAILABLE_FIELDS = ['uniformScalarField   ',&
+                                                                     'uniformVectorField   ',&
+                                                                     'uniFissSitesField    ',&
+                                                                     'weightWindowsField   ',&
+                                                                     'cartesianField       ',&
+                                                                     'hatDisplacementField ',&
+                                                                     'trapDisplacementField',&
+                                                                     'funcDisplacementField',&
+                                                                     'latDisplacementField ']
 
    ! Public interface
    public :: new_field
@@ -72,6 +80,18 @@ contains
       case ('cartesianField')
         allocate(cartesianField :: kentta)
 
+      case ('hatDisplacementField')
+        allocate(hatDisplacementField :: kentta)
+
+      case ('trapDisplacementField')
+        allocate(trapDisplacementField :: kentta)
+
+      case ('funcDisplacementField')
+        allocate(funcDisplacementField :: kentta)
+
+      case ('latDisplacementField')
+        allocate(latDisplacementField :: kentta)
+
       case default
         print '(A)', "AVAILABLE FIELDS:"
         print '(A)', AVAILABLE_FIELDS
@@ -86,5 +106,5 @@ contains
     call gr_addField(kentta, name)
 
   end subroutine new_field
-  
+
 end module fieldFactory_func

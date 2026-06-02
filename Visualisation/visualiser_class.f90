@@ -11,6 +11,11 @@ module visualiser_class
   use materialMenu_mod,   only : mm_colourMap => colourMap, mm_nameMap => nameMap
   use outputVTK_class
 
+  ! Field interface
+  use displacementField_inter, only : displacementField, displacementField_CptrCast
+  use geometryReg_mod,         only : gr_fieldIdx => fieldIdx, gr_fieldPtr => fieldPtr, &
+                                      gr_hasField => hasField
+
   implicit none
   private
 
@@ -122,7 +127,7 @@ contains
 
         case('bmp')
           call self % makeBmpImg(tempDict)
-        
+
         case('ray')
           call self % makeRayPlot(tempDict)
 
@@ -225,18 +230,19 @@ contains
   !!   plot plane. However, the position on the plot axis will be unchanged.
   !!
   subroutine makeBmpImg(self, dict)
-    class(visualiser), intent(inout) :: self
-    class(dictionary), intent(in)    :: dict
-    real(defReal), dimension(3)      :: centre
-    real(defReal), dimension(2)      :: width
-    character(1)                     :: dir
-    character(nameLen)               :: tempChar
-    logical(defBool)                 :: useWidth
-    character(nameLen)               :: what, outputFile
+    class(visualiser), intent(inout)  :: self
+    class(dictionary), intent(in)     :: dict
+    real(defReal), dimension(3)       :: centre
+    real(defReal), dimension(2)       :: width
+    character(1)                      :: dir
+    character(nameLen)                :: tempChar
+    logical(defBool)                  :: useWidth, hasField
+    character(nameLen)                :: what, outputFile
+    class(displacementField), pointer :: defField
     real(defReal), dimension(:), allocatable       :: temp
     integer(shortInt), dimension(:), allocatable   :: tempInt
     integer(shortInt), dimension(:,:), allocatable :: img
-    integer(shortInt)                              :: offset
+    integer(shortInt)                              :: offset, idx
     character(10)                                  :: time
     character(8)                                   :: date
     character(100), parameter :: Here = 'makeBmpImg (visualiser_class.f90)'
@@ -306,9 +312,18 @@ contains
 
     end if
 
+    ! Check if deformation field exists
+    hasField = gr_hasField(nameGeomDef)
+    if (hasField) then
+      idx = gr_fieldIdx(nameGeomDef)
+      defField => displacementField_CptrCast(gr_fieldPtr(idx))
+    end if
+
     ! Get plot
     if (useWidth) then
-      call self % geom % slicePlot(img, centre, dir, what, width)
+      call self % geom % slicePlot(img, centre, dir, what, width = width)
+    elseif (hasField) then
+      call self % geom % slicePlot(img, centre, dir, what, defField = defField)
     else
       call self % geom % slicePlot(img, centre, dir, what)
     end if
@@ -330,7 +345,7 @@ contains
     call imgBmp_toFile(img, outputFile)
 
   end subroutine makeBmpImg
-  
+
   !!
   !! Generate a ray traced image of the geometry using Phong's approximation
   !!
@@ -381,7 +396,7 @@ contains
     character(8)                                   :: date
     character(nameLen)                             :: outputFile
     character(100), parameter :: Here = 'makeRayPlot (visualiser_class.f90)'
-    
+
     ! Get name of the output file
     call dict % get(outputFile, 'output')
     outputFile = trim(outputFile) // '.bmp'
@@ -404,11 +419,11 @@ contains
     end if
     camera = temp
     deallocate(temp)
-    
+
     ! Get light location or default to camera location
     if (dict % isPresent('light')) then
       call dict % get(temp, 'light')
-    
+
       if (size(temp) /= 3) then
         call fatalError(Here, "'light' must have size 3. Has: "//numToChar(size(temp)))
       end if
@@ -418,7 +433,7 @@ contains
     else
       light = camera
     end if
-    
+
     ! The up direction, which sets the camera rotation
     if (dict % isPresent('up')) then
       call dict % get(temp, 'up')
@@ -446,13 +461,13 @@ contains
     ! Create governing vectors for the plot
     d = (centre - camera)
     d = d/norm2(d)
-    
+
     ! Ensure that up is not colinear with the view direction
     if (all(abs(crossProduct(up, d)) < 1E-6)) call fatalError(Here,"View direction is co-linear with 'up'.")
-    
+
     cv = crossProduct(d, up)
     cv = cv / norm2(cv)
-    
+
     ch = crossProduct(cv, d)
     ch = ch / norm2(ch)
 
@@ -488,7 +503,7 @@ contains
       mats(1) = OUTSIDE_MAT
       mats(2) = VOID_MAT
     end if
-    
+
     ! Colourmap offset
     ! If not given select randomly
     if (dict % isPresent('offset')) then

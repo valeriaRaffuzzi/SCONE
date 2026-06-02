@@ -424,7 +424,7 @@ contains
     character(10)                             :: time
     character(8)                              :: date
     character(:),allocatable                  :: string
-    character(nameLen)                        :: nucData, energy, geomName
+    character(nameLen)                        :: nucData, energy, name
     type(outputFile)                          :: test_out
     type(visualiser)                          :: viz
     class(field), pointer                     :: field
@@ -508,14 +508,21 @@ contains
 
     ! Build geometry
     tempDict => dict % getDictPtr('geometry')
-    geomName = 'eigenGeom'
-    call new_geometry(tempDict, geomName)
-    self % geomIdx = gr_geomIdx(geomName)
+    name = 'eigenGeom'
+    call new_geometry(tempDict, name)
+    self % geomIdx = gr_geomIdx(name)
     self % geom    => gr_geomPtr(self % geomIdx)
 
     ! Activate Nuclear Data *** All materials are active
     call ndReg_activate(self % particleType, nucData, self % geom % activeMats())
     self % nucData => ndReg_get(self % particleType)
+
+    ! Read geometry deformation
+    if (dict % isPresent('geometryDeformation')) then
+      ! Build and initialise
+      tempDict => dict % getDictPtr('geometryDeformation')
+      call new_field(tempDict, nameGeomDef)
+    end if
 
     ! Call visualisation
     if (dict % isPresent('viz') .and. isMPIMaster()) then
@@ -575,13 +582,6 @@ contains
     ! Build collision operator
     tempDict => dict % getDictPtr('collisionOperator')
     call self % collOp % init(tempDict)
-
-    ! Read geometry deformation
-    if (dict % isPresent('geometryDeformation')) then
-      ! Build and initialise
-      tempDict => dict % getDictPtr('geometryDeformation')
-      call new_field(tempDict, 'geomDeformation')
-    end if
 
     ! Build transport operator
     tempDict => dict % getDictPtr('transportOperator')

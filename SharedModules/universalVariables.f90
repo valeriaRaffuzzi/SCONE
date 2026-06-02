@@ -27,7 +27,7 @@ module universalVariables
   ! Energy variables
   real(defReal), parameter, public :: MINIMUM_ENERGY = 1.0E-11_defReal, &
                                       MAXIMUM_ENERGY = 20.0_defReal
-  
+
   ! Flags for different possible events in movement in geometry
   integer(shortInt), parameter, public :: COLL_EV = 1, &
                                           BOUNDARY_EV = 2, &
@@ -80,7 +80,7 @@ module universalVariables
   integer(shortInt), parameter :: MATERIAL_XS = 1, &
                                   MAJORANT_XS = 2, &
                                   TRACKING_XS = 3
-  
+
   ! Unit conversion
   real(defReal), parameter :: joulesPerMeV = 1.60218e-13_defReal ,& ! Convert MeV to J
                               shakesPerS   = 1.0e+8_defReal         ! Convert shakes to s
@@ -97,11 +97,12 @@ module universalVariables
   character(nameLen), parameter :: nameWW           = 'WeightWindows'
   character(nameLen), parameter :: nameTemperature  = 'temperature'
   character(nameLen), parameter :: nameDensity      = 'density'
+  character(nameLen), parameter :: nameGeomDef      = 'geomDeformation'
 
   ! Flags associated with fields
   real(defReal), parameter :: NO_TEMPERATURE = -INF, &
                               NO_DENSITY = -INF
-  
+
   ! Flag to indicate source file format
   integer(shortInt), parameter, public :: NO_PRINTING = 0, &
                                           ASCII_FILE  = 1, &

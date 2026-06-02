@@ -9,9 +9,11 @@ module funcCylinder_class
   implicit none
   private
 
-  integer(shortInt), parameter :: EXP_FUN = 1, &
-                                  LIN_FUN = 2, &
-                                  SIN_FUN = 3
+  integer(shortInt), parameter :: EXP_FUN  = 1, &
+                                  LIN_FUN  = 2, &
+                                  SIN_FUN  = 3, &
+                                  FLAT_FUN = 4, &
+                                  POLI_FUN = 5
 
   !!
   !! Finite length cylinder aligned with one of the co-ord axis (x, y or z)
@@ -171,7 +173,15 @@ contains
 
       case ('sin')
         self % func = SIN_FUN
-        if (size(temp) /= 2) call fatalError(Here, 'coefficients must have size 2.')
+        if (size(temp) /= 3) call fatalError(Here, 'coefficients must have size 2.')
+
+      case ('flat')
+        self % func = FLAT_FUN
+        if (size(temp) /= 1) call fatalError(Here, 'coefficients must have size 1.')
+
+      case ('poly')
+        self % func = POLI_FUN
+        if (size(temp) /= 4) call fatalError(Here, 'coefficients must have size 4.')
 
       case default
         call fatalError(Here, 'Unknown type of function for funcCylinder: '//type)
@@ -234,11 +244,19 @@ contains
         func = self % coeffs(1) * a0
 
       case (SIN_FUN)
-        func = self % coeffs(1) * sin(self % coeffs(2) * a0)
+        func = self % coeffs(1) * sin(self % coeffs(2) * a0 + self % coeffs(3))
+
+      case (FLAT_FUN)
+        func = self % coeffs(1)
+
+      case(POLI_FUN)
+        func = self % coeffs(1) * a0**3 + self % coeffs(2) * a0**2 + &
+               self % coeffs(3) * a0 + self % coeffs(4)
 
     end select
 
-    rRef = r0 + func * self % dir
+    ! Shift origin by translation
+    rRef = r0 - func * self % dir
 
     ! Evaluate surface expression
     c = (sum(rRef(p)**2) - self % r * self % r)

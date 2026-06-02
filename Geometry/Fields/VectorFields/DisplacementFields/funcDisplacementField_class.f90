@@ -2,12 +2,12 @@ module funcDisplacementField_class
 
   use numPrecision
   use universalVariables
-  use genericProcedures,  only : fatalError, numToChar
-  use dictionary_class,   only : dictionary
-  use particle_class,     only : particle, particleState
-  use coord_class,        only : coordList
-  use field_inter,        only : field
-  use vectorField_inter,  only : vectorField
+  use genericProcedures,       only : fatalError, numToChar
+  use dictionary_class,        only : dictionary
+  use particle_class,          only : particle, particleState
+  use coord_class,             only : coordList
+  use field_inter,             only : field
+  use displacementField_inter, only : displacementField
 
   ! Tally Maps
   use tallyMap_inter,             only : tallyMap
@@ -25,7 +25,9 @@ module funcDisplacementField_class
   integer(shortInt), parameter :: EXP_FUN  = 1, &
                                   LIN_FUN  = 2, &
                                   SIN_FUN  = 3, &
-                                  FLAT_FUN = 4
+                                  FLAT_FUN = 4, &
+                                  POLI_FUN = 5, &
+                                  POINT_FUN = 6
 
   !!
   !! Displacement field
@@ -42,20 +44,23 @@ module funcDisplacementField_class
   !!   val -> Value of the field
   !!
   !! Interface:
-  !!   vectorField interface
+  !!   displacementField interface
   !!
-  type, public, extends(vectorField) :: funcDisplacementField
+  type, public, extends(displacementField) :: funcDisplacementField
     real(defReal)                   :: r_outer ! Radius support circle
     real(defReal)                   :: r_shift ! Radius of the top displacement
     real(defReal)                   :: r_flat  ! For trapezpoid
+    real(defReal)                   :: r_backShift
+    real(defReal)                   :: r_backFlat
+    real(defReal)                   :: backDelta
     real(defReal)                   :: length  = ZERO
-    real(defReal)                   :: funcVal = ZERO
     real(defReal), dimension(2)     :: dir     = ZERO
     real(defReal), dimension(3)     :: origin  ! origin of the circle
     integer(shortInt)               :: func   = 0
+    integer(shortInt)               :: N      = 0
     integer(shortInt)               :: axis   = -7
     integer(shortInt), dimension(2) :: plane  = -7
-    class(tallyMap), allocatable    :: map
+    logical(defBool)                :: radial = .false.
     real(defReal), dimension(:), allocatable :: coeffs
   contains
 
@@ -64,10 +69,11 @@ module funcDisplacementField_class
     procedure :: kill
     procedure :: at
     procedure :: atP
+    procedure :: backwards
+    procedure :: getDelta
 
     ! Local procedure
     procedure :: evaluateFunction
-    procedure :: inDomain
 
   end type funcDisplacementField
 
@@ -130,11 +136,20 @@ contains
 
       case ('sin')
         self % func = SIN_FUN
-        if (size(temp) /= 2) call fatalError(Here, 'coefficients must have size 2.')
+        if (size(temp) /= 3) call fatalError(Here, 'coefficients must have size 2.')
 
       case ('flat')
         self % func = FLAT_FUN
         if (size(temp) /= 1) call fatalError(Here, 'coefficients must have size 1.')
+
+      case ('poly')
+        self % func = POLI_FUN
+        if (size(temp) /= 4) call fatalError(Here, 'coefficients must have size 4.')
+
+      case ('pointwise')
+        self % func = POINT_FUN
+        call dict % get(self % N, 'points')
+        if (size(temp) /= self % N) call fatalError(Here, 'coefficients must have size N.')
 
       case default
         call fatalError(Here, 'Unknown type of function for funcCylinder: '//type)
@@ -145,8 +160,14 @@ contains
     deallocate(temp)
 
     call dict % get(temp, 'direction')
-    if (size(temp) /= 2) call fatalError(Here, 'Direction must have size 2. Has: '//numToChar(size(temp)))
-    self % dir = temp / norm2(temp)
+    if (size(temp) == 2) then
+      self % dir = temp / norm2(temp)
+    elseif (size(temp) == 1) then
+      self % radial = .true.
+      self % dir = [ONE, ONE]
+    else
+      call fatalError(Here, 'Direction must have size 1 or 2. Has: '//numToChar(size(temp)))
+    end if
 
     ! Load map
     if (dict % isPresent('map')) then
@@ -187,10 +208,44 @@ contains
   function at(self, coords) result(val)
     class(funcDisplacementField), intent(in) :: self
     class(coordList), intent(in)             :: coords
-    real(defReal), dimension(3)              :: val
+    real(defReal), dimension(3)              :: val, position, dir
+    real(defReal)                            :: func, dr, r0
 
-    ! Does nothing
+    ! Initialise result
     val = ZERO
+
+    ! Evaluate function and check validity
+    func = self % evaluateFunction(coords)
+    if (func == ZERO) return
+
+    ! Get plane and axis indexes into shorter variables (for clarity)
+    position = coords % lvl(1) % r - self % origin
+    position(self % axis) = ZERO
+
+    if (self % radial) then
+      r0 = norm2(position)
+    else
+      r0 = dot_product(position(self % plane), self % dir)
+    end if
+
+    if (r0 < ZERO .or. r0 > self % r_outer) return
+
+    ! Calculate the TRAPEZOIDAL displacement
+    if (r0 > self % r_shift) then
+      dr = func * (self % r_outer - r0) / (self % r_outer - self % r_shift)
+    elseif (self % r_flat /= self % r_shift .and. r0 > self % r_flat) then
+      dr = func
+    else
+      dr = func * (r0 / self % r_flat)
+    end if
+
+    if (self % radial) then
+      val = dr * position / norm2(position)
+    else
+      dir(self % plane) = self % dir
+      dir(self % axis)  = ZERO
+      val = dr * dir / norm2(dir)
+  end if
 
   end function at
 
@@ -202,26 +257,9 @@ contains
   function atP(self, p) result(val)
     class(funcDisplacementField), intent(in) :: self
     class(particle), intent(in)              :: p
-    real(defReal), dimension(3)              :: val, position
-    real(defReal)                            :: dr, r0
+    real(defReal), dimension(3)              :: val
 
-    val = ZERO
-    if (self % funcVal == ZERO) return
-
-    ! Get plane and axis indexes into shorter variables (for clarity)
-    position = p % rGlobal() - self % origin
-    r0 = dot_product(position(self % plane), self % dir)
-
-    ! Calculate the TRAPEZOIDAL displacement
-    if (r0 > self % r_shift) then
-      dr = self % funcVal * (self % r_outer - r0) / (self % r_outer - self % r_shift)
-    elseif (self % r_flat /= self % r_shift .and. r0 > self % r_flat) then
-      dr = self % funcVal
-    else
-      dr = self % funcVal * (r0 / self % r_flat)
-    end if
-
-    val = dr * position / norm2(position)
+    val = self % at(p % coords)
 
   end function atP
 
@@ -230,64 +268,122 @@ contains
   !!
   !! See vectorField_inter for details
   !!
-  subroutine evaluateFunction(self, p)
-    class(funcDisplacementField), intent(inout) :: self
-    class(particle), intent(in)                 :: p
-    real(defReal), dimension(3)                 :: position
-    type(particleState)                         :: state
-    real(defReal)                               :: a0, r0
+  function backwards(self, coords, delta) result(val)
+    class(funcDisplacementField), intent(in) :: self
+    class(coordList), intent(in)             :: coords
+    real(defReal), intent(in), optional      :: delta
+    real(defReal), dimension(3)              :: val, position, dir
+    real(defReal)                            :: dr, r0, backDelta, flat, shift
+    character(100), parameter :: Here = 'backwards (funcDisplacementField_class.f90)'
 
     ! Initialise result
-    self % funcVal = ZERO
+    val = ZERO
 
-    ! Check if p is in the correct domain
-    state = p
-    if (allocated(self % map)) then
-      if (self % map % map(state) == 0) return
+    ! Evaluate function and check validity
+    if (present(delta)) then
+      backDelta = -delta
+    else
+      backDelta = -self % evaluateFunction(coords)
     end if
 
+    if (backDelta == ZERO) return
+
+    shift = self % r_shift - backDelta
+    flat  = self % r_flat - backDelta
+
     ! Get plane and axis indexes into shorter variables (for clarity)
-    position = p % rGlobal() - self % origin
-    r0 = dot_product(position(self % plane), self % dir)
+    position = coords % lvl(1) % r - self % origin
+    position(self % axis) = ZERO
+
+    if (self % radial) then
+      r0 = norm2(position)
+    else
+      r0 = dot_product(position(self % plane), self % dir)
+    end if
+
+    if (r0 < ZERO .or. r0 > self % r_outer) return
+
+    ! Calculate the TRAPEZOIDAL displacement
+    if (r0 > shift) then
+      dr = backDelta * (self % r_outer - r0) / (self % r_outer - shift)
+    elseif (r0 > flat) then
+      dr = backDelta
+    else
+      dr = backDelta * (r0 / flat)
+    end if
+
+    if (self % radial) then
+      val = dr * position / norm2(position)
+    else
+      dir(self % plane) = self % dir
+      dir(self % axis)  = ZERO
+      val = dr * dir / norm2(dir)
+  end if
+
+  end function backwards
+
+  !!
+  !! Get value of delta
+  !!
+  function getDelta(self, coords) result(val)
+    class(funcDisplacementField), intent(in) :: self
+    class(coordList), intent(in)             :: coords
+    real(defReal)                            :: val
+
+    val = self % evaluateFunction(coords)
+
+  end function getDelta
+
+  !!
+  !! Evaluate input function given a particle
+  !!
+  function evaluateFunction(self, coords) result(func)
+    class(funcDisplacementField), intent(in) :: self
+    class(coordList), intent(in)             :: coords
+    real(defReal)                            :: func
+    real(defReal), dimension(3)              :: position
+    real(defReal)                            :: a0, da, f
+    integer(shortInt)                        :: idx
+
+    ! Initialise result
+    func = ZERO
+
+    ! Check if p is in the correct domain
+    if (.not. self % inDomain(coords)) return
+
+    ! Get plane and axis indexes into shorter variables (for clarity)
+    position = coords % lvl(1) % r - self % origin
     a0 = position(self % axis)
 
     ! Particle outside length
     if (a0 < ZERO .or. a0 > self % length) return
-    if (r0 < ZERO .or. r0 > self % r_outer) return
 
     select case (self % func)
       case (EXP_FUN)
-        self % funcVal = self % coeffs(1) * exp(self % coeffs(2) * a0) - ONE
+        func = self % coeffs(1) * (exp(self % coeffs(2) * a0) - ONE)
 
       case (LIN_FUN)
-        self % funcVal = self % coeffs(1) * a0
+        func = self % coeffs(1) * a0
 
       case (SIN_FUN)
-        self % funcVal = self % coeffs(1) * sin(self % coeffs(2) * a0)
+        func = self % coeffs(1) * sin(self % coeffs(2) * a0 + self % coeffs(3))
 
       case (FLAT_FUN)
-        self % funcVal = self % coeffs(1)
+        func = self % coeffs(1)
+
+      case(POLI_FUN)
+        func = self % coeffs(1) * a0**3 + self % coeffs(2) * a0**2 + &
+               self % coeffs(3) * a0 + self % coeffs(4)
+
+      case(POINT_FUN)
+        idx = floor(self % N * a0 / self % length)
+        da  = self % length / self % N
+        f   = a0 / da - idx
+        func = self % coeffs(idx + 1) * f + self % coeffs(idx) * (ONE - f)
 
     end select
 
-  end subroutine evaluateFunction
-
-  !!
-  !!
-  !!
-  function inDomain(self, p) result(isIt)
-    class(funcDisplacementField), intent(in) :: self
-    class(particle), intent(in)              :: p
-    type(particleState)                      :: state
-    logical(defBool)                         :: isIt
-
-    isIt = .true.
-    state = p
-    if (allocated(self % map)) then
-      if (self % map % map(state) == 0) isIt = .false.
-    end if
-
-  end function
+  end function evaluateFunction
 
   !!
   !! Cast field pointer to funcDisplacementField pointer
@@ -300,8 +396,8 @@ contains
   !!   Pointer to source if source is funcDisplacementField type
   !!
   pure function funcDisplacementField_TptrCast(source) result(ptr)
-    class(field), pointer, intent(in) :: source
-    type(funcDisplacementField), pointer  :: ptr
+    class(field), pointer, intent(in)    :: source
+    type(funcDisplacementField), pointer :: ptr
 
     select type (source)
       type is (funcDisplacementField)

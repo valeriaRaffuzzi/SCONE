@@ -16,8 +16,8 @@ module transportOperatorDTField_class
 
   ! Geometry interfaces
   use geometry_inter,              only : geometry
-  use trapDisplacementField_class, only : trapDisplacementField
-  use funcDisplacementField_class, only : funcDisplacementField
+  use displacementField_inter,     only : displacementField, displacementField_CptrCast
+  use geometryReg_mod,             only : gr_fieldIdx => fieldIdx, gr_fieldPtr => fieldPtr
 
   ! Tally interface
   use tallyCodes
@@ -34,8 +34,7 @@ module transportOperatorDTField_class
   !! Transport operator that moves a particle with delta tracking
   !!
   type, public, extends(transportOperator) :: transportOperatorDTField
-    type(funcDisplacementField) :: forward
-    type(trapDisplacementField) :: backward
+    class(displacementField), pointer :: displacement
   contains
 
     procedure :: transit => deltaTracking
@@ -43,24 +42,10 @@ module transportOperatorDTField_class
     ! Override procedure
     procedure :: init
     procedure :: step
-    procedure :: setDelta
 
   end type transportOperatorDTField
 
 contains
-
-  !!
-  !!
-  !!
-  subroutine setDelta(self, delta)
-    class(transportOperatorDTField), intent(inout) :: self
-    real(defReal), intent(in)                      :: delta
-
-    self % backward % r_shift = self % forward % r_shift + delta
-    self % backward % r_flat  = self % forward % r_flat + delta
-    self % backward % delta   = -delta
-
-  end subroutine setDelta
 
   !!
   !! Move the particle in the geometry
@@ -73,8 +58,8 @@ contains
 
     ! Calculating displacement before using takeAboveGeom, in order to use maps
     ! (e.g., materialMaps) in the field
-    call self % forward % evaluateFunction(p)
-    displacement = self % forward % atP(p)
+    !delta = self % displacement % getDelta(p % coords)
+    displacement = self % displacement % at(p % coords)
 
     ! Pop particle out of the geometry
     call p % coords % takeAboveGeom()
@@ -85,8 +70,7 @@ contains
     call self % geom % teleport(p % coords, distance)
 
     ! Move back to the map
-    call self % setDelta(self % forward % funcVal)
-    call p % coords % assignPosition(p % rGlobal() + self % backward % atP(p))
+    call p % coords % assignPosition(p % rGlobal() + self % displacement % backwards(p % coords))
     call self % geom % placeCoord(p % coords)
 
   end subroutine step
@@ -160,16 +144,15 @@ contains
   subroutine init(self, dict)
     class(transportOperatorDTField), intent(inout) :: self
     class(dictionary), intent(in)                  :: dict
+    integer(shortInt)                              :: idx
     character(100), parameter :: Here = 'init (transportOperatorDTField_class.f90)'
 
     ! Initialise superclass
     call init_super(self, dict)
 
-    ! Build forward field
-    call self % forward % init(dict)
-
-    ! Build backwards field
-    call self % backward % init(dict)
+    ! Read geometry deformation
+    idx = gr_fieldIdx(nameGeomDef)
+    self % displacement => displacementField_CptrCast(gr_fieldPtr(idx))
 
   end subroutine init
 
