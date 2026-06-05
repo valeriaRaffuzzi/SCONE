@@ -17,7 +17,7 @@ module transportOperatorDTField_class
   ! Geometry interfaces
   use geometry_inter,              only : geometry
   use displacementField_inter,     only : displacementField, displacementField_CptrCast
-  use geometryReg_mod,             only : gr_fieldIdx => fieldIdx, gr_fieldPtr => fieldPtr
+  use geometryReg_mod,             only : gr_fieldPtrName => fieldPtrName
 
   ! Tally interface
   use tallyCodes
@@ -34,7 +34,6 @@ module transportOperatorDTField_class
   !! Transport operator that moves a particle with delta tracking
   !!
   type, public, extends(transportOperator) :: transportOperatorDTField
-    class(displacementField), pointer :: displacement
   contains
 
     procedure :: transit => deltaTracking
@@ -55,11 +54,14 @@ contains
     class(particle), intent(inout)                 :: p
     real(defReal), intent(in)                      :: distance
     real(defReal), dimension(3)                    :: displacement
+    class(displacementField), pointer              :: displacementField
+
+    displacementField => displacementField_CptrCast(gr_fieldPtrName(nameGeomDef))
 
     ! Calculating displacement before using takeAboveGeom, in order to use maps
     ! (e.g., materialMaps) in the field
     !delta = self % displacement % getDelta(p % coords)
-    displacement = self % displacement % at(p % coords)
+    displacement = displacementField % at(p % coords)
 
     ! Pop particle out of the geometry
     call p % coords % takeAboveGeom()
@@ -70,7 +72,7 @@ contains
     call self % geom % teleport(p % coords, distance)
 
     ! Move back to the map
-    call p % coords % assignPosition(p % rGlobal() + self % displacement % backwards(p % coords))
+    call p % coords % assignPosition(p % rGlobal() + displacementField % backwards(p % coords))
     call self % geom % placeCoord(p % coords)
 
   end subroutine step
@@ -144,15 +146,10 @@ contains
   subroutine init(self, dict)
     class(transportOperatorDTField), intent(inout) :: self
     class(dictionary), intent(in)                  :: dict
-    integer(shortInt)                              :: idx
     character(100), parameter :: Here = 'init (transportOperatorDTField_class.f90)'
 
     ! Initialise superclass
     call init_super(self, dict)
-
-    ! Read geometry deformation
-    idx = gr_fieldIdx(nameGeomDef)
-    self % displacement => displacementField_CptrCast(gr_fieldPtr(idx))
 
   end subroutine init
 

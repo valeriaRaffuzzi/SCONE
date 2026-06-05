@@ -50,7 +50,7 @@ module visualiser_class
   type, public :: visualiser
     character(nameLen), private       :: name
     class(geometry), pointer, private :: geom => null()
-    type(dictionary), private         :: vizDict
+    type(dictionary), dimension(:), allocatable, private :: vizDict
   contains
     procedure :: init
     procedure :: makeViz
@@ -77,10 +77,12 @@ contains
   !!   Initialised visualiser
   !!
   subroutine init(self, geom, vizDict)
-    class(visualiser), intent(inout)        :: self
-    class(geometry), pointer, intent(inout) :: geom
-    class(dictionary), intent(in)           :: vizDict
-    character(:), allocatable               :: string
+    class(visualiser), intent(inout)             :: self
+    class(geometry), pointer, intent(inout)      :: geom
+    class(dictionary), intent(in)                :: vizDict
+    character(:), allocatable                    :: string
+    character(nameLen),dimension(:), allocatable :: keysArr
+    integer(shortInt)                            :: i
 
     ! Obtain file name
     call getInputFile(string)
@@ -90,7 +92,11 @@ contains
     self % geom => geom
 
     ! Store visualisation dictionary
-    self % vizDict = vizDict
+    call vizDict % keys(keysArr,'dict')
+    allocate(self % vizDict(size(keysArr)))
+    do i = 1, size(keysArr)
+      call vizDict % get(self % vizDict(i), keysArr(i))
+    end do
 
   end subroutine init
 
@@ -107,29 +113,24 @@ contains
   !!   Returns an error if an unrecognised visualisation is requested
   !!
   subroutine makeViz(self)
-    class(visualiser), intent(inout)             :: self
-    class(dictionary), pointer                   :: tempDict
-    character(nameLen),dimension(:), allocatable :: keysArr
-    integer(shortInt)                            :: i
-    character(nameLen)                           :: type
+    class(visualiser), intent(inout) :: self
+    integer(shortInt)                :: i
+    character(nameLen)               :: type
     character(nameLen) :: here ='makeViz (visualiser_class.f90)'
 
     ! Loop through each sub-dictionary and generate visualisation
     ! (if the visualisation method is available)
-    call self % vizDict % keys(keysArr,'dict')
-
-    do i=1,size(keysArr)
-      tempDict => self % vizDict % getDictPtr(keysArr(i))
-      call tempDict % get(type,'type')
+    do i = 1, size(self % vizDict)
+      call self % vizDict(i) % get(type,'type')
       select case(type)
         case('vtk')
-          call self % makeVTK(tempDict)
+          call self % makeVTK(self % vizDict(i))
 
         case('bmp')
-          call self % makeBmpImg(tempDict)
+          call self % makeBmpImg(self % vizDict(i))
 
         case('ray')
-          call self % makeRayPlot(tempDict)
+          call self % makeRayPlot(self % vizDict(i))
 
         case default
           call fatalError(here, 'Unrecognised visualisation - presently only accept vtk, bmp, and ray')
@@ -541,10 +542,13 @@ contains
   !!
   subroutine kill(self)
     class(visualiser), intent(inout) :: self
+    integer(shortInt)                :: i
 
     self % name =''
     self % geom => null()
-    call self % vizDict % kill()
+    do i = 1, size(self % vizDict)
+      call self % vizDict(i) % kill()
+    end do
 
   end subroutine kill
 

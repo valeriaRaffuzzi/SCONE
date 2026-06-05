@@ -18,6 +18,7 @@ module fieldFactory_func
   use trapDisplacementField_class, only : trapDisplacementField
   use funcDisplacementField_class, only : funcDisplacementField
   use latDisplacementField_class,  only : latDisplacementField
+  use pinDisplacementField_class,  only : pinDisplacementField
 
   ! Geometry
   use geometryReg_mod,          only : gr_addField => addField
@@ -35,7 +36,8 @@ module fieldFactory_func
                                                                      'hatDisplacementField ',&
                                                                      'trapDisplacementField',&
                                                                      'funcDisplacementField',&
-                                                                     'latDisplacementField ']
+                                                                     'latDisplacementField ',&
+                                                                     'pinDisplacementField ']
 
    ! Public interface
    public :: new_field
@@ -91,6 +93,9 @@ contains
 
       case ('latDisplacementField')
         allocate(latDisplacementField :: kentta)
+
+      case ('pinDisplacementField')
+        allocate(pinDisplacementField :: kentta)
 
       case default
         print '(A)', "AVAILABLE FIELDS:"

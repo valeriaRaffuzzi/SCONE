@@ -95,7 +95,7 @@ module eigenPhysicsPackage_class
     type(tallyAdmin),pointer               :: inactiveAtch  => null()
     type(tallyAdmin),pointer               :: activeAtch    => null()
     class(uniFissSitesField),pointer       :: ufsField      => null()
-
+    type(visualiser)                       :: viz
 
     ! Settings
     integer(shortInt)  :: N_inactive
@@ -110,7 +110,8 @@ module eigenPhysicsPackage_class
     integer(shortInt)  :: bufferSize
     logical(defBool)   :: UFS = .false.
     logical(defBool)   :: reproducible = .true.
-    
+    logical(defBool)   :: visualisation = .false.
+
     ! Coupling handler
     type(couplingAdmin) :: couplingInfo
 
@@ -150,10 +151,10 @@ contains
     call self % generateInitialState()
 
     call self % cycles(self % inactiveTally, self % inactiveAtch, self % N_inactive)
-    
+
     ! Deactivate coupling for active cycles?
     call self % couplingInfo % moveToActive(self % activeTally)
-    
+
     call self % cycles(self % activeTally, self % activeAtch, self % N_active)
 
     call self % couplingInfo % endCoupling()
@@ -346,9 +347,10 @@ contains
       call statusMsg("End time:     " // trim(secToChar(end_T)))
       call statusMsg("Time to end:  " // trim(secToChar(T_toEnd)))
       call tally % display()
-    
+
       ! Perform coupling operations
       call self % couplingInfo % couple(i)
+      if (self % couplingInfo % doUpdate(i) .and. self % visualisation) call self % viz % makeViz()
 
     end do
 
@@ -441,7 +443,6 @@ contains
     character(:),allocatable                  :: string
     character(nameLen)                        :: nucData, energy, name
     type(outputFile)                          :: test_out
-    type(visualiser)                          :: viz
     class(field), pointer                     :: field
     class(pieceConstantField), pointer        :: pcField
     real(defReal)                             :: maxDensityScale, maxTemperature, maxCouplingTemp
@@ -554,11 +555,11 @@ contains
     ! Call visualisation
     if (dict % isPresent('viz') .and. isMPIMaster()) then
       call statusMsg("Initialising visualiser")
+      self % visualisation = .true.
       tempDict => dict % getDictPtr('viz')
-      call viz % init(self % geom, tempDict)
+      call self % viz % init(self % geom, tempDict)
       call statusMsg("Constructing visualisation")
-      call viz % makeViz()
-      call viz % kill()
+      call self % viz % makeViz()
     endif
 
     ! If present, build temperature field
@@ -673,7 +674,7 @@ contains
     ! Attach attachments to result tallies
     call self % inactiveTally % push(self % inactiveAtch)
     call self % activeTally % push(self % activeAtch)
-    
+
     ! Attach a tally admin for coupling
     if (self % couplingInfo % doCoupling()) then
       call self % couplingInfo % attachTally(self % inactiveTally)

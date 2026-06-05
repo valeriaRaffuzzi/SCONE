@@ -16,6 +16,9 @@ module transportOperatorDT_class
 
   ! Geometry interfaces
   use geometry_inter,           only : geometry
+  use displacementField_inter,  only : displacementField, displacementField_CptrCast
+  use geometryReg_mod,          only : gr_hasField => hasField, &
+                                       gr_fieldPtrName => fieldPtrName
 
   ! Tally interface
   use tallyCodes
@@ -33,13 +36,55 @@ module transportOperatorDT_class
   !!
   type, public, extends(transportOperator) :: transportOperatorDT
   contains
+
+    procedure :: step
     procedure :: transit => deltaTracking
+
     ! Override procedure
     procedure :: init
 
   end type transportOperatorDT
 
 contains
+
+  !!
+  !! Move the particle in the geometry
+  !!
+  subroutine step(self, p, distance)
+    class(transportOperatorDT), intent(inout) :: self
+    class(particle), intent(inout)            :: p
+    real(defReal), intent(in)                 :: distance
+    logical(defBool)                          :: displace
+    real(defReal), dimension(3)               :: displacement
+    class(displacementField), pointer         :: displacementField
+
+    displace = gr_hasField(nameGeomDef)
+
+    if (displace) then
+
+      ! Get field
+      displacementField => displacementField_CptrCast(gr_fieldPtrName(nameGeomDef))
+
+      ! Calculating displacement before using takeAboveGeom, in order to use maps
+      displacement = displacementField % at(p % coords)
+
+      ! Pop particle out of the geometry
+      call p % coords % takeAboveGeom()
+
+      ! Move the particle to the real frame
+      call p % coords % assignPosition(p % rGlobal() + displacement)
+
+    end if
+
+    call self % geom % teleport(p % coords, distance)
+
+    if (displace) then
+      ! Move back to the map
+      call p % coords % assignPosition(p % rGlobal() + displacementField % backwards(p % coords))
+      call self % geom % placeCoord(p % coords)
+    end if
+
+  end subroutine step
 
   !!
   !! Performs delta tracking until a real collision point is found
@@ -61,7 +106,7 @@ contains
 
     DTLoop:do
       distance = -log( p% pRNG % get() ) * majorant_inv
-        
+
       speed = p % getSpeed()
       time = distance / speed + p % time
 
@@ -72,9 +117,9 @@ contains
       end if
 
       ! Move particle in the geometry and time
-      call self % geom % teleport(p % coords, distance)
+      call self % step(p, distance)
       p % time = p % time + distance / speed
-      
+
       select case(p % matIdx())
 
         ! If particle has leaked exit
@@ -102,10 +147,10 @@ contains
           call fatalError(Here, "Particle is in overlapping cells")
 
         case default
-          ! All is well        
+          ! All is well
 
       end select
-      
+
       ! If particle has aged, exit
       if (p % fate == AGED_FATE) then
         exit DTLoop
@@ -113,7 +158,7 @@ contains
 
       ! Get local conditions of temperature and density
       call self % localConditions(p)
-      
+
       ! Obtain the local cross-section
       sigmaT = self % xsData % getTrackMatXS(p, p % matIdx())
 

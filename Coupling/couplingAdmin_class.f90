@@ -1,7 +1,7 @@
 module couplingAdmin_class
 
   use numPrecision
-  use universalVariables, only : nameDensity, nameTemperature, NO_TEMPERATURE
+  use universalVariables, only : nameDensity, nameTemperature, nameGeomDef, NO_TEMPERATURE
   use dictionary_class,   only : dictionary
   use dictParser_func,    only : fileToDict
   use outputFile_class,   only : outputFile
@@ -9,7 +9,7 @@ module couplingAdmin_class
   use display_func,       only : statusMsg
   use genericProcedures,  only : numToChar
   use timer_mod,          only : c_sleep
-  
+
   use field_inter,              only : field
   use fieldFactory_func,        only : new_field
   use pieceConstantField_inter, only : pieceConstantField, pieceConstantField_CptrCast
@@ -20,8 +20,10 @@ module couplingAdmin_class
   implicit none
   private
 
-  character(nameLen), parameter, dimension(2) :: ALLOWABLE_FIELDS = ['temperature',&
-                                                                     'density    ']
+  character(nameLen), parameter, dimension(3) :: ALLOWABLE_FIELDS = ['temperature', &
+                                                                     'density    ', &
+                                                                     'geometry   ']
+
   character(nameLen), parameter :: END_SIGNAL = "SIGTERM", &
                                    CONTINUE_SIGNAL = "SIGUSR1"
 
@@ -39,7 +41,7 @@ module couplingAdmin_class
   !! - know the location of fields provided by other physics and update them in SCONE
   !! - possibly provide checks on validity of information fed back to SCONE
   !! - decide whether to continue coupling during active cycles
-  !! 
+  !!
   !! Private members:
   !! isCoupled       -> flag for whether coupling is being performed
   !! endWhenActive   -> flag to end coupling when moving to active cycles
@@ -97,9 +99,9 @@ module couplingAdmin_class
 
     ! Status checks
     procedure :: doCoupling
+    procedure :: doUpdate
     procedure, private :: checkMaxTemperature
-    procedure, private :: doUpdate
-    
+
     ! Results handling and manipulation
     procedure :: attachTally
     procedure, private :: outputTallies
@@ -156,7 +158,7 @@ contains
 
     ! Read the output file name
     call dict % get(self % outputFile, 'outputFile')
-    
+
     ! Initialise output file before calculation (so mistake in format will be caught early)
     call dict % getOrDefault(self % outputFormat, 'outputFormat', 'asciiMATLAB')
     call test_out % init(self % outputFormat)
@@ -191,9 +193,9 @@ contains
           call fatalError(Here,'Field names must be unique: '//trim(self % fieldNames(i)))
         end if
       end do
-      
+
     end do
-  
+
   end subroutine init
 
   !!
@@ -228,12 +230,11 @@ contains
     class(couplingAdmin), intent(inout) :: self
     integer(shortInt), intent(in)       :: it
 
-    if (.not. self % doCoupling()) return
     if (.not. self % doUpdate(it)) return
 
     call self % outputTallies()
     call self % tally % resetMemory()
-    
+
     if (it < self % maxIt) then
       call self % signalIterationOver()
       call self % waitForSignal()
@@ -272,7 +273,7 @@ contains
     logical(defBool)                 :: isCoupled
 
     isCoupled = self % isCoupled
-    
+
   end function doCoupling
 
   !!
@@ -314,7 +315,7 @@ contains
     integer(shortInt), intent(in)    :: it
     logical(defBool)                 :: update
 
-    update = mod(it, self % updateFreq) == 0
+    update = (mod(it, self % updateFreq) == 0) .and. self % doCoupling()
 
   end function doUpdate
 
@@ -342,6 +343,9 @@ contains
 
         case('density')
           fieldName = nameDensity
+
+        case('geometry')
+          fieldName = nameGeomDef
 
         case default
           call fatalError(Here, 'Unrecognised field type requested')
@@ -427,7 +431,7 @@ contains
         close(unit, status="delete")
         return
       end if
-      
+
       call c_sleep(1)
 
     end do
@@ -440,7 +444,7 @@ contains
   subroutine attachTally(self, tallyPtr)
     class(couplingAdmin), intent(in)          :: self
     type(tallyAdmin), pointer, intent(inout)  :: tallyPtr
-    
+
     if (self % doCoupling()) then
       call tallyPtr % push(self % tally)
     end if
