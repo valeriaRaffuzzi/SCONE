@@ -22,6 +22,7 @@ such as graduate students to quickly test their ideas.
    Output
    Tutorials/index
    cream/index
+   Governance
 
 
 .. Indices and tables
