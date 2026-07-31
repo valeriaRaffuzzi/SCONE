@@ -1,0 +1,101 @@
+type eigenPhysicsPackage;
+
+pop      100000;
+active   1000;
+inactive 50;
+XSdata ce;
+dataType ce;
+
+outputFile pin_vd;
+
+collisionOperator { neutronCE {type neutronCEstd;} }
+
+transportOperator { type transportOperatorDTField; }
+
+inactiveTally {}
+
+activeTally { flux { type collisionClerk; 
+		     response (fiss); fiss {type macroResponse; MT 18;}
+		     map { type multiMap; maps (xx yy zz); 
+			   xx {type spaceMap; axis x; grid lin; min -25.0; max 25.0; N 100;} 
+		   	   yy {type spaceMap; axis y; grid lin; min -5.0; max 5.0; N 1;} 
+			   zz {type spaceMap; axis z; grid lin; min -50.0; max 50.0; N 200;}
+			 }
+	            } 
+		spectrum { type collisionClerk; 
+		     response (flux); flux {type fluxResponse;}
+		     map { type energyMap; grid log; min 1.0e-11; max 20.0; N 300;}     
+	            } 
+}
+
+geometry {
+  type geometryStd;
+  boundary ( 0 0 0 0 0 0);
+  graph {type shrunk;}
+
+  surfaces {
+    domain { id 1; type box; origin (0.0 0.0 0.0); halfwidth (25.0 25.0 50.0);}
+    fuel   { id 2; type zTruncCylinder; halfwidth 100.0; origin (0 0.0 0.0); radius 18.0;  }
+    cladIn { id 3; type zTruncCylinder;  halfwidth 100.0; origin (0.0 0.0 0.0); radius 18.5;  }
+    cladOut { id 4; type zTruncCylinder; halfwidth 100.0; origin (0.0 0.0 0.0); radius 19.0;  }
+
+  }
+
+  cells {
+     fuel { id 1; type simpleCell; surfaces (-2); filltype mat; material fuel; }
+     void { id 2; type simpleCell; surfaces (2 -3); filltype mat; material void; }
+     clad { id 3; type simpleCell; surfaces (3 -4); filltype mat; material clad; }
+     water {id 4; type simpleCell; surfaces (4); filltype mat; material water; } 
+  }
+
+  universes {
+    root { id 1; type rootUniverse; border 1; fill u<2>; }
+    pin  { id 2; type cellUniverse; cells (1 2 3 4);} 
+  }
+}
+
+geometryDeformation {
+  type funcDisplacementField; origin (-25 0 -50.0); length 100; axis z; function lin; coefficients (0.04); direction (1 0); 
+			      r_outer 50.0; r_flat 6.0; r_shift 44.0;
+}
+
+viz {
+  img1 { type bmp; output imgY; what material; centre (0.0 0.0 0.0); axis y; offset 0; res (400 800); }
+  img2 { type bmp; output imgZ; what material; centre (0.0 0.0 0.0); axis z; offset 0; res (500 500); }
+}
+
+
+nuclearData {
+  handles {
+    ce {type aceNeutronDatabase; aceLibrary $SCONE_ACE;}
+  }
+  materials {
+
+    water {
+      temp 75675;
+      rgb (0 0 139); // Colour of water is dark blue
+      moder { 1001.03 (h-h2o.42); }
+      composition {
+      1001.03    6.700E-002;
+      8016.03    3.350E-002;
+      5010.03    5.560E-006;
+      5011.03    2.224E-005; }
+      }
+
+     clad {
+       composition { 
+         40090.03  0.02; 
+       }
+	}
+
+     fuel {
+       temp 900; 
+       composition { 
+        92234.09  9.1361E-06;
+	92235.09  9.3472E-04;
+	92238.09  2.1523E-02;
+	8016.09  4.4935E-02;} 
+       }
+
+}
+}

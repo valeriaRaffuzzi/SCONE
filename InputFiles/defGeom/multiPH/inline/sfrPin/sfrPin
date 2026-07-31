@@ -1,0 +1,160 @@
+type eigenPhysicsPackage;
+
+pop      1000000;
+active   200;
+inactive 200;
+XSdata ce;
+dataType ce;
+outputFile result;
+seed 1;
+
+collisionOperator {
+ neutronCE {type neutronCEstd;}            
+}
+
+transportOperator { 
+type transportOperatorDT;
+}
+
+inactiveTally {shannon {type shannonEntropyClerk; cycles 200;
+                        map {type spaceMap; axis z; 
+                             grid lin; min -34; max 0.0; N 34;}
+                       }
+              }
+
+activeTally {
+  norm totalPow;
+  normVal 2.50E+17;
+  totalPow  { type collisionClerk; response (fission); fission { type macroResponse; MT -80;}}
+  axialPow {type collisionClerk;
+         map {type spaceMap; axis z; grid lin; min -34; max 0.0; N 34;}
+         response (fission);
+         fission { type macroResponse; MT -80;}
+         handleVirtual 1;
+         }
+}
+
+coupling {
+  tally {
+    norm totalPow;
+    normVal 2.50E+17;
+    totalPow  { type collisionClerk; response (fission); fission { type macroResponse; MT -80;}}
+    axialPow {type collisionClerk;
+              map {type spaceMap; axis z; grid lin; min -34; max 0.0; N 34;}
+              response (fission); fission { type macroResponse; MT -80;}
+              handleVirtual 1;
+             }
+  }
+
+maxTemp 1800.0;
+receiveFile toSCONE.dat;
+sendFile    toDriver.dat;
+updateFreq  10;
+outputFile sconeOut;
+outputFormat asciiMATLAB;
+fieldPaths (tempFile densFile geomFile);
+fieldNames (temperature density geometry);
+
+}
+
+geometry {
+  type geometryStd;
+  boundary (2 2 0 2 2 0);
+  graph {type shrunk;}
+
+  surfaces {
+    hexagon { id 1; type zTruncHexagon; origin (0.0 0.0 0.0); orientation 2; halfwidth 0.3795; halfheight 34; }
+	cladIn  { id 2; type zCylinder; origin (0.0 0.0 0.0); radius 0.2539; }
+	cladOut { id 3; type zCylinder; origin (0.0 0.0 0.0); radius 0.292; }
+    top {id 4; type zPlane; z0 0.0;}
+  }
+
+  cells {
+   pin  {id 1; type simpleCell; surfaces (-4); filltype uni; universe 31;}
+   plenum  {id 2; type simpleCell; surfaces (4 -2); filltype mat; material plenum;}
+   cladTop {id 3; type simpleCell; surfaces (4 2 -3); filltype mat; material clad;}
+   coolTop {id 4; type simpleCell; surfaces (4 3); filltype mat; material cool;}
+  }
+
+  universes {
+    root { id 1; type rootUniverse; border 1; fill u<2>; }
+
+    pinAndReflect {id 2; type cellUniverse; cells (1 2 3 4);}
+
+    // Pin universes
+    pin31 { id 31; type pinUniverse; radii (0.216 0.2539 0.292 0.0 );
+                                     fills (fuel  gap    clad  cool);}
+  }
+
+}
+
+viz {
+	imgY { type bmp; output imgY; what material; centre (0.0 0.0 0.0); axis y; offset 0; res (500 1500); }
+	imgZ { type bmp; output imgZ; what material; centre (-10.0 0.0 0.0); axis z; offset 0; res (500 500); }
+}
+
+nuclearData {
+  handles {
+    ce {type aceNeutronDatabase; aceLibrary /home/vr339/myACE/endfb8.aceXS;}
+  }
+  materials {
+
+    cool {
+      temp 643;
+      tms 1;
+      rgb (0 0 139); // Colour of water is dark blue
+      composition {
+		11023.01  2.260E-02; 
+      }
+   }
+
+   clad {
+     temp 600;
+     composition {
+		26054.01  3.80E-03;
+		26056.01  5.97E-02;
+		26057.01  1.38E-03;
+		26058.01  1.80E-04;
+		24050.01  4.70E-04;
+		24052.01  9.10E-03;
+		24053.01  1.03E-03;
+		24054.01  2.60E-04;
+		42092.01  5.70E-05;
+		42094.01  3.50E-05;
+		42095.01  6.00E-05;
+		42096.01  6.20E-05;
+		42097.01  3.60E-05;
+		42098.01  9.00E-05;
+		42100.01  3.60E-05; }
+   }
+
+   fuel {
+      temp 700;
+      tms 1;
+      composition {
+		92235.01  1.07E-04;
+		92238.01  2.64E-02;
+		94239.01  2.90E-03;
+		94240.01  3.30E-04;
+		94241.01  6.60E-05;
+		40090.01  1.83E-03;
+		40091.01  4.00E-04;
+		40092.01  6.10E-04;
+		40094.01  6.20E-04;
+		40096.01  1.00E-04;}
+   }
+   
+	gap {
+	  temp 600;
+	  composition  {
+		11023.01  2.25E-02; }
+	}
+	
+	plenum {
+	  temp 900;
+	  composition  {
+		2004.02  8.15E-06; }
+	}
+
+}
+}

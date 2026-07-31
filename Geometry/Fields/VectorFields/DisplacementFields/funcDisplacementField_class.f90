@@ -65,12 +65,11 @@ module funcDisplacementField_class
   contains
 
     ! Superclass interface
-    procedure :: init
+    procedure :: init_dict
     procedure :: kill
     procedure :: at
     procedure :: atP
     procedure :: backwards
-    procedure :: getDelta
 
     ! Local procedure
     procedure :: evaluateFunction
@@ -84,13 +83,13 @@ contains
   !!
   !! See field_inter for details
   !!
-  subroutine init(self, dict)
+  subroutine init_dict(self, dict)
     class(funcDisplacementField), intent(inout)    :: self
     class(dictionary), intent(in)              :: dict
     real(defReal), dimension(:), allocatable   :: temp
     real(defReal)                              :: length
     character(nameLen)                         :: axis, type
-    character(100), parameter :: Here = 'init (funcDisplacementField_class.f90)'
+    character(100), parameter :: Here = 'init_dict (funcDisplacementField_class.f90)'
 
     ! Read origin of the basis
     call dict % get(temp, 'origin')
@@ -102,7 +101,7 @@ contains
 
     ! Read length
     call dict % get(length, 'length')
-    if (length <= ZERO) call fatalError(Here, 'Length must be +ve. Is: '//numToChar(length))
+    if (length < ZERO) call fatalError(Here, 'Length must be +ve. Is: '//numToChar(length))
     self % length = length
 
     ! Get direction
@@ -179,7 +178,7 @@ contains
     call dict % get(self % r_shift, 'r_shift')
     call dict % get(self % r_flat, 'r_flat')
 
-  end subroutine init
+  end subroutine init_dict
 
   !!
   !! Return to uninitialised state
@@ -321,18 +320,6 @@ contains
   end if
 
   end function backwards
-
-  !!
-  !! Get value of delta
-  !!
-  function getDelta(self, coords) result(val)
-    class(funcDisplacementField), intent(in) :: self
-    class(coordList), intent(in)             :: coords
-    real(defReal)                            :: val
-
-    val = self % evaluateFunction(coords)
-
-  end function getDelta
 
   !!
   !! Evaluate input function given a particle

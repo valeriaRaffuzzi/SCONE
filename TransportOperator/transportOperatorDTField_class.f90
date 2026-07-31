@@ -60,8 +60,7 @@ contains
 
     ! Calculating displacement before using takeAboveGeom, in order to use maps
     ! (e.g., materialMaps) in the field
-    !delta = self % displacement % getDelta(p % coords)
-    displacement = displacementField % at(p % coords)
+    displacement = displacementField % atP(p)
 
     ! Pop particle out of the geometry
     call p % coords % takeAboveGeom()
@@ -72,7 +71,12 @@ contains
     call self % geom % teleport(p % coords, distance)
 
     ! Move back to the map
-    call p % coords % assignPosition(p % rGlobal() + displacementField % backwards(p % coords))
+    if (displacementField % inDomainP(p)) then
+      displacement = displacementField % backwards(p % coords)
+    else
+      displacement = ZERO
+    end if
+    call p % coords % assignPosition(p % rGlobal() + displacement)
     call self % geom % placeCoord(p % coords)
 
   end subroutine step

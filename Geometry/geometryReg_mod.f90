@@ -43,7 +43,7 @@ module geometryReg_mod
 
   implicit none
   private
-    
+
   integer(shortInt), parameter   :: NO_GEOM = -7, NO_FIELD = -8
 
   !!
@@ -86,7 +86,7 @@ module geometryReg_mod
   type(fieldBox), dimension(:), allocatable, target :: fields
   integer(shortInt)                                 :: fieldTop = 0
   type(charMap)                                     :: fieldNameMap
-    
+
   ! Save indices for speed. Avoids repeated calls to the character map
   integer(shortInt) :: temperatureIdx = NO_FIELD
   integer(shortInt) :: densityIdx = NO_FIELD
@@ -240,12 +240,12 @@ contains
     elseif (name == nameDensity) then
       densityIdx = idx
     end if
-    
+
     ! Point field
     call move_alloc(kentta, fields(idx) % kentta)
 
   end subroutine addField
-  
+
   !!
   !! Returns whether a field is present
   !!
@@ -265,7 +265,7 @@ contains
         idx = temperatureIdx
       case(nameDensity)
         idx = densityIdx
-      case default 
+      case default
         idx = fieldNameMap % getOrDefault(name, NO_FIELD)
     end select
 
@@ -296,7 +296,7 @@ contains
     end if
 
   end function fieldIdx
-  
+
   !!
   !! Get pointer to a field given its name
   !! Optimised for frequently accessed fields to avoid
@@ -324,14 +324,14 @@ contains
       case(nameDensity)
         idx = densityIdx
       case default
-        idx = NO_FIELD
+        idx = fieldNameMap % getOrDefault(name, NO_FIELD)
     end select
-    
+
     if (idx < 1 .or. idx > fieldTop) then
       call fatalError(Here,'Index: '//numToChar(idx)//' does not correspond to valid field. &
                            &Must be 1-'//numToChar(fieldTop))
     end if
-    
+
     ptr => fields(idx) % kentta
 
   end function fieldPtrName
@@ -390,7 +390,7 @@ contains
       deallocate(fields)
     end if
     fieldTop = 0
-    
+
     temperatureIdx = NO_FIELD
     densityIdx = NO_FIELD
 

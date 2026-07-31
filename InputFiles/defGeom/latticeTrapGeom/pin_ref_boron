@@ -1,0 +1,105 @@
+type eigenPhysicsPackage;
+
+pop      50000;
+active   500;
+inactive 50;
+XSdata ce;
+dataType ce;
+
+outputFile pin_k_boron_nominal;
+
+collisionOperator { neutronCE {type neutronCEstd;} }
+
+transportOperator { type transportOperatorHT; }
+
+inactiveTally {}
+
+activeTally { flux { type collisionClerk; 
+		     response (fiss); fiss {type macroResponse; MT 18;}
+		     map { type multiMap; maps (xx yy zz); 
+			   xx {type spaceMap; axis x; grid lin; min -25.0; max 25.0; N 100;} 
+		   	   yy {type spaceMap; axis y; grid lin; min -5.0; max 5.0; N 1;} 
+			   zz {type spaceMap; axis z; grid lin; min -50.0; max 50.0; N 200;}
+			 }
+		   }
+		spectrum { type collisionClerk; 
+		     response (flux); flux {type fluxResponse;}
+		     map { type energyMap; grid log; min 1.0e-11; max 20.0; N 300;}     
+	            } 
+}
+
+geometry {
+  type geometryStd;
+  boundary ( 0 0 0 0 0 0);
+  graph {type shrunk;}
+
+surfaces {
+    domain { id 1; type box; origin (0.0 0.0 0.0); halfwidth (25.0 25.0 50.0);}
+
+  }
+
+  cells {
+  }
+
+  universes {
+    root  { id 1; type rootUniverse; border 1; fill u<31>; }
+    pin11 { id 11; type pinUniverse; radii (4.0 4.1 4.3 0.0 ); fills (fuel void clad water);}
+    pin21 { id 21; type pinUniverse; origin (0.0 0.0 0.0); radii (4.0 4.1 4.3 0.0 ); fills (fuel void clad water);}
+
+    // Lattices
+    lat {
+      id 31;
+      type latUniverse;
+      origin (0.0 0.0 0.0);
+      pitch (12 12 0);
+      shape (4 4 0);
+      padMat water;
+      map (
+        11 11 11 21
+        11 11 11 11
+        11 11 11 11
+        11 11 11 11 ); }
+
+	}
+}
+
+viz {
+  img1 { type bmp; output imgRefY; what material; centre (0.0 0.0 0.0); axis y; offset 0; res (400 800); }
+  img2 { type bmp; output imgRefZ; what material; centre (0.0 0.0 0.0); axis z; offset 0; res (500 500); }
+}
+
+
+nuclearData {
+  handles {
+    ce {type aceNeutronDatabase; aceLibrary $SCONE_ACE;}
+  }
+  materials {
+
+    water {
+      temp 75675;
+      rgb (0 0 139); // Colour of water is dark blue
+      moder { 1001.03 (h-h2o.42); }
+      composition {
+      1001.03    6.700E-002;
+      8016.03    3.350E-002;
+      5010.03    5.560E-006;
+      5011.03    2.224E-005; }
+      }
+
+     clad {
+       composition { 
+         5010.03   0.02; 
+       }
+	}
+
+     fuel {
+       temp 900; 
+       composition { 
+        92234.09  9.1361E-06;
+	92235.09  9.3472E-04;
+	92238.09  2.1523E-02;
+	8016.09  4.4935E-02;} 
+       }
+
+}
+}

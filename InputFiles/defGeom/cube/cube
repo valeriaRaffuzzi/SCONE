@@ -1,0 +1,86 @@
+type eigenPhysicsPackage;
+
+pop      400000;
+active   200;
+inactive 200;
+XSdata   ce;
+dataType ce;
+outputFile cube;
+
+collisionOperator { neutronCE {type neutronCEstd;} }
+
+transportOperator { type transportOperatorDT; }
+
+inactiveTally {  }
+
+activeTally { 
+
+flux1real { type collisionClerk; 
+		     response (fiss); fiss {type fluxResponse;}
+		     map { type multiMap; maps (xx yy zz ene); 
+			   xx {type spaceMap; axis x; grid lin; min -20.0; max 20.0; N 200;} 
+		   	   yy {type spaceMap; axis y; grid lin; min -1.0; max 1.0; N 1;} 
+			   zz {type spaceMap; axis z; grid lin; min -20.0; max 20.0; N 200;}
+			   ene { type energyMap; grid unstruct; bins (1.0e-11 0.625 20.0) ;}
+			 }
+	            }
+
+		spectrum { type collisionClerk; 
+		     response (flux); flux {type fluxResponse;}
+		     map { type energyMap; grid log; min 1.0e-11; max 20.0; N 300;}     
+	            } 
+}
+
+
+geometry {
+  type geometryStd;
+  boundary ( 0 0 0 0 0 0);
+  graph {type shrunk;}
+
+  surfaces {
+    border { id 1; type box; origin (0.0 0.0 0.0); halfwidth (20.0 20.0 20.0);}
+    cube   { id 2; type box; origin (0.0 0.0 0.0); halfwidth (15.0 15.0 15.0);}
+  }
+
+  cells {
+   fuel {id 1; type simpleCell; surfaces (-2); filltype mat; material fuel;}
+   cool {id 2; type simpleCell; surfaces (2); filltype mat;  material cool;}
+  }
+
+  universes {
+    root { id 1; type rootUniverse; border 1; fill u<2>; }
+    cube {id 2; type cellUniverse; cells (1 2);  }
+}
+
+}
+
+viz {
+  img { type bmp; output cube; what material; centre (0.0 0.0 0.0); axis y; offset 0; res (500 500); }
+}
+
+
+nuclearData {
+  handles {
+    ce {type aceNeutronDatabase; aceLibrary /home/vr339/myACE/endfb8.aceXS;}
+  }
+  materials {
+
+    cool {
+      temp 515;
+      rgb (0 0 139); // Colour of water is dark blue
+      moder { 1001.00 (h-h2o.40); }
+      composition {
+      1001.00    5.431E-002;
+      8016.00    2.715E-002;
+      }
+   }
+
+   fuel {
+      temp 500;
+      composition {
+      92235.03  9.8640E-03;
+      92238.03  3.9218E-02; }
+   }
+
+}
+}

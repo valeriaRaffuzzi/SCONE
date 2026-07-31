@@ -1,0 +1,229 @@
+type eigenPhysicsPackage;
+
+pop      500000;
+active   500;
+inactive 100;
+XSdata   ce;
+dataType ce;
+
+outputFile lightbridge_vd;
+
+collisionOperator { neutronCE {type neutronCEstd;} }
+
+transportOperator { type transportOperatorDTField; }
+
+inactiveTally {}
+
+activeTally { 
+
+fiss1real { type collisionClerk; tallRealSpace 1;
+		     response (fiss); fiss {type macroResponse; MT 18;}
+		     map { type multiMap; maps (xx yy zz); 
+			   xx {type spaceMap; axis x; grid lin; min -10.71; max 10.71; N 500;} 
+		   	   yy {type spaceMap; axis y; grid lin; min -10.71; max 10.71; N 500;} 
+			   zz {type spaceMap; axis z; grid lin; min 4.5; max 5.5; N 1;}
+			 }
+	            } 
+
+fiss2real {type collisionClerk; tallRealSpace 1;
+		     response (fiss); fiss {type macroResponse; MT 18;}
+		     map { type multiMap; maps (xx yy zz); 
+			   xx {type spaceMap; axis x; grid lin; min -10.71; max 10.71; N 500;} 
+		   	   yy {type spaceMap; axis y; grid lin; min -10.71; max 10.71; N 500;} 
+			   zz {type spaceMap; axis z; grid lin; min 14.5; max 15.5; N 1;}
+			 }
+	            } 
+
+fiss1map { type collisionClerk; tallRealSpace 0;
+		     response (fiss); fiss {type macroResponse; MT 18;}
+		     map { type multiMap; maps (xx yy zz); 
+			   xx {type spaceMap; axis x; grid lin; min -10.71; max 10.71; N 500;} 
+		   	   yy {type spaceMap; axis y; grid lin; min -10.71; max 10.71; N 500;} 
+			   zz {type spaceMap; axis z; grid lin; min 4.5; max 5.5; N 1;}
+			 }
+	            } 
+
+fiss2map { type collisionClerk; tallRealSpace 0;
+		     response (fiss); fiss {type macroResponse; MT 18;}
+		     map { type multiMap; maps (xx yy zz); 
+			   xx {type spaceMap; axis x; grid lin; min -10.71; max 10.71; N 500;} 
+		   	   yy {type spaceMap; axis y; grid lin; min -10.71; max 10.71; N 500;} 
+			   zz {type spaceMap; axis z; grid lin; min 14.5; max 15.5; N 1;}
+			 }
+	            } 
+
+}
+
+geometry {
+  type geometryStd;
+  boundary ( 1 1 1 1 0 0);
+  graph {type shrunk;}
+
+  surfaces {
+
+	domain { id 1; type box; origin (0.0 0.0 0.0); halfwidth (10.71 10.71 100.0);}
+
+	square2 { id 3; type zSquareCylinder; origin (0.0 0.0 0.0); halfwidth (0.5 0.5 0.0); }
+	circle1 { id 4; type zCylinder; origin (-0.5 0.0 0.0); radius 0.13; }
+	circle2 { id 5; type zCylinder; origin (0.0 -0.5 0.0); radius 0.13; }
+	circle3 { id 6; type zCylinder; origin (0.5 0.0 0.0); radius 0.13; }
+	circle4 { id 7; type zCylinder; origin (0.0 0.5 0.0); radius 0.13; }
+	circle5 { id 8; type zCylinder; origin (-0.5 0.5 0.0); radius 0.37; }
+	circle6 { id 9; type zCylinder; origin (0.5 -0.5 0.0); radius 0.37; }
+	circle7 { id 10; type zCylinder; origin (0.5 0.5 0.0); radius 0.37; }
+	circle8 { id 11; type zCylinder; origin (-0.5 -0.5 0.0); radius 0.37; }
+
+	square2a { id 30; type zSquareCylinder; origin (0.0 0.0 0.0); halfwidth (0.45 0.45 0.0); }
+	circle1a { id 40; type zCylinder; origin (-0.45 0.0 0.0); radius 0.08; }
+	circle2a { id 50; type zCylinder; origin (0.0 -0.45 0.0); radius 0.08; }
+	circle3a { id 60; type zCylinder; origin (0.45 0.0 0.0); radius 0.08; }
+	circle4a { id 70; type zCylinder; origin (0.0 0.45 0.0); radius 0.08; }
+	circle5a { id 80; type zCylinder; origin (-0.45 0.45 0.0); radius 0.37; }
+	circle6a { id 90; type zCylinder; origin (0.45 -0.45 0.0); radius 0.37; }
+	circle7a { id 100; type zCylinder; origin (0.45 0.45 0.0); radius 0.37; }
+	circle8a { id 110; type zCylinder; origin (-0.45 -0.45 0.0); radius 0.37; }
+
+	disp1 { id 15; type plane; coeffs (1.0 1.0 0.0 -0.1); }
+	disp2 { id 16; type plane; coeffs (-1.0 1.0 0.0 -0.1); }
+	disp3 { id 17; type plane; coeffs (-1.0 1.0 0.0  0.1); }
+	disp4 { id 18; type plane; coeffs (1.0 1.0 0.0  0.1); }
+
+  }
+
+  cells {
+     	clad { id 1; type unionCell; surfaces [ < < -3 : -4 : -5 : -6 : -7 > # < -8 : -9 : -10 : -11 > > #  < < -30 : -40 : -50 : -60 : -70 > # < -80 : -90 : -100 : -110 > > ] ; filltype mat; material clad; }
+	fuel { id 2; type unionCell; surfaces [ < -30 : -40 : -50 : -60 : -70 > # < -80 : -90 : -100 : -110 > # < 15 16 -17 -18 > ] ; filltype mat; material fuel; }
+	disp { id 3; type simpleCell; surfaces (15 16 -17 -18) ; filltype mat; material disp; }
+  water { id 4; type unionCell; surfaces [ # < < -3 : -4 : -5 : -6 : -7 > # < -8 : -9 : -10 : -11 > >  ] ; filltype mat; material water; }
+}
+
+  universes {
+    root { id 1; type rootUniverse; border 1; fill u<20>; }
+    pin  { id 2; type cellUniverse; cells (1 2 3 4);} 
+
+uni_lattice { 
+id 20; type latUniverse; shape (17 17 1); pitch (1.26 1.26 1000.0); padMat water; 
+map (
+2 2 2 2 2 2 2 2 2 2 2 2 2 2 2 2 2
+2 2 2 2 2 2 2 2 2 2 2 2 2 2 2 2 2
+2 2 2 2 2 2 2 2 2 2 2 2 2 2 2 2 2
+2 2 2 2 2 2 2 2 2 2 2 2 2 2 2 2 2
+2 2 2 2 2 2 2 2 2 2 2 2 2 2 2 2 2
+2 2 2 2 2 2 2 2 2 2 2 2 2 2 2 2 2
+2 2 2 2 2 2 2 2 2 2 2 2 2 2 2 2 2
+2 2 2 2 2 2 2 2 2 2 2 2 2 2 2 2 2
+2 2 2 2 2 2 2 2 2 2 2 2 2 2 2 2 2
+2 2 2 2 2 2 2 2 2 2 2 2 2 2 2 2 2
+2 2 2 2 2 2 2 2 2 2 2 2 2 2 2 2 2
+2 2 2 2 2 2 2 2 2 2 2 2 2 2 2 2 2
+2 2 2 2 2 2 2 2 2 2 2 2 2 2 2 2 2
+2 2 2 2 2 2 2 2 2 2 2 2 2 2 2 2 2
+2 2 2 2 2 2 2 2 2 2 2 2 2 2 2 2 2
+2 2 2 2 2 2 2 2 2 2 2 2 2 2 2 2 2
+2 2 2 2 2 2 2 2 2 2 2 2 2 2 2 2 2 ); } 
+
+}
+
+}
+
+geometryDeformation { type latDisplacementField; path ./geomFile; }
+
+viz {
+  img1  { type bmp; output imgZ1; what material; centre (0.0 0.0 0.0); axis z; offset 0; res (800 800); }
+  img11 { type bmp; output imgZ2; what material; centre (0.0 0.0 5.0); axis z; offset 0; res (800 800); }
+  img12 { type bmp; output imgZ3; what material; centre (0.0 0.0 10.0); axis z; offset 0; res (800 800); }
+  img13 { type bmp; output imgZ4; what material; centre (0.0 0.0 15.0); axis z; offset 0; res (800 800); }
+  img14 { type bmp; output imgZ5; what material; centre (0.0 0.0 20.0); axis z; offset 0; res (800 800); }
+  img2  { type bmp; output imgY; what material; centre (0.0 0.0 0.0); axis y; offset 0; res (400 1200); }
+
+}
+
+
+nuclearData {
+  handles {
+    ce {type aceNeutronDatabase; aceLibrary /home/vr339/myACE/endfb8.aceXS; }
+  }
+
+  materials {
+
+    water {
+      temp 75675;
+      rgb (0 0 139); // Colour of water is dark blue
+      moder { 1001.01 (h-h2o.42); }
+      composition {
+      1001.01    6.700E-002;
+      8016.01    3.350E-002;
+      5010.01    5.560E-006;
+      5011.01    2.224E-005; }
+      }
+
+     clad {
+       composition { 
+    ! Zirconium
+    40090.01  2.1878E-02;
+    40091.01  4.7710E-03;
+    40092.01  7.2925E-03;
+    40094.01  7.3903E-03;
+    40096.01  1.1906E-03;
+
+    ! Tin
+    50112.01  4.8487E-06;
+    50114.01  3.2996E-06;
+    50115.01  1.6996E-06;
+    50116.01  7.2640E-05;
+    50117.01  3.8387E-05;
+    50118.01  1.2103E-04;
+    50119.01  4.2910E-05;
+    50120.01  1.6277E-04;
+    50122.01  2.3120E-05;
+    50124.01  2.8910E-05;
+
+    ! Iron
+    26054.01  8.6660E-06;
+    26056.01  1.3608E-04;
+    26057.01  3.1410E-06;
+    26058.01  4.1900E-07;
+
+    ! Chromium
+    24050.01  3.3110E-06;
+    24052.01  6.3858E-05;
+    24053.01  7.2420E-06;
+    24054.01  1.8030E-06;
+       }
+	}
+
+     disp {
+       composition { 
+    ! Zirconium
+    40090.03  2.0943E-02;
+    40091.03  4.5672E-03;
+    40092.03  6.9808E-03;
+    40094.03  7.0745E-03;
+    40096.03  1.1398E-03;
+
+    ! Gadolinium
+    64152.03  1.3258E-05;
+    64154.03  1.4448E-04;
+    64155.03  9.8002E-04;
+    64156.03  1.3557E-03;
+    64157.03  1.0366E-03;
+    64158.03  1.6458E-03;
+    64160.03  1.4484E-03;
+       }
+	}
+
+     fuel {
+       temp 900; 
+       composition { 
+    92235.03  4.0379E-03;
+    92238.03  1.6251E-02;
+    40090.03  2.7172E-02;
+    40091.03  5.9255E-03;
+    40092.03  9.0572E-03;
+    40094.03  9.1787E-03;
+    40096.03  1.4787E-03;
+       }
+}
+
+}
+}

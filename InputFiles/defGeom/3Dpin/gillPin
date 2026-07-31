@@ -1,0 +1,122 @@
+type eigenPhysicsPackage;
+
+pop      100000;
+active   200;
+inactive 200;
+XSdata ce;
+dataType ce;
+// Specify output format default asciiMATLAB
+//outputFormat asciiJSON;
+outputFile result;
+seed 1;
+
+collisionOperator {
+ neutronCE {type neutronCEstd;}            
+}
+
+transportOperator { 
+type transportOperatorHT;
+cache 1;
+}
+
+inactiveTally {shannon {type shannonEntropyClerk; cycles 200;
+                        map {type spaceMap; axis z; 
+                             grid lin; min -182.88; max 182.88; N 36;}
+                       }
+              }
+
+activeTally {
+  norm totalPow;
+  normVal 6.25E+17;
+  totalPow  { type collisionClerk; response (fission); fission { type macroResponse; MT -80;}}
+  axialPow {type collisionClerk;
+         map {type spaceMap; axis z; grid lin; min -182.88; max 182.88; N 36;}
+         response (fission);
+         fission { type macroResponse; MT -80;}
+         handleVirtual 1;
+         }
+}
+
+
+geometry {
+  type geometryStd;
+  boundary ( 1 1 1 1 0 0);
+  graph {type shrunk;}
+
+  surfaces {
+    squareBound { id 1; type box; origin (0.0 0.0 0.0); halfwidth (0.7366 0.7366 198.12);}
+    bottom {id 2; type zPlane; z0 -182.88;}
+    top {id 3; type zPlane; z0 182.88;}
+  }
+
+  cells {
+   pin {id 1; type simpleCell; surfaces (2 -3); filltype uni; universe 31;}
+   bottom {id 2; type simpleCell; surfaces (-2); filltype mat; material cool;}
+   top {id 3; type simpleCell; surfaces (3); filltype mat; material cool;}
+  }
+
+  universes {
+    root { id 1; type rootUniverse; border 1; fill u<2>; }
+
+    pinAndReflect {id 2; type cellUniverse; cells (1 2 3);}
+
+    // Pin universes
+    pin31 { id 31; type pinUniverse; radii (0.49275 0.50 0.5588 0.0 );
+                                     fills (fuel  void clad  cool);}
+
+  }
+
+}
+
+geometryDeformation {
+  type pinDisplacementField; origin (0 0 0); r_fuel 0.49275; r_gap 0.50; r_clad 0.5588; r_outer 0.73; nodes 10; halflength 182.88; z_top 198.12; z_bottom -198.12; delta_z 12; 
+delta_f (-0.01 0.02 -0.03 0.01 -0.03 0.04 -0.06 0.01 0.02 0.01 0.05);
+delta_g (-0.02 0.03 0.03 0.05 0.04 0.04 0.08 0.02 0.02 0.02 0.06);
+delta_c (0.01 0.02 0.04 0.02 0.01 0.02 0.04 0.03 0.03 0.01 0.02);
+}
+
+viz {
+  img { type bmp; output imgY; what material; centre (0.0 0.0 0.0); axis y; offset 0; res (500 1500); }
+}
+
+
+nuclearData {
+  handles {
+    ce {type aceNeutronDatabase; aceLibrary /home/vr339/myACE/endfb8.aceXS;}
+  }
+  materials {
+
+    cool {
+      temp 515;
+      rgb (0 0 139); // Colour of water is dark blue
+      moder { 1001.01 (h-h2o.53 h-h2o.52 h-h2o.51 h-h2o.54 h-h2o.55 h-h2o.50 h-h2o.56); }
+      composition {
+      1001.01    5.431E-002;
+      8016.01    2.715E-002;
+      5010.01    4.506E-006;
+      5011.01    1.803E-005; 
+      }
+   }
+
+   clad {
+     temp 12345;
+     composition {
+     40090.01  2.21235E-002;
+     40091.01  4.82460E-003;
+     40092.01  7.37450E-003;
+     40094.01  7.47340E-003;
+     40096.01  1.20400E-003;}
+   }
+
+   fuel {
+      temp 500;
+      tms 1;
+      composition {
+      92234.00 4.9476e-6;
+      92235.00 4.8218e-4;
+      92238.00 2.1504e-2;
+      8016.00 4.5737e-2;}
+   }
+
+}
+}

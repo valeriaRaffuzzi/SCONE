@@ -7,6 +7,7 @@ module collisionClerk_class
   use display_func,               only : statusMsg
   use dictionary_class,           only : dictionary
   use particle_class,             only : particle, particleState
+  use coord_class,                only : coordList
   use outputFile_class,           only : outputFile
   use scoreMemory_class,          only : scoreMemory
   use tallyClerk_inter,           only : tallyClerk, kill_super => kill
@@ -24,6 +25,11 @@ module collisionClerk_class
 
   ! Tally Responses
   use tallyResponseSlot_class,    only : tallyResponseSlot
+
+  ! Field interface
+  use displacementField_inter,    only : displacementField, displacementField_CptrCast
+  use geometryReg_mod,            only : gr_fieldIdx => fieldIdx, gr_fieldPtr => fieldPtr, &
+                                         gr_hasField => hasField
 
   implicit none
   private
@@ -46,7 +52,7 @@ module collisionClerk_class
   !!
   !! myCollisionClerk {
   !!   type collisionClerk;
-  !!   # handleVirtual 0; # default is 1   
+  !!   # handleVirtual 0; # default is 1
   !!   # filter { <tallyFilter definition> } #
   !!   # map    { <tallyMap definition>    } #
   !!   response (resName1 #resName2 ... #)
@@ -65,7 +71,8 @@ module collisionClerk_class
     integer(shortInt)  :: width = 0
 
     ! Settings
-    logical(defBool)   :: handleVirtual = .true.
+    logical(defBool)   :: handleVirtual  = .true.
+    logical(defBool)   :: tallyRealSpace = .false.
 
   contains
     ! Procedures used during build
@@ -124,6 +131,9 @@ contains
 
     ! Handle virtual collisions
     call dict % getOrDefault(self % handleVirtual,'handleVirtual', .true.)
+
+    ! In case a deformation field is applied, compute tallies in either map or real space
+    call dict % getOrDefault(self % tallyRealSpace,'tallRealSpace', .false.)
 
   end subroutine init
 
@@ -196,6 +206,8 @@ contains
     type(scoreMemory), intent(inout)      :: mem
     logical(defBool), intent(in)          :: virtual
     type(particleState)                   :: state
+    class(displacementField), pointer     :: defField
+    type(coordList)                       :: coords
     integer(shortInt)                     :: binIdx, i
     integer(longInt)                      :: addr
     real(defReal)                         :: scoreVal, flux
@@ -214,6 +226,15 @@ contains
 
     ! Find bin index
     if (allocated(self % map)) then
+
+      ! Move the position backwards if a deformation field is defined
+      ! NOTE that this only affects space maps, not material or cell maps
+      if (gr_hasField(nameGeomDef) .and. self % tallyRealSpace) then
+        defField => displacementField_CptrCast(gr_fieldPtr(gr_fieldIdx(nameGeomDef)))
+        call coords % assignPosition(state % r)
+        state % r = state % r + defField % at(coords)
+      end if
+
       binIdx = self % map % map(state)
     else
       binIdx = 1

@@ -979,7 +979,7 @@ contains
 
         ! Add S(alpha,beta) data
         if (mat % nuclides(j) % hasSab) then
-          call sabDict % store(name, mat % nuclides(j) % file_Sab)
+          if (.not. sabDict % isPresent(name)) call sabDict % store(name, mat % nuclides(j) % file_Sab)
         end if
       end do
     end do

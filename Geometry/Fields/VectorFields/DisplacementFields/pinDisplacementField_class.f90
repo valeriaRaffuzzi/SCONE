@@ -59,12 +59,11 @@ module pinDisplacementField_class
   contains
 
     ! Superclass interface
-    procedure :: init
+    procedure :: init_dict
     procedure :: kill
     procedure :: at
     procedure :: atP
     procedure :: backwards
-    procedure :: getDelta
 
     ! Local procedure
     procedure, private :: axialDisplacement
@@ -79,11 +78,11 @@ contains
   !!
   !! See field_inter for details
   !!
-  subroutine init(self, dict)
+  subroutine init_dict(self, dict)
     class(pinDisplacementField), intent(inout) :: self
     class(dictionary), intent(in)              :: dict
     real(defReal), dimension(:), allocatable   :: temp
-    character(100), parameter :: Here = 'init (pinDisplacementField_class.f90)'
+    character(100), parameter :: Here = 'init_dict (pinDisplacementField_class.f90)'
 
     ! Read origin of the basis
     call dict % get(temp, 'origin')
@@ -131,7 +130,7 @@ contains
       call new_tallyMap(self % map, dict % getDictPtr('map'))
     end if
 
-  end subroutine init
+  end subroutine init_dict
 
   !!
   !! Return to uninitialised state
@@ -188,7 +187,7 @@ contains
     r0 = norm2(plane)
 
     ! Particle outside length or radius
-    if (a0 < self % z_bottom .or. a0 > self % z_top .or. r0 > self % r_outer) return
+    if (a0 <= self % z_bottom .or. a0 >= self % z_top .or. r0 >= self % r_outer) return
 
     val([P1,P2]) = radialDisplacement(self, a0, r0, plane, backwards = .false.)
     val(AX) = axialDisplacement(self, a0, backwards = .false.)
@@ -236,25 +235,12 @@ contains
     r0 = norm2(plane)
 
     ! Particle outside length or radius
-    if (a0 < self % z_bottom .or. a0 > self % z_top .or. r0 > self % r_outer) return
+    if (a0 <= self % z_bottom .or. a0 >= self % z_top .or. r0 >= self % r_outer) return
 
     val([P1,P2]) = radialDisplacement(self, a0, r0, plane, backwards = .true.)
     val(AX) = axialDisplacement(self, a0, backwards = .true.)
 
   end function backwards
-
-  !!
-  !! Get value of delta
-  !!
-  function getDelta(self, coords) result(val)
-    class(pinDisplacementField), intent(in) :: self
-    class(coordList), intent(in)             :: coords
-    real(defReal)                            :: val
-
-    ! This doesn't really mean anything here
-    val = ZERO
-
-  end function getDelta
 
   !!
   !! Evaluate input function given a particle

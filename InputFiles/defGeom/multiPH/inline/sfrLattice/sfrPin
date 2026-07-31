@@ -1,0 +1,252 @@
+type eigenPhysicsPackage;
+
+pop      1000000;
+active   100;
+inactive 200;
+XSdata ce;
+dataType ce;
+outputFile result;
+seed 1;
+
+collisionOperator {
+ neutronCE {type neutronCEstd;}            
+}
+
+transportOperator { 
+type transportOperatorDT;
+}
+
+inactiveTally {    }
+
+activeTally {
+  norm totalPow;
+  normVal 2.0E+20;
+  totalPow  { type collisionClerk; response (fission); fission { type macroResponse; MT -80;}}
+  radialPow {type collisionClerk;
+         map {type multiMap; maps (xx yy); 
+			  xx { type spaceMap; axis x; grid lin; min -25.821; max 8.607; N 38; }
+			  yy { type spaceMap; axis y; grid lin; min -8.607; max 25.821; N 38; } }
+         response (fission);
+         fission { type macroResponse; MT -80;}
+         handleVirtual 1;
+         }
+}
+
+coupling {
+  tally {
+    norm totalPow;
+    normVal 2.0E+20;
+    totalPow  { type collisionClerk; response (fission); fission { type macroResponse; MT -80;}}
+  radialPow {type collisionClerk;
+         map {type multiMap; maps (xx yy); 
+			  xx { type spaceMap; axis x; grid lin; min -25.821; max 8.607; N 38; }
+			  yy { type spaceMap; axis y; grid lin; min -8.607; max 25.821; N 38; } }
+         response (fission);
+         fission { type macroResponse; MT -80;}
+         handleVirtual 1;
+         }
+  }
+
+maxTemp 2100.0;
+receiveFile toSCONE.dat;
+sendFile    toDriver.dat;
+updateFreq 10;
+outputFile sconeOut;
+outputFormat asciiMATLAB;
+fieldPaths (tempFile densFile geomFile);
+fieldNames (temperature density geometry);
+
+}
+
+geometry {
+  type geometryStd;
+  boundary (1 0 0 1 1 1);
+  graph {type shrunk;}
+
+  surfaces {
+    hexagon { id 1; type zSquareCylinder; origin (0.0 0.0 0.0); halfwidth (25.821 25.821 0); }
+  }
+
+  cells {
+  }
+
+  universes {
+    root { id 1; type rootUniverse; border 1; fill u<100>; }
+
+    // Pin universes
+    pin31 { id 2; type pinUniverse; radii (0.216 0.2539 0.292 0.0 ); fills (fuel1  gap    clad  cool);}
+	pin32 { id 3; type pinUniverse; radii (0.216 0.2539 0.292 0.0 ); fills (fuel2  gap    clad  cool);}
+    pin30 { id 30; type pinUniverse; radii (0.0); fills (reflector);} 
+  
+// Lattices
+latPu{
+      id 10; 
+      type latUniverse; 
+      origin (0.0 0.0 0.0); 
+      pitch (0.906 0.906 0.0);
+      shape (19 19 0); 
+      padMat cool; 
+      map ( 
+
+ 2 2 2 2 2 2 2 2 2 2 2 2 2 2 2 2 2 2 2
+ 2 3 3 3 3 3 3 3 3 3 3 3 3 3 3 3 3 3 2
+ 2 3 2 2 2 2 2 2 2 2 2 2 2 2 2 2 2 3 2
+ 2 3 2 3 3 3 3 3 3 3 3 3 3 3 3 3 2 3 2
+ 2 3 2 3 2 2 2 2 2 2 2 2 2 2 2 3 2 3 2
+ 2 3 2 3 2 3 3 3 3 3 3 3 3 3 2 3 2 3 2
+ 2 3 2 3 2 3 2 2 2 2 2 2 2 3 2 3 2 3 2
+ 2 3 2 3 2 3 2 3 3 3 3 3 2 3 2 3 2 3 2
+ 2 3 2 3 2 3 2 3 2 2 2 3 2 3 2 3 2 3 2
+ 2 3 2 3 2 3 2 3 2 3 2 3 2 3 2 3 2 3 2
+ 2 3 2 3 2 3 2 3 2 2 2 3 2 3 2 3 2 3 2
+ 2 3 2 3 2 3 2 3 3 3 3 3 2 3 2 3 2 3 2
+ 2 3 2 3 2 3 2 2 2 2 2 2 2 3 2 3 2 3 2
+ 2 3 2 3 2 3 3 3 3 3 3 3 3 3 2 3 2 3 2
+ 2 3 2 3 2 2 2 2 2 2 2 2 2 2 2 3 2 3 2
+ 2 3 2 3 3 3 3 3 3 3 3 3 3 3 3 3 2 3 2 
+ 2 3 2 2 2 2 2 2 2 2 2 2 2 2 2 2 2 3 2
+ 2 3 3 3 3 3 3 3 3 3 3 3 3 3 3 3 3 3 2
+ 2 2 2 2 2 2 2 2 2 2 2 2 2 2 2 2 2 2 2 
+);
+}
+
+// Lattices
+latU{
+      id 20; 
+      type latUniverse; 
+      origin (0.0 0.0 0.0); 
+      pitch (0.906 0.906 0.0);
+      shape (19 19 0); 
+      padMat cool; 
+      map ( 
+
+ 3 3 3 3 3 3 3 3 3 3 3 3 3 3 3 3 3 3 3
+ 3 3 3 3 3 3 3 3 3 3 3 3 3 3 3 3 3 3 3
+ 3 3 3 3 3 3 3 3 3 3 3 3 3 3 3 3 3 3 3
+ 3 3 3 3 3 3 3 3 3 3 3 3 3 3 3 3 3 3 3
+ 3 3 3 3 3 3 3 3 3 3 3 3 3 3 3 3 3 3 3
+ 3 3 3 3 3 3 3 3 3 3 3 3 3 3 3 3 3 3 3
+ 3 3 3 3 3 3 3 3 3 3 3 3 3 3 3 3 3 3 3
+ 3 3 3 3 3 3 3 3 3 3 3 3 3 3 3 3 3 3 3
+ 3 3 3 3 3 3 3 3 3 3 3 3 3 3 3 3 3 3 3
+ 3 3 3 3 3 3 3 3 3 3 3 3 3 3 3 3 3 3 3
+ 3 3 3 3 3 3 3 3 3 3 3 3 3 3 3 3 3 3 3
+ 3 3 3 3 3 3 3 3 3 3 3 3 3 3 3 3 3 3 3
+ 3 3 3 3 3 3 3 3 3 3 3 3 3 3 3 3 3 3 3
+ 3 3 3 3 3 3 3 3 3 3 3 3 3 3 3 3 3 3 3
+ 3 3 3 3 3 3 3 3 3 3 3 3 3 3 3 3 3 3 3
+ 3 3 3 3 3 3 3 3 3 3 3 3 3 3 3 3 3 3 3
+ 3 3 3 3 3 3 3 3 3 3 3 3 3 3 3 3 3 3 3
+ 3 3 3 3 3 3 3 3 3 3 3 3 3 3 3 3 3 3 3
+ 3 3 3 3 3 3 3 3 3 3 3 3 3 3 3 3 3 3 3 
+);
+}
+
+latCore
+{
+  id 100;
+  type latUniverse; 
+  origin (0.0 0.0 0.0); 
+  pitch (17.214 17.214 0.0);
+  shape (3 3 0); 
+  padMat cool; 
+  map ( 
+10 20 30
+20 10 30
+30 30 30
+);
+}
+
+}
+
+}
+
+viz {
+	imgZ { type bmp; output imgZ; what material; centre (0.0 0.0 0.0); axis z; offset 0; res (1200 1200); }
+}
+
+nuclearData {
+  handles {
+    ce {type aceNeutronDatabase; aceLibrary /home/vr339/myACE/endfb8.aceXS;}
+  }
+  materials {
+
+    cool {
+      temp 643;
+      tms 1;
+      rgb (0 0 139); // Colour of water is dark blue
+      composition {
+		11023.01  2.260E-02; 
+      }
+   }
+
+   clad {
+     temp 600;
+     composition {
+		26054.01  3.80E-03;
+		26056.01  5.97E-02;
+		26057.01  1.38E-03;
+		26058.01  1.80E-04;
+		24050.01  4.70E-04;
+		24052.01  9.10E-03;
+		24053.01  1.03E-03;
+		24054.01  2.60E-04;
+		42092.01  5.70E-05;
+		42094.01  3.50E-05;
+		42095.01  6.00E-05;
+		42096.01  6.20E-05;
+		42097.01  3.60E-05;
+		42098.01  9.00E-05;
+		42100.01  3.60E-05; }
+   }
+
+   fuel1 {
+      temp 700;
+      tms 1;
+      composition {
+		92235.01  1.07E-04;
+		92238.01  2.64E-02;
+		94239.01  2.90E-03;
+		94240.01  3.30E-04;
+		94241.01  6.60E-05;
+		40090.01  1.83E-03;
+		40091.01  4.00E-04;
+		40092.01  6.10E-04;
+		40094.01  6.20E-04;
+		40096.01  1.00E-04;}
+   }
+   
+     fuel2 {
+      temp 700;
+      tms 1;
+      composition {
+    92235.01  4.25E-03;
+    92238.01  8.08E-02;
+    40090.01  7.73E-03;
+    40091.01  1.68E-03;
+    40092.01  2.58E-03;
+    40094.01  2.61E-03;
+    40096.01  4.05E-04;}
+   }
+   
+	gap {
+	  temp 600;
+	  composition  {
+		11023.01  2.25E-02; }
+	}
+	
+	plenum {
+	  temp 900;
+	  composition  {
+		2004.02  8.15E-06; }
+	}
+	
+	reflector {
+	  temp 1000;
+	  moder { 6012.02 (grph10.46);}
+	  composition {
+	  6012.02  1.095e-1; }
+	}
+
+}
+}

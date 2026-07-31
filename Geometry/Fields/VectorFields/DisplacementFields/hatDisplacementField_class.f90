@@ -48,12 +48,11 @@ module hatDisplacementField_class
   contains
 
     ! Superclass interface
-    procedure :: init
+    procedure :: init_dict
     procedure :: kill
     procedure :: at
     procedure :: atP
     procedure :: backwards
-    procedure :: getDelta
 
     ! Subclass interface
     procedure :: build
@@ -67,13 +66,13 @@ contains
   !!
   !! See field_inter for details
   !!
-  subroutine init(self, dict)
+  subroutine init_dict(self, dict)
     class(hatDisplacementField), intent(inout) :: self
     class(dictionary), intent(in)              :: dict
     real(defReal), dimension(:), allocatable   :: centre
     character(1)                               :: direction
     real(defReal)                              :: ro, rs, delta
-    character(100), parameter :: Here = 'init (hatDisplacementField_class.f90)'
+    character(100), parameter :: Here = 'init_dict (hatDisplacementField_class.f90)'
 
     ! Load centre
     call dict % get(centre, 'centre')
@@ -113,7 +112,7 @@ contains
 
     call self % build(centre, ro, rs, delta)
 
-  end subroutine init
+  end subroutine init_dict
 
 
   !!
@@ -255,18 +254,6 @@ contains
     val = dr * position / norm2(position)
 
   end function backwards
-
-  !!
-  !! Get value of delta
-  !!
-  function getDelta(self, coords) result(val)
-    class(hatDisplacementField), intent(in) :: self
-    class(coordList), intent(in)            :: coords
-    real(defReal)                           :: val
-
-    val = self % delta
-
-  end function getDelta
 
   !!
   !! Cast field pointer to hatDisplacementField pointer

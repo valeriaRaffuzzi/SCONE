@@ -21,7 +21,7 @@ module transportOperatorHTField_class
   ! Geometry interfaces
   use geometry_inter,              only : geometry, distCache
   use displacementField_inter,     only : displacementField, displacementField_CptrCast
-  use geometryReg_mod,             only : gr_fieldIdx => fieldIdx, gr_fieldPtr => fieldPtr
+  use geometryReg_mod,             only : gr_fieldPtrName => fieldPtrName
 
   ! Nuclear data interfaces
   use nuclearDataReg_mod,          only : ndReg_get => get
@@ -37,7 +37,6 @@ module transportOperatorHTField_class
     real(defReal)    :: cutoff   ! Cutoff threshold between ST and DT
     logical(defBool) :: cache = .true.
     logical(defBool) :: collided
-    class(displacementField), pointer :: displacement
 
   contains
 
@@ -100,11 +99,13 @@ contains
     class(particle), intent(inout)                 :: p
     real(defReal), intent(in)                      :: distance
     real(defReal), dimension(3)                    :: displacement
-    real(defReal)                                  :: delta
+    class(displacementField), pointer              :: displacementField
+
+    displacementField => displacementField_CptrCast(gr_fieldPtrName(nameGeomDef))
 
     ! Calculating displacement before using takeAboveGeom, in order to use maps
     ! (e.g., materialMaps) in the field
-    displacement = self % displacement % at(p % coords)
+    displacement = displacementField % atP(p)
 
     ! Pop particle out of the geometry
     call p % coords % takeAboveGeom()
@@ -114,10 +115,13 @@ contains
 
     call self % geom % teleport(p % coords, distance)
 
-    delta = self % displacement % getDelta(p % coords)
-
     ! Move back to the map
-    call p % coords % assignPosition(p % rGlobal() + self % displacement % backwards(p % coords, delta))
+    if (displacementField % inDomainP(p)) then
+      displacement = displacementField % backwards(p % coords)
+    else
+      displacement = ZERO
+    end if
+    call p % coords % assignPosition(p % rGlobal() + displacement)
     call self % geom % placeCoord(p % coords)
 
   end subroutine step
@@ -225,15 +229,18 @@ contains
                                                  speed, time
     real(defReal), parameter                  :: tol  = 1.0E-12
     type(distCache)                           :: cache
+    class(displacementField), pointer         :: displacementField
     character(100), parameter :: Here = 'surfaceTracking (transportOperatorHTField_class.f90)'
 
     ! Initialise default flag true unless changed
     self % collided = .true.
 
+    displacementField => displacementField_CptrCast(gr_fieldPtrName(nameGeomDef))
+
     STLoop: do
 
       ! Check if I am in perturbed material
-      if (self % displacement % inDomain(p % coords)) then
+      if (displacementField % inDomainP(p)) then
         self % collided = .false.
         exit STLoop
       end if
@@ -343,7 +350,6 @@ contains
   subroutine init(self, dict)
     class(transportOperatorHTField), intent(inout) :: self
     class(dictionary), intent(in)                  :: dict
-    integer(shortInt)                              :: idx
 
     ! Initialise superclass
     call init_super(self, dict)
@@ -354,10 +360,6 @@ contains
     if (dict % isPresent('cache')) then
       call dict % get(self % cache, 'cache')
     end if
-
-    ! Read geometry deformation
-    idx = gr_fieldIdx(nameGeomDef)
-    self % displacement => displacementField_CptrCast(gr_fieldPtr(idx))
 
   end subroutine init
 

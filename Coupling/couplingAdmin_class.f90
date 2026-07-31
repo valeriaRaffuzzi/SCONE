@@ -315,7 +315,8 @@ contains
     integer(shortInt), intent(in)    :: it
     logical(defBool)                 :: update
 
-    update = (mod(it, self % updateFreq) == 0) .and. self % doCoupling()
+    update = .false.
+    if (self % doCoupling()) update = (mod(it, self % updateFreq) == 0)
 
   end function doUpdate
 

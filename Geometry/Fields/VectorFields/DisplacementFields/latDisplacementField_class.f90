@@ -2,15 +2,19 @@ module latDisplacementField_class
 
   use numPrecision
   use universalVariables
-  use genericProcedures,       only : fatalError, numToChar, swap
-  use dictionary_class,        only : dictionary
-  use box_class,               only : box
-  use materialMenu_mod,        only : mm_matIdx => matIdx
-  use particle_class,          only : particle, particleState
-  use coord_class,             only : coordList
-  use field_inter,             only : field
-  use displacementField_inter, only : displacementField
+  use genericProcedures,           only : fatalError, numToChar, swap
+  use dictionary_class,            only : dictionary
+  use box_class,                   only : box
+  use materialMenu_mod,            only : mm_matIdx => matIdx
+  use particle_class,              only : particle, particleState
+  use coord_class,                 only : coordList
+  use field_inter,                 only : field
+  use displacementField_inter,     only : displacementField
+  use hatDisplacementField_class,  only : hatDisplacementField
+  use trapDisplacementField_class, only : trapDisplacementField
   use funcDisplacementField_class, only : funcDisplacementField
+  use pinDisplacementField_class,  only : pinDisplacementField
+  use rotDisplacementField_class,  only : rotDisplacementField
 
   implicit none
   private
@@ -20,19 +24,11 @@ module latDisplacementField_class
   !!
   public :: latDisplacementField_TptrCast
 
-  !! Parameters
-  integer(shortInt), parameter :: ALL_MATS = -1, &
-                                  EXP_FUN  =  1, &
-                                  LIN_FUN  =  2, &
-                                  SIN_FUN  =  3, &
-                                  FLAT_FUN =  4, &
-                                  POLI_FUN =  5
-
   !!
   !! Helper type to store polymorphic instances of displacementFields
   !!
   type dispField
-    type(funcDisplacementField) :: slot
+    class(displacementField), allocatable :: slot
   end type dispField
 
   !!
@@ -67,12 +63,11 @@ module latDisplacementField_class
   contains
 
     ! Superclass procedures
-    procedure :: init
+    procedure :: init_dict
     procedure :: kill
     procedure :: at
     procedure :: atP
     procedure :: backwards
-    procedure :: getDelta
 
     ! Local procedure
     procedure, private :: getLocalID
@@ -84,16 +79,18 @@ contains
   !!
   !! Initialisation
   !!
-  subroutine init(self, dict)
+  subroutine init_dict(self, dict)
     class(latDisplacementField), intent(inout)    :: self
     class(dictionary), intent(in)                 :: dict
+    class(dictionary), pointer                    :: dictPtr
     type(dictionary)                              :: tempDict
     integer(shortInt)                             :: N, i
     integer(shortInt), dimension(:), allocatable  :: tempI
     real(defReal), dimension(:), allocatable      :: temp
     real(defReal), dimension(3)                   :: origin
+    character(nameLen)                            :: type
     character(nameLen), dimension(:), allocatable :: fieldNames
-    character(100), parameter :: Here = 'init (latDisplacementField_class.f90)'
+    character(100), parameter :: Here = 'init_dict (latDisplacementField_class.f90)'
 
     ! Load pitch
     call dict % get(temp, 'pitch')
@@ -158,10 +155,35 @@ contains
 
     ! Build fields
     do i = 1, size(fieldNames)
-      call self % fields(i) % slot % init(dict % getDictPtr(fieldNames(i)))
+      dictPtr => dict % getDictPtr(fieldNames(i))
+      call dictPtr % get(type, 'type')
+
+      ! Build Field
+      select case (type)
+        case ('hatDisplacementField')
+          allocate(hatDisplacementField :: self % fields(i) % slot)
+
+        case ('trapDisplacementField')
+          allocate(trapDisplacementField :: self % fields(i) % slot)
+
+        case ('funcDisplacementField')
+          allocate(funcDisplacementField :: self % fields(i) % slot)
+
+        case ('pinDisplacementField')
+          allocate(pinDisplacementField :: self % fields(i) % slot)
+
+        case ('rotDisplacementField')
+          allocate(rotDisplacementField :: self % fields(i) % slot)
+
+        case default
+          call fatalError(Here, trim(type)//' is not valid field.')
+
+      end select
+
+      call self % fields(i) % slot % init(dictPtr)
     end do
 
-  end subroutine init
+  end subroutine init_dict
 
   !!
   !! Clean-up
@@ -180,6 +202,7 @@ contains
     if (allocated(self % fields)) then
       do i = 1, size(self % fields)
         call self % fields(i) % slot % kill()
+        deallocate(self % fields(i) % slot)
       end do
       deallocate(self % fields)
     end if
@@ -248,25 +271,6 @@ contains
     end if
 
   end function backwards
-
-  !!
-  !! Get value of delta
-  !!
-  function getDelta(self, coords) result(val)
-    class(latDisplacementField), intent(in) :: self
-    class(coordList), intent(in)            :: coords
-    real(defReal)                           :: val
-    integer(shortInt)                       :: localID
-
-    localID = self % getLocalID(coords % lvl(1) % r, coords % lvl(1) % dir)
-    if (localID == 0) then
-      val = ZERO
-      return
-    end if
-
-    val = self % fields(localID) % slot % getDelta(coords)
-
-  end function getDelta
 
   !!
   !! Find the local integer ID in the field given position and direction
